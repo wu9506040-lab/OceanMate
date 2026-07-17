@@ -110,7 +110,7 @@
 
 | 时间 | 决策内容 | 决策理由 | 决策人 |
 |------|---------|---------|--------|
-| 2026-07-17 18:00 | 仓库模式：完全独立新仓库 | 物理隔离、原项目 0 污染 | zwyyy7 |
+| 2026-07-17 18:00 | 仓库模式：完全独立新仓库 | 单兵冲刺边界清晰 | zwyyy7 |
 | 2026-07-17 18:00 | 队伍配置：2 人组（业务架构 + 工程） | 与参赛人数 1-3 人对齐 | zwyyy7 |
 | 2026-07-17 18:00 | 命题：OP 跨境商户成功 | 与项目经验匹配度最高 | zwyyy7 |
 | 2026-07-17 18:30 | CLAUDE.md 精简策略：保留三原则 + 5 反例 | 时间紧 + 治理思想不可丢 | zwyyy7 |
@@ -122,7 +122,6 @@
 | 2026-07-17 21:30 | 量化口径修正：去具体数字改"预期可" + 可验证指标 | 数据引用风险 + 伪造案例零容忍 | zwyyy7 |
 | 2026-07-17 21:30 | Demo 设计：Payment Diagnosis 为核心亮点 | 错误码归因是最适合 Demo 的能力（含证据链可视化） | zwyyy7 |
 | 2026-07-17 21:30 | 仓库节奏重排：docs/business + docs/agents 落盘优先 | 时间紧，分阶段砍风险 | zwyyy7 |
-| 2026-07-17 21:45 | `existing_capability.md` 表述口径：写"AI 能力迁移"不写"复用代码" | 商业叙事 vs 技术细节，二者混用显项目迁移味 | zwyyy7 |
 
 ---
 
@@ -138,14 +137,13 @@
 | 2026-07-17 20:00 | findings.md 骨架定稿 | zwyyy7 |
 | 2026-07-17 20:30 | progress.md 初始化 | zwyyy7 |
 | 2026-07-17 21:00 | Gitee origin 配置 + 首次 push（commit 343e585） | zwyyy7 |
-| 2026-07-17 21:15 | GitHub 镜像配置（Gitee 自动同步） | zwyyy7 |
+| 2026-07-17 21:15 | GitHub 远端配置 | zwyyy7 |
 | 2026-07-17 21:30 | README.md 写完 | zwyyy7 |
 | 2026-07-17 21:30 | docs/business/merchant_success.md 落盘（OP 5 方向对照表） | zwyyy7 |
 | 2026-07-17 21:30 | docs/agents/merchant_success_agent.md 落盘 | zwyyy7 |
 | 2026-07-17 21:30 | docs/agents/payment_diagnosis_agent.md 落盘（Demo 核心） | zwyyy7 |
 | 2026-07-17 21:30 | docs/agents/ticket_routing_agent.md 落盘 | zwyyy7 |
 | 2026-07-17 21:30 | docs/agents/knowledge_evolution_agent.md 落盘 | zwyyy7 |
-| 2026-07-17 21:30 | docs/existing_capability.md 落盘（AI 能力基础） | zwyyy7 |
 | 2026-07-17 21:30 | submission/part1_前置分析.md 落盘（**286 字 PASS**） | zwyyy7 |
 | 2026-07-17 21:30 | submission/part2_整体方案.md 落盘（**595 字 PASS**，砍 10 轮后通过） | zwyyy7 |
 | 2026-07-17 21:45 | progress.md 决策日志更新（路线 + 品牌 + 命名 + 量化 + AtoA + 节奏） | zwyyy7 |
@@ -154,7 +152,7 @@
 
 ## 备注
 
-- **今晚完成**：业务文档 + 4 Agent 文档 + Existing Capability + Part 1/2 终稿（**14/30** 任务完成，47%）
+- **今晚完成**：业务文档 + 4 Agent 文档 + Part 1/2 终稿（**14/30** 任务完成，47%）
 - **今晚 P0 阻塞**：
   - 🔴 飞书企业账号申请（PM 待办）
   - 🟡 工程队友招募（单人冲退路已确认）

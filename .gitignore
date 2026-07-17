@@ -45,6 +45,10 @@ demo/recordings/*.mov
 demo/recordings/*.webm
 *.bak
 
+# ============ 本地工具配置 ============
+.claude/
+.claude/*
+
 # ============ 架构图/效果图的中间 HTML（PNG 才是交付物） ============
 submission/architecture_diagrams/*.html
 submission/product_screenshots/*.html

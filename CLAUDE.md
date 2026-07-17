@@ -1,6 +1,5 @@
 # OceanMate 跨境商户成功助手 — CLAUDE.md（比赛精简版）
 
-> 项目级约束，源自原 E:\智能客服\CLAUDE.md V2.1。
 > **本版本适配 2 天冲刺 + 飞书 AI 生态，保留治理骨架，砍掉企业级细节。**
 
 ---
@@ -144,21 +143,6 @@
 | 4 | 依赖关系图      | learning_log 文字或 Mermaid                   |
 | 5 | 调用流程        | Mermaid sequence diagram                      |
 | 6 | 录屏            | `demo/recordings/`（git ignore）              |
-
----
-
-## 9. 与原项目的关系
-
-| 维度     | 原 E:\智能客服（V3.1）         | 本 E:\ai-pioneer（OceanMate）   |
-|----------|------------------------------|--------------------------------|
-| 业务     | 电商智能客服                   | 跨境支付商户成功                |
-| 治理     | V2.1 · 18 条 + 13 反例        | 本文件 · 5 禁 + 5 反例          |
-| 架构     | V3.1 业务架构                  | 6 Agent + AtoA                  |
-| AI       | Qwen + RAG + Emotion          | Qwen + RAG + 飞书 AI 全家桶     |
-| 数据     | MySQL + Qdrant + Redis        | 多维表格 + 飞书妙记（不引入新 DB）|
-| 复用     | —                              | Provider 抽象 + Prompt 配置化思想 |
-
-**禁止污染原项目**。本项目所有 commit 仅限 `E:\ai-pioneer\` 范围内。
 
 ---
 

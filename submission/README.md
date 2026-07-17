@@ -22,7 +22,7 @@
 
 ```
 https://gitee.com/zwyyy7/ocean-mate
-https://github.com/wu9506040-lab/OceanMate  （Gitee 自动同步镜像·Push 状态由用户在 Gitee 仓库「仓库镜像」面板触发）
+https://github.com/wu9506040-lab/OceanMate
 ```
 
 ### 3. 补充附件（4 件 · 见 submission/ 子目录）
