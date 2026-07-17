@@ -1,129 +1,179 @@
-# OceanMate — 跨境商户成功运营助手
+# OceanMate AI — 跨境商户成功运营助手
 
-> 2026 飞书 AI 先锋未来人才大赛 · 华南赛区 · 钱海网络（Oceanpayment）命题参赛项目
+> **让 AI 成为跨境商户的"AI 合伙人"和 OP 内部的"数字员工体系"**
 >
-> **6 Agent 协同 + AtoA 协议 + 飞书生态原生闭环**——重构跨境支付商户成功协作模式。
+> 2026 飞书 AI 先锋未来人才大赛 · 华南赛区 · 钱海网络（Oceanpayment）命题参赛项目
+
+[![GitHub](https://img.shields.io/badge/GitHub-wu9506040--lab%2FOceanMate-181717?logo=github)](https://github.com/wu9506040-lab/OceanMate)
+[![Gitee](https://img.shields.io/badge/Gitee-zwyyy7%2FOceanMate-C71D23?logo=gitee)](https://gitee.com/zwyyy7/OceanMate)
+[![License](https://img.shields.io/badge/License-MIT-blue)](./LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-green?logo=python)](https://www.python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi)](https://fastapi.tiangolo.com)
+[![Qwen](https://img.shields.io/badge/LLM-Qwen%20(DashScope)-ff6a00)](https://help.aliyun.com/zh/dashscope)
 
 ---
 
-## 一句话定位
+## 🌊 一句话定位
 
-**OceanMate = 商户的"AI 合伙人" + OP 内部的"AI 协同中台"**
+**OceanMate AI 不是"AI 客服"，而是 OP 商户成功团队的"数字员工体系"** —— 由"商户成功 AI 中枢"统领 4 类业务 Agent，让 AI 参与商户选型、支付接入、异常诊断、工单协同、知识沉淀的全生命周期运营。
 
 | 视角 | 助手角色 | 核心动作 |
 |------|---------|---------|
-| 商户侧 | 24h AI 合伙人 | 选型咨询 → 接入指引 → 故障诊断 → 增长建议 |
-| OP 侧 | 跨团队 AI 调度员 | 智能分诊 → 工单路由 → 知识沉淀 → 协同加速 |
+| 🛒 商户侧 | 24h AI 合伙人 | 选型咨询 → 接入指引 → 故障诊断 → 增长建议 |
+| 🤝 OP 侧 | 跨团队 AI 调度员 | 智能分诊 → 工单路由 → 知识沉淀 → 协同加速 |
 
 ---
 
-## 6 Agent 架构
+## 🎯 我们看到的痛点 → OceanMate 的方案
+
+| 真实痛点（公开调研） | 传统 AI 客服 | OceanMate |
+|----------------------|------------|----------|
+| 拒付申诉难：59% 商家最关心；81% 持卡人拒付仅因没时间申请 | 只能回答"什么是拒付" | **支付诊断 Agent**：错误码归因 + 证据链 + 自动申诉路径 |
+| 选型错代价高：OP 500+ 支付方式 / 200+ 国家地区 / 6+ 行业 | 答非所问 | **商户顾问 Agent**：画像匹配 + RAG 检索 + 推荐组合 |
+| 工单协同低效：OP 内部"拉群+截图"模式 | 完全没有能力 | **工单路由 Agent**：飞书多维表格 + 审批流自动派单 |
+| 知识沉淀散落：OP 经验散落各团队 | 答完即失 | **知识进化 Agent**：案例→FAQ→知识库→下次自动命中 |
+
+> 关键立场：**AI 不是替代人工，而是让商户成功从"被动响应"升级为主动运营**。
+
+---
+
+## 🏗 4 业务 Agent + 商户成功 AI 中枢
 
 ```
-商户咨询（飞书智能伙伴入口）
-   ↓
-┌──────────────────────────────────────────────────┐
-│ AtoA 协议层（Agent-to-Agent / MCP 调用）          │
-├──────────────────────────────────────────────────┤
-│ ① 选型 Agent      →  RAG + 业务规则引擎           │
-│ ② 接入 Agent      →  Code Interpreter + 日志检索   │
-│ ③ 诊断 Agent      →  多源数据融合 + 因果推理       │
-│ ④ 工单路由 Agent  →  分类模型 + 飞书审批流         │
-│ ⑤ 知识沉淀 Agent  →  增量学习 + 知识图谱           │
-│ ⑥ 协同 Agent      →  飞书多维表格 + 妙记 + 群机器人 │
-└──────────────────────────────────────────────────┘
-   ↓
-飞书生态（多维表格 / 妙记 / 智能伙伴 / 会议 AI）
+┌──────────────────────────────────────────────────────────────────┐
+│  📲 入口层 · 飞书 AI 全家桶                                        │
+│     智能伙伴(对话)  ·  多维表格(工单池/知识库)  ·  妙记(会议沉淀)   │
+│     审批流(SLA)   ·  AI 字段(智能标签)                            │
+└──────────────────────────────────────────────────────────────────┘
+                                ↓
+┌──────────────────────────────────────────────────────────────────┐
+│  🧠 中枢层 · 商户成功 AI 中枢 (Orchestrator)                       │
+│     · 意图分流  ·  上下文传递  ·  4 Agent 调度                      │
+└──────────────────────────────────────────────────────────────────┘
+                                ↓
+┌──────────────────────────────────────────────────────────────────┐
+│  🤖 数字员工层 · 4 业务 Agent                                       │
+│   ① Merchant Success         ② Payment Diagnosis    ⭐          │
+│      选型 + 协作采集              错误码归因 + 证据链                  │
+│                                                                  │
+│   ③ Ticket Routing           ④ Knowledge Evolution              │
+│      飞书多维表格派单              案例→FAQ→RAG 自进化              │
+└──────────────────────────────────────────────────────────────────┘
+                                ↓
+┌──────────────────────────────────────────────────────────────────┐
+│  🔌 Provider 抽象层（PoC ↔ 真实环境切换关键）                      │
+│   LLMProvider (Qwen)  ·  VectorStore  ·  Feishu  ·  PaymentSource │
+└──────────────────────────────────────────────────────────────────┘
+                                ↓
+┌──────────────────────────────────────────────────────────────────┐
+│  📦 数据源 · Demo 占位 + OP 真实接口 Provider 抽象预留               │
+│   风控规则库 · 通道状态库 · 对账快照 · 飞书多维表格知识库              │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-详细架构图见 `docs/architecture/oceanmate.md`（待补），AtoA 时序图见 `docs/architecture/atoa_sequence.md`（待补）。
+📐 详细架构图 + 协作矩阵：[`docs/architecture/agent_architecture.md`](./docs/architecture/agent_architecture.md)
+📐 端到端业务流（4 Agent 协同）：[`docs/architecture/business_flow.md`](./docs/architecture/business_flow.md)
 
 ---
 
-## 技术栈
+## ✨ 5 项核心创新点
 
-| 维度 | 选型 | 理由 |
-|------|------|------|
-| 后端 | FastAPI + Python 3.11 | Agent 编排轻量、异步友好 |
-| 前端 | Vue3 + TypeScript | 飞书生态对接方便 |
-| LLM | Qwen (DashScope OpenAI 兼容) | 中文场景表现稳定 + 成本可控 |
-| 协议 | AtoA (Agent-to-Agent) + MCP | 命题亮点 #2 直接回应 |
-| 协同底座 | 飞书 AI 全家桶（智能伙伴/多维表格/妙记/会议 AI）| 命题亮点 #3 直接回应 |
-| 数据 | 飞书多维表格（结构化）+ 妙记（非结构化）| **不引入新数据库**（CLAUDE.md §2 禁止） |
+| # | 创新 | 类型 | 一句话 |
+|---|------|------|-------|
+| 1 | **数字员工定位** | 模式 | AI = 商户成功团队"数字员工"，而非"高级客服" |
+| 2 | **证据链归因** | 技术+流程 | 每条诊断附 `risk_rule` / `channel_status` / `config_snapshot` 三类证据 |
+| 3 | **飞书生态低代码闭环** | 架构 | 多维表格 + 审批流 + 妙记，运营热更新规则（不写代码）|
+| 4 | **知识自进化闭环** | 模式 | 案例→FAQ→知识库→下次同类问题自动命中 |
+| 5 | **AtoA Provider 抽象 + MCP 扩展预留** | 架构 | PoC 不引入完整 AtoA，对接 OP 真实 API 仅替换 Provider |
 
----
-
-## 治理（精简版 CLAUDE.md）
-
-本项目继承原 `E:\智能客服\CLAUDE.md V2.1` 的治理骨架，**保留三大原则 + 精简反例 + 适配比赛**：
-
-| 维度 | 保留内容 |
-|------|---------|
-| **三原则** | Interface First / Module Isolation / Dependency Inversion |
-| **5 禁** | 引入新数据库 / 跨 Agent 侵入 / YAGNI 空实现 / 硬编码密钥 / 无验证提交 |
-| **5 反例** | Agent 直调 SDK / Prompt 硬编码 / 业务规则硬编码 / 跨 Agent 一把梭 / 无验证就提交 |
-| **4 步法** | 任务分析 → 方案设计 → 动手开发 → 提交归档 |
-| **3 级验证** | 文档/Prompt → 单测；代码 → curl + pytest + webhook；UI → build + browser + 录屏 |
-| **比赛 6 件套** | 职责/Protocol/Schema/依赖图/时序图/录屏 |
-
-详细见 [`CLAUDE.md`](./CLAUDE.md)。
+详细论述：[`docs/architecture/solution_overview.md`](./docs/architecture/solution_overview.md)
 
 ---
 
-## 快速开始
-
-```bash
-# 1. 克隆仓库
-git clone https://gitee.com/zwyyy7/ocean-mate.git
-cd ocean-mate
-
-# 2. 后端环境（待补 requirements.txt）
-cd src/backend
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-# 3. 配置环境变量
-cp .env.example .env
-# 编辑 .env，填入 QWEN_API_KEY / FEISHU_APP_ID / FEISHU_APP_SECRET
-
-# 4. 启动 FastAPI（待补 main.py）
-uvicorn app.main:app --reload --port 8000
-```
-
-> ⚠️ 当前阶段（7-17 晚）仓库骨架仅含治理文件 + 调研骨架，**业务代码在 7-18 下午落地**。
-
----
-
-## 项目结构
+## 📦 仓库里有什么（评审 30 秒可读）
 
 ```
-ocean-mate/
-├── CLAUDE.md                  ← 精简版治理文件
-├── README.md                  ← 本文件
-├── docs/
-│   ├── governance/
-│   │   └── race_sop.md        ← 比赛 SOP（方案/录屏/提交规范）
-│   ├── architecture/          ← 架构图（待补）
-│   ├── plan/
-│   │   ├── task_plan.md       ← 2 天冲刺 WBS
-│   │   ├── findings.md        ← 行业调研
-│   │   └── progress.md        ← 进度跟踪
-│   └── reports/
-│       └── submission.md      ← 提交材料汇总（待补）
-├── src/
-│   ├── backend/               ← FastAPI + 6 Agent（待补）
-│   └── frontend/              ← Vue3（待补）
-├── demo/                      ← 录屏（git ignore）
-└── submission/                ← 报名附件
-    ├── part1_前置分析.md      ← 待补
-    ├── part2_整体方案.md      ← 待补
-    └── architecture_diagrams/ ← 待补
+OceanMate/
+├── 📄 README.md                         ← 本文件（评审入口）
+├── 📜 CLAUDE.md                         ← 项目治理文件（精简版）
+│
+├── 📂 docs/                             ← 完整方案文档
+│   ├── business/
+│   │   └── merchant_success.md          ← OP 5 方向 ↔ 4 Agent 对照表
+│   ├── agents/                          ← 4 个 Agent 详细职责
+│   │   ├── merchant_success_agent.md
+│   │   ├── payment_diagnosis_agent.md   ⭐ Demo 核心亮点
+│   │   ├── ticket_routing_agent.md
+│   │   └── knowledge_evolution_agent.md
+│   ├── architecture/                    ← 3 张架构图 + 方案说明
+│   │   ├── business_flow.md             ← 端到端业务流 Mermaid
+│   │   ├── agent_architecture.md        ← 5 层架构 Mermaid
+│   │   └── solution_overview.md         ← 深度方案说明（5 节）
+│   ├── plan/                            ← 任务计划 + 进度 + 行业调研
+│   │   ├── task_plan.md
+│   │   ├── findings.md
+│   │   └── progress.md
+│   └── governance/
+│       └── race_sop.md                  ← 比赛 SOP（提交 / 录屏 / 组队）
+│
+├── 📂 submission/                       ← 报名附件包（4 件 + 源文件）
+│   ├── 开题报告.md                       ← Part 1（286字）+ Part 2（586字）合订
+│   ├── 深度方案说明.md                    ← 评审深读版（7 节 / 12 KB）
+│   ├── 打印PDF用HTML/                   ← 浏览器 Ctrl+P 直接出 PDF
+│   │   ├── 开题报告.html
+│   │   └── 深度方案说明.html
+│   └── architecture_diagrams/           ← 2 张架构图（Mermaid 源 + 导出说明）
+│       ├── source/
+│       │   ├── business_flow.mmd
+│       │   └── agent_architecture.mmd
+│       └── export_guide.md
+│
+├── 📂 src/                              ← 工程代码（治理骨架 + Agent stub）
+├── 📂 demo/                             ← 录屏目录（git ignored）
+└── 📄 LICENSE
 ```
+
+> 💡 评审视角建议阅读顺序：`README`（你正在看）→ `submission/深度方案说明.md` → `docs/architecture/agent_architecture.md` → `docs/agents/payment_diagnosis_agent.md`（Demo 核心）→ `submission/开题报告.md`
 
 ---
 
-## 比赛信息
+## 🛠 技术栈
+
+| 维度 | 选型 | 选择理由 |
+|------|------|---------|
+| 后端 | FastAPI + Python 3.11 | Agent 编排轻量、异步友好、Provider 抽象清晰 |
+| LLM | Qwen (DashScope OpenAI 兼容) | 中文场景稳定 + 成本可控；Provider 抽象下 DeepSeek/Claude 可热切换 |
+| RAG | 飞书多维表格 + 本地向量库 | 飞书原生（不引入新数据库）；PoC 阶段本地向量库兜底 |
+| Agent 协议 | AtoA Provider 抽象 + MCP 扩展预留 | PoC 不引入完整 AtoA；对接真实环境仅替换 Provider 实现 |
+| 协同底座 | 飞书 AI 全家桶（智能伙伴/多维表格/妙记/审批流/AI 字段）| 命题核心要求；运营无需开发可热更新规则 |
+| 数据 | 飞书多维表格（结构化）+ 妙记（非结构化）| **不引入新数据库**（治理约束第 1 禁） |
+
+---
+
+## 🎯 落地预期价值（对标 OP 真实业务）
+
+> **量化口径**：以下所有百分比均为 OP 真实接入后测算方向，**Demo 不做具体承诺**。
+
+| 价值点 | 对标真实痛点 | 本方案覆盖 | 量化方向 |
+|-------|------------|----------|---------|
+| 拒付申诉辅助 | 商家最痛 59% | 支付诊断 Agent 证据链 + 申诉路径 | 自助申诉率 ↑ |
+| 友好欺诈拦截 | 58% | 商户顾问选型拦截 + 支付诊断 | 新增识别覆盖率 ↑ |
+| 工单自动化 | OP "拉群+截图" | 工单路由 飞书多维表格自动派单 | SLA 达标率 ↑ |
+| 知识沉淀 | OP 经验散落团队 | 知识进化 Agent 自进化闭环 | 自助解决率随时间 ↑ |
+
+---
+
+## 🧪 评审视角 · 30 秒 / 5 分钟 / 30 分钟 三档路径
+
+| 时间 | 看什么 | 链接 |
+|------|-------|------|
+| **30 秒** | 一句话定位 + 架构图（本文档前半部分）| 你在这里 ✅ |
+| **5 分钟** | 痛点 → 方案 → 价值闭环 + 4 Agent 职责 | [`docs/business/merchant_success.md`](./docs/business/merchant_success.md) |
+| **30 分钟** | 完整深度方案 + Demo 核心 | [`submission/深度方案说明.md`](./submission/深度方案说明.md) + [`docs/agents/payment_diagnosis_agent.md`](./docs/agents/payment_diagnosis_agent.md) |
+
+---
+
+## 🏆 比赛信息
 
 | 字段 | 内容 |
 |------|------|
@@ -131,26 +181,21 @@ ocean-mate/
 | 赛区 | 华南 |
 | 命题企业 | 钱海网络（Oceanpayment） |
 | 命题 | AI 驱动的跨境商户成功运营助手 |
-| 报名截止 | 2026-07-19 24:00 |
-| 团队 | 2 人（业务架构 + 工程） |
-| 仓库 | Gitee [zwyyy7/ocean-mate](https://gitee.com/zwyyy7/ocean-mate) · GitHub 镜像同步 |
+| 报名截止 | 2026-07-19 24:00（北京时间）|
+| 项目类型 | 学生 2 天冲刺 PoC |
+| 队伍名 | OceanMate AI |
 
 ---
 
-## 进度
+## 📜 治理与开源
 
-| 阶段 | 状态 | 完成度 |
-|------|------|--------|
-| Phase 1 仓库骨架 | ✅ | 9/9 |
-| Phase 2 方案 + 架构 | 🔄 | 0/7 |
-| Phase 3 代码 + Demo | ⏳ | 0/7 |
-| Phase 4 录屏 + 提交 | ⏳ | 0/7 |
-
-详细进度见 [`docs/plan/progress.md`](./docs/plan/progress.md)。
+- 本项目治理文件：[`CLAUDE.md`](./CLAUDE.md)（精简版比赛规则）
+- 比赛 SOP（提交/录屏/组队规范）：[`docs/governance/race_sop.md`](./docs/governance/race_sop.md)
+- 开源协议：[MIT](./LICENSE)
+- 关联项目：本项目与 `E:\智能客服` 物理隔离（不污染原项目）
 
 ---
 
-## 治理声明
+## 🤝 反馈与联系
 
-本项目所有 commit 仅限 `E:\ai-pioneer\` 范围内，**不影响原 E:\智能客服\ 项目**。
-详见 `CLAUDE.md §9 与原项目的关系`。
+仓库 Issue / PR 欢迎提交。如对接 OP 真实接口 / 飞书 API 替换 Provider，请参考 [`docs/architecture/agent_architecture.md`](./docs/architecture/agent_architecture.md) §3 Provider 抽象层。
