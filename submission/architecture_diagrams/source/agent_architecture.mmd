@@ -1,0 +1,78 @@
+flowchart TB
+    subgraph E1["入口层 · 飞书 AI 全家桶"]
+        EP["飞书智能伙伴"]
+        BT["飞书多维表格"]
+        AP["飞书审批流"]
+        MM["飞书妙记"]
+    end
+
+    subgraph O1["中枢层 · 商户成功 AI 中枢"]
+        ORC["Orchestrator<br/>意图分流 + 上下文传递"]
+    end
+
+    subgraph A1["数字员工层"]
+        MSA["Merchant Success Agent<br/>① 推荐 + ④ 协作采集"]
+        PDA["Payment Diagnosis Agent<br/>② 诊断 · Demo 核心"]
+        TRA["Ticket Routing Agent<br/>③ 工单路由"]
+        KEA["Knowledge Evolution Agent<br/>⑤ 知识自进化"]
+    end
+
+    subgraph P1["Provider 抽象层"]
+        LLM["LLMProvider<br/>Qwen / DeepSeek"]
+        RAG["VectorStoreProvider<br/>FAISS / 飞书索引"]
+        FS["FeishuConnector<br/>Open API / Mock"]
+        SRC["PaymentErrorSource<br/>Demo JSON / OP API"]
+    end
+
+    subgraph D1["数据源层 · Demo 占位 + 真实接口预留"]
+        QR[("风控规则库<br/>payment_error_cases.json")]
+        CS[("通道状态库<br/>channel_logs")]
+        RF[("对账快照库<br/>reconciliation")]
+        KGD[("企业知识库<br/>飞书多维表格")]
+    end
+
+    EP --> ORC
+    ORC --> MSA
+    ORC --> PDA
+    ORC --> TRA
+    ORC --> KEA
+
+    MSA --> BT
+    PDA --> TRA
+    TRA --> BT
+    TRA --> AP
+    KEA --> MM
+    KEA --> KGD
+    BT -.运营热更新路由规则.-> TRA
+
+    MSA --> LLM
+    MSA --> RAG
+    MSA --> FS
+    PDA --> LLM
+    PDA --> SRC
+    PDA --> RAG
+    PDA --> FS
+    TRA --> FS
+    TRA --> RAG
+    KEA --> RAG
+    KEA --> LLM
+    KEA --> FS
+
+    SRC --> QR
+    SRC --> CS
+    SRC --> RF
+    RAG --> KGD
+    FS --> BT
+
+    classDef ext fill:#FFE4B5,stroke:#FF8C00,color:#000
+    classDef orchestrator fill:#FFB6C1,stroke:#C71585,color:#000
+    classDef agent fill:#B0E0E6,stroke:#4682B4,color:#000
+    classDef provider fill:#F0E68C,stroke:#8B8B00,color:#000
+    classDef data fill:#DDA0DD,stroke:#8B008B,color:#000
+    classDef ecostore fill:#98FB98,stroke:#228B22,color:#000
+
+    class EP,BT,AP,MM ext
+    class ORC orchestrator
+    class MSA,PDA,TRA,KEA agent
+    class LLM,RAG,FS,SRC provider
+    class QR,CS,RF,KGD data

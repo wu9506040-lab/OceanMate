@@ -1,0 +1,33 @@
+flowchart TD
+    M["商户 A<br/>飞书智能伙伴提问"] -->|模糊提问| O{{"商户成功 AI 中枢<br/>意图分流"}}
+
+    O -->|意图: 推荐 / 采集| MSA["Merchant Success Agent<br/>① 推荐 + ④ 协作采集"]
+    O -->|意图: 诊断 / 异常| PDA["Payment Diagnosis Agent<br/>② 诊断 · Demo 核心"]
+    O -->|意图: 工单 / 协同| TRA["Ticket Routing Agent<br/>③ 工单路由"]
+    O -->|意图: 知识查询| KEA["Knowledge Evolution Agent<br/>⑤ 知识检索"]
+
+    MSA -->|采集商户画像| FS["飞书多维表格<br/>商户档案"]
+    MSA -->|RAG 检索| KB[("企业知识库<br/>支付方式规则")]
+
+    PDA -->|多源融合| RS[("风控规则库")]
+    PDA -->|通道状态| CS[("通道状态库")]
+    PDA -->|配置快照| CFG[("商户配置快照")]
+    PDA -->|输出诊断结果| TRA
+
+    TRA -->|自动派单| BILL["飞书多维表格<br/>OP 工单池"]
+    TRA -->|SLA 路由| APR["飞书审批流"]
+
+    BILL -->|结案事件触发| KEA
+    KEA -->|结构化案例 + FAQ| KB
+    KB -.->|下次同类问题自动命中| O
+
+    classDef agent fill:#FFE4B5,stroke:#FF8C00,color:#000
+    classDef orchestrator fill:#FFB6C1,stroke:#C71585,color:#000
+    classDef store fill:#B0E0E6,stroke:#4682B4,color:#000
+    classDef data fill:#F0E68C,stroke:#8B8B00,color:#000
+    classDef ecostore fill:#98FB98,stroke:#228B22,color:#000
+
+    class MSA,PDA,TRA,KEA agent
+    class O orchestrator
+    class FS,BILL,APR,KB store
+    class RS,CS,CFG data
