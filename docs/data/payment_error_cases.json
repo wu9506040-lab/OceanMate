@@ -1,0 +1,110 @@
+{
+  "_meta": {
+    "purpose": "Demo 占位数据 - 模拟 OP 风控规则库（payment_error_cases）",
+    "note": "所有 id 字段以 _demo_xxx 后缀呈现，非真实规则号。对接 OP 真实环境时仅替换 id 字段值，其余结构不变。",
+    "version": "demo-v1",
+    "last_updated": "2026-07-18"
+  },
+  "cases": [
+    {
+      "id": "risk_rule_demo_001",
+      "error_code": "ERR_DEMO_RISK_BLOCK_BR_VISA_001",
+      "country": "BR",
+      "channel": "Visa",
+      "problem_type": "支付失败",
+      "rule_description": "BR 区域 Visa 渠道风控规则命中（Demo 占位规则，真实对接时使用 OP 实际规则 ID）",
+      "severity": "high",
+      "trigger_condition": "单笔金额超阈值 + 短时间内多次尝试（具体阈值由 OP 规则决定）",
+      "recommended_action": "风控团队确认规则阈值；必要时加入白名单"
+    },
+    {
+      "id": "risk_rule_demo_002",
+      "error_code": "ERR_DEMO_3DS_REQUIRED_001",
+      "country": "BR",
+      "channel": "Visa",
+      "problem_type": "支付失败",
+      "rule_description": "BR 区域 3DS 认证未通过 / 未配置（按当地合规要求可能强制，具体由 OP 规则决定）",
+      "severity": "high",
+      "trigger_condition": "商户 3DS 配置缺失 或 持卡人 3DS 认证失败",
+      "recommended_action": "检查 Merchant Console 3DS 配置；联系商户开启对应区域 3DS"
+    },
+    {
+      "id": "risk_rule_demo_003",
+      "error_code": "ERR_DEMO_CHANNEL_DOWN_001",
+      "country": "BR",
+      "channel": "Mastercard",
+      "problem_type": "支付失败",
+      "rule_description": "通道维护 / 降级中（Demo 占位状态，真实对接时使用 OP 通道监控 API）",
+      "severity": "medium",
+      "trigger_condition": "上游通道返回 5xx 或超时率 > 阈值",
+      "recommended_action": "切换备用通道 / 等待通道恢复"
+    },
+    {
+      "id": "risk_rule_demo_004",
+      "error_code": "ERR_DEMO_CHARGEBACK_001",
+      "country": "US",
+      "channel": "Visa",
+      "problem_type": "拒付",
+      "rule_description": "持卡人发起拒付（chargeback），需 RDR/CDRN 流程（Demo 占位规则）",
+      "severity": "high",
+      "trigger_condition": "持卡人在发卡行侧发起 dispute",
+      "recommended_action": "准备 CB 申诉材料（订单/物流/签收凭证）；通过 Verifi/Mastercard RDR 提前拦截"
+    },
+    {
+      "id": "risk_rule_demo_005",
+      "error_code": "ERR_DEMO_REFUND_REJECTED_001",
+      "country": "GLOBAL",
+      "channel": "PayPal",
+      "problem_type": "退款异常",
+      "rule_description": "原交易超退款窗口 / 通道拒绝退款（Demo 占位规则）",
+      "severity": "medium",
+      "trigger_condition": "原交易 >180 天 或 通道返回退款拒绝",
+      "recommended_action": "走 OP 财务团队特批流程；商户端沟通替代方案"
+    },
+    {
+      "id": "risk_rule_demo_006",
+      "error_code": "ERR_DEMO_WEBHOOK_TIMEOUT_001",
+      "country": "GLOBAL",
+      "channel": "ANY",
+      "problem_type": "Webhook 回调失败",
+      "rule_description": "商户回调地址超时 / 5xx（Demo 占位规则）",
+      "severity": "low",
+      "trigger_condition": "Webhook POST 返回超时或 5xx >3 次",
+      "recommended_action": "检查商户回调地址；查询 OP Webhook 重试队列"
+    }
+  ],
+  "config_templates": [
+    {
+      "id": "config_demo_3DS_disabled_001",
+      "country": "BR",
+      "config_key": "3DS_enabled",
+      "config_value": "false",
+      "note": "Demo 占位：商户 BR 区域 3DS 未开启（真实对接时使用 OP merchant_config API）"
+    },
+    {
+      "id": "config_demo_webhook_url_001",
+      "country": "GLOBAL",
+      "config_key": "webhook_url",
+      "config_value": "https://merchant.example.com/webhook",
+      "note": "Demo 占位：商户 Webhook 地址（真实对接时使用 OP merchant_config API）"
+    }
+  ],
+  "channel_status_templates": [
+    {
+      "id": "channel_status_demo_001",
+      "country": "BR",
+      "channel": "Visa",
+      "status": "degraded",
+      "success_rate": "92.5%",
+      "note": "Demo 占位：BR Visa 通道成功率（真实对接时使用 OP 通道监控 API）"
+    },
+    {
+      "id": "channel_status_demo_002",
+      "country": "BR",
+      "channel": "Mastercard",
+      "status": "down",
+      "success_rate": "0%",
+      "note": "Demo 占位：BR Mastercard 通道维护（真实对接时使用 OP 通道监控 API）"
+    }
+  ]
+}

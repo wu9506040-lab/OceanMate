@@ -1,0 +1,9 @@
+# OceanMate AI Backend · PoC 依赖
+# 安装：pip install -r requirements.txt
+
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.0.0
+
+# 可选：仅当需要 Qwen LLM 调用时安装
+# dashscope>=1.14.0
