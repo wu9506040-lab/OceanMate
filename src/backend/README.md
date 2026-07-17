@@ -31,6 +31,8 @@ pip install -r requirements.txt
 python run_demo.py
 ```
 
+> **Windows 用户**：如果中文/emoji 乱码，先 `set PYTHONUTF8=1` 再运行（或使用 Windows Terminal / VS Code 终端）。代码已内置 `sys.stdout.reconfigure(encoding="utf-8")` 兜底。
+
 预期输出（终端彩色 JSON + 证据链）：
 
 ```

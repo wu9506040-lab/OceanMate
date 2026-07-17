@@ -10,6 +10,12 @@ import json
 import sys
 from pathlib import Path
 
+# Windows 默认 GBK 终端兼容：emoji/中文不会崩
+try:
+    sys.stdout.reconfigure(encoding="utf-8")  # Py3.7+
+except (AttributeError, OSError):
+    pass
+
 # 把 src/backend 加到 path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
