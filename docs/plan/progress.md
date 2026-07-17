@@ -31,6 +31,9 @@
 | 1.7 | 写 progress.md | 🔄 | — | 本文件 |
 | 1.8 | 申请飞书企业账号 | ⏳ | — | — |
 | 1.9 | 招募工程师队友 | ⏳ | — | — |
+| 1.10 | 配 Gitee origin + push | ✅ | 21:00 | commit 343e585 |
+| 1.11 | 配 GitHub 镜像（Gitee 自动同步） | ✅ | 21:15 | — |
+| 1.12 | 写 README.md | ✅ | 21:30 | 评审第一眼看 |
 
 ---
 
@@ -121,6 +124,9 @@
 | 2026-07-17 19:30 | task_plan.md 定稿 | zwyyy7 |
 | 2026-07-17 20:00 | findings.md 骨架定稿 | zwyyy7 |
 | 2026-07-17 20:30 | progress.md 初始化 | zwyyy7 |
+| 2026-07-17 21:00 | Gitee origin 配置 + 首次 push（commit 343e585） | zwyyy7 |
+| 2026-07-17 21:15 | GitHub 镜像配置（Gitee 自动同步） | zwyyy7 |
+| 2026-07-17 21:30 | README.md 写完 | zwyyy7 |
 
 ---
 
