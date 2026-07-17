@@ -32,11 +32,10 @@
 | 1.8 | 申请飞书企业账号 | ⏳ | — | 阻塞 PM：权限未到 |
 | 1.9 | 招募工程师队友 | 🔄 | — | 单人冲路径已确认（如 7-18 上午无队友） |
 | 1.10 | 配 Gitee origin + push | ✅ | 21:00 | commit 343e585 |
-| 1.11 | 配 GitHub 镜像（Gitee 自动同步） | ✅ | 21:15 | — |
+| 1.11 | 配 GitHub 远端 | ✅ | 21:15 | — |
 | 1.12 | 写 README.md | ✅ | 21:30 | 评审第一眼看 |
 | 1.13 | docs/business/merchant_success.md | ✅ | 21:30 | OP 5 方向 ↔ 4 Agent 对照表 |
 | 1.14 | docs/agents/4 Agent 文档 | ✅ | 21:30 | MSA / PDA / TRA / KEA |
-| 1.15 | docs/existing_capability.md | ✅ | 21:30 | AI 能力基础（不写"复用代码"） |
 | 1.16 | submission/part1_前置分析.md | ✅ | 21:30 | 286 字（50-300 PASS） |
 | 1.17 | submission/part2_整体方案.md | ✅ | 21:30 | 595 字（300-600 PASS） |
 | 1.18 | docs/plan/progress.md 更新 | ✅ | 21:45 | 本轮（决策日志 + 路线调整） |
