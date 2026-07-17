@@ -203,10 +203,9 @@ OceanMate/
 
 ## 📜 治理与开源
 
-- 本项目治理文件：[`CLAUDE.md`](./CLAUDE.md)（精简版比赛规则）
-- 比赛 SOP（提交/录屏/组队规范）：[`docs/governance/race_sop.md`](./docs/governance/race_sop.md)
-- 开源协议：[MIT](./LICENSE)
-- 关联项目：本项目与 `E:\智能客服` 物理隔离（不污染原项目）
+- 本项目治理文件：[`CLAUDE.md`](./CLAUDE.md)
+- 比赛 SOP：[`docs/governance/race_sop.md`](./docs/governance/race_sop.md)
+- 开源协议：[`MIT`](./LICENSE)
 
 ---
 
