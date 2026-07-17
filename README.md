@@ -5,7 +5,7 @@
 > 2026 飞书 AI 先锋未来人才大赛 · 华南赛区 · 钱海网络（Oceanpayment）命题参赛项目
 
 [![GitHub](https://img.shields.io/badge/GitHub-wu9506040--lab%2FOceanMate-181717?logo=github)](https://github.com/wu9506040-lab/OceanMate)
-[![Gitee](https://img.shields.io/badge/Gitee-zwyyy7%2FOceanMate-C71D23?logo=gitee)](https://gitee.com/zwyyy7/OceanMate)
+[![Gitee](https://img.shields.io/badge/Gitee-zwyyy7%2Focean--mate-C71D23?logo=gitee)](https://gitee.com/zwyyy7/ocean-mate)
 [![License](https://img.shields.io/badge/License-MIT-blue)](./LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-green?logo=python)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi)](https://fastapi.tiangolo.com)

@@ -21,7 +21,7 @@
 ### 2. 补充链接（3 条）
 
 ```
-https://gitee.com/zwyyy7/OceanMate
+https://gitee.com/zwyyy7/ocean-mate
 https://github.com/wu9506040-lab/OceanMate  （Gitee 自动同步镜像·Push 状态由用户在 Gitee 仓库「仓库镜像」面板触发）
 ```
 
