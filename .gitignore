@@ -45,6 +45,12 @@ demo/recordings/*.mov
 demo/recordings/*.webm
 *.bak
 
+# ============ 架构图/效果图的中间 HTML（PNG 才是交付物） ============
+submission/architecture_diagrams/*.html
+submission/product_screenshots/*.html
+submission/architecture_diagrams/_redraw/__pycache__/
+submission/product_screenshots/_src/__pycache__/
+
 # ============ 临时文件 ============
 *.tmp
 *.temp
