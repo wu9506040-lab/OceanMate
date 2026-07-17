@@ -1,0 +1,51 @@
+# ============ Python ============
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+.pytest_cache/
+.coverage
+htmlcov/
+*.venv/
+venv/
+env/
+ENV/
+
+# ============ Node / Vue ============
+node_modules/
+dist/
+.vite/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ============ 环境与密钥 ============
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ============ IDE ============
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ============ 比赛项目特有 ============
+demo/recordings/*.mp4
+demo/recordings/*.mov
+demo/recordings/*.webm
+*.bak
+
+# ============ 临时文件 ============
+*.tmp
+*.temp
+~$*
