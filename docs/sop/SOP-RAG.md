@@ -231,3 +231,166 @@ engine = ChromaRAGEngine(data_dir=Path("data/chroma"), embedding_function=embedd
 | 编号 | Tool/组件 | 类型 | 状态 |
 |------|---------|------|------|
 | SOP-RAG-001 | RAG Engine | 正逆混合 5 子场景 | ✅ **Day 3 完成** |
+| SOP-CHUNK-001 | Chunking 切片策略 | 4 策略 + 1 调度器 17 用例 | ✅ **Day 8 完成** |
+| SOP-RAG-002 | RAG 扩展方法 + Pipeline | 14 用例 | ✅ **Day 8 完成** |
+
+---
+
+# Day 8 新增：SOP-CHUNK-001 · Chunking 切片策略
+
+> **版本**：v1.1 · 2026-08-04
+> **适用组件**：`app/implementations/chunking/`（4 策略 + 1 调度器）
+> **关联**：
+> - 接口：`app/interfaces/base_chunker.py`（BaseChunker + Chunk）
+> - 测试：`src/backend/tests/test_chunking.py`（17 用例）
+
+## 1. 设计原则
+
+**Chunking 是 RAG 入库前的核心步骤，决定向量化的语义单元。**
+
+| 原则 | 含义 |
+|------|------|
+| **语义切分优先** | 不只用滑动窗口；按数据形态选策略（FAQ / 策论 / 短文本）|
+| **Q+A 不能拆** | 一起切，向量含完整语义，召回最准 |
+| **Metadata 传递** | 每个 chunk 继承 base + 加 strategy / section_title / char_range |
+| **不重叠** | 语义切片天然有边界；不强制 overlap |
+| **可调度** | SmartChunker 自动按数据特征选策略 |
+
+## 2. 4 策略 + 1 调度器
+
+| 策略 | 适用 | 触发条件 |
+|------|------|---------|
+| `WholeRecordChunker` | 错误码 / 支付方式 / 案例简述 | text 长度 < 512 chars（默认 short_threshold）|
+| `QAPairChunker` | FAQ / 商户问答 / KEA 沉淀 | 检测到 `Q:` / `问：` / `Question:` 起始行 |
+| `MarkdownSectionChunker` | 策论 / 政策 / 妙记 | 检测到 markdown heading 或 ≥2 段落 |
+| `SlidingWindowChunker` | 超长兜底 | 任何无结构的超长文本（chunk_size=1024, overlap=64）|
+
+**调度器 `SmartChunker`** 优先级：短文本 → Q/A → Markdown/段落 → 滑动窗口。
+
+任一策略产出后再过 `_enforce_max`（默认 1024 chars），超长 chunk 用 SlidingWindow 重切。
+
+## 3. 数据形态 → 策略映射
+
+| 数据源 | 推荐策略 | 原因 |
+|--------|---------|------|
+| `error_codes_vec` | WholeRecord（默认）| 1 错误码 = 1 规则 |
+| `payment_methods_vec` | WholeRecord | 1 支付方式 = 1 条 |
+| `cases_vec`（短描述）| WholeRecord | 1 案例 = 1 chunk |
+| `cases_vec`（长描述 + Q&A）| QAPair | Q+A 一起 |
+| `faq_vec`（未来）| QAPair | 关键设计：Q+A 不拆 |
+| 妙记转写（未来）| MarkdownSection | 按段落/章节 |
+| 长策略文章 | MarkdownSection | 按 heading |
+| 无结构超长 | SlidingWindow | 兜底 |
+
+## 4. Chunk 数据结构
+
+```python
+@dataclass
+class Chunk:
+    chunk_id: str       # "{doc_id}#{strategy_prefix}{index}"
+    doc_id: str
+    text: str           # 已 strip，未清洗
+    chunk_index: int    # 0-based
+    metadata: dict      # base + strategy + section_title + char_range + has_q/has_a
+```
+
+`strategy` 取值：`whole_record` / `qa_pair` / `markdown_section` / `sliding_window`
+
+## 5. 5 子 SOP 矩阵
+
+| 编号 | 场景 | 测试 |
+|------|------|------|
+| SOP-CHUNK-001-A | WholeRecord 短文本 → 1 chunk | `TestWholeRecordChunker::*`（3）|
+| SOP-CHUNK-001-B | QAPair Q+A 一起切（关键）| `TestQAPairChunker::*`（4）|
+| SOP-CHUNK-001-C/D | MarkdownSection heading / 段落 | `TestMarkdownSectionChunker::*`（3）|
+| SOP-CHUNK-001-E | SlidingWindow 滑动切 | `TestSlidingWindowChunker::*`（2）|
+| SOP-CHUNK-001-F/G/H | SmartChunker 自动调度 | `TestSmartChunker::*`（5）|
+
+**当前进度**：✅ 17/17 测试通过。
+
+---
+
+# Day 8 新增：SOP-RAG-002 · RAG 扩展方法 + IngestionPipeline
+
+## 1. 3 个新方法
+
+| 方法 | 用途 | SOP 测试 |
+|------|------|---------|
+| `add_documents(docs)` | 批量入库（seed 脚本用）| `TestRAGAddDocuments::*`（3）|
+| `recall_by_metadata(filter)` | 纯元数据召回（无 query）| `TestRAGRecallByMetadata::*`（4）|
+| `get_by_id(doc_id)` | 单文档取（工单详情页用）| `TestRAGGetById::*`（2）|
+
+### 1.1 多键值过滤自动包装
+
+`recall_by_metadata({"country": "BR", "channel": "Visa"})` 内部自动转 Chroma 语法：
+```python
+{"$and": [{"country": "BR"}, {"channel": "Visa"}]}
+```
+
+调用方无需关心 Chroma `$and` / `$or` 语法。
+
+## 2. IngestionPipeline（编排层）
+
+```python
+pipeline = IngestionPipeline(
+    rag=rag,
+    chunker=SmartChunker(),  # 默认
+    # cleaner=None,           # 可选（Day 8+ 接 Cleaner 时启用）
+    # embedder=None,          # 可选（Chroma 自管）
+)
+stats = pipeline.ingest(
+    records=[{"id": "r1", "text": "BR Visa 拒付 ERR_X_001", "country": "BR"}, ...],
+    source_table="cases",
+    collection_name="cases_vec",
+)
+```
+
+### 2.1 chunk_stats 返回结构
+
+| 字段 | 含义 |
+|------|------|
+| `source_table` | 来源表名（如 "cases"）|
+| `collection` | 目标 collection（如 "cases_vec"）|
+| `total_records` | 入参记录数 |
+| `total_chunks` | 实际入库 chunk 数 |
+| `skipped_records` | 跳过（空文本 / 入库失败）|
+| `strategies_used` | 各策略使用次数（如 `{"qa_pair": 4, "whole_record": 1}`）|
+| `avg_chunk_size` | 平均 chunk 字符数 |
+| `max_chunk_size` | 最大 chunk 字符数 |
+
+### 2.2 错误隔离
+
+单条记录入库失败 → `skipped_records += 1`，不阻断整体流程。
+
+## 3. SOP 测试矩阵（14 用例）
+
+| 编号 | 场景 | 测试 |
+|------|------|------|
+| SOP-RAG-002-A | add_documents 批量入库 | `TestRAGAddDocuments::*`（3）|
+| SOP-RAG-002-B | recall_by_metadata 多键过滤 | `TestRAGRecallByMetadata::*`（4）|
+| SOP-RAG-002-C | get_by_id 单文档 | `TestRAGGetById::*`（2）|
+| SOP-RAG-002-D/E/F | Pipeline 编排 | `TestIngestionPipeline::*`（5）|
+
+**当前进度**：✅ 14/14 测试通过。
+
+---
+
+## 附录 C · 端到端：records → Chroma 一行跑通（Day 8 新）
+
+```python
+import json
+from pathlib import Path
+from app.implementations.rag.chroma_rag import ChromaRAGEngine, COLLECTION_CASES
+from app.implementations.pipelines import IngestionPipeline
+from app.implementations.chunking import SmartChunker
+
+records = json.loads(Path("docs/data/payment_error_cases.json").read_text(encoding="utf-8"))["cases"]
+records = [{"id": r["id"], "text": r["rule_description"], **r} for r in records]
+
+rag = ChromaRAGEngine()
+pipeline = IngestionPipeline(rag=rag, chunker=SmartChunker())
+stats = pipeline.ingest(records, source_table="error_codes", collection_name=COLLECTION_CASES)
+
+print(f"入库 {stats['total_chunks']} chunks / 跳过 {stats['skipped_records']} 条")
+print(f"策略分布: {stats['strategies_used']}")
+```

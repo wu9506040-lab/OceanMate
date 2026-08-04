@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 from app.interfaces.base_rag import BaseRAGEngine, Document
+from app.implementations.embeddings import HashEmbedder
 from app.implementations.llm.qwen_gateway import get_default_gateway
 
 
@@ -29,68 +30,9 @@ COLLECTION_CASES = "cases_vec"
 COLLECTION_PAYMENT_METHODS = "payment_methods_vec"
 
 
-class HashEmbeddingFunction:
-    """Hash-based Embedding Function — 无外部依赖，PoC 阶段使用。
-
-    原理：把文本分词 → 每个词 hash → 固定维度向量。
-    优点：不下载模型、可重现、检索质量够 PoC。
-    缺点：语义检索能力弱（同义词召回差）。
-
-    真实环境替换方案：
-        from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
-        embedding_function = ONNXMiniLM_L6_V2()
-    """
-
-    DIMENSION = 128  # 固定维度
-
-    def __init__(self, dimension: int = DIMENSION):
-        self.dimension = dimension
-
-    def __call__(self, input: list[str]) -> list[list[float]]:
-        """Chroma 调用接口：输入文本列表，输出向量列表。"""
-        return [self._embed_one(text) for text in input]
-
-    def _embed_one(self, text: str) -> list[float]:
-        """单个文本 → 向量。"""
-        # 简单分词（中文按字，英文按词）
-        tokens = self._tokenize(text)
-
-        # 初始化零向量
-        vector = [0.0] * self.dimension
-
-        # 每个 token 累加 hash 值
-        for token in tokens:
-            h = int(hashlib.md5(token.encode("utf-8")).hexdigest(), 16)
-            idx = h % self.dimension
-            vector[idx] += 1.0
-
-        # L2 归一化
-        norm = sum(v * v for v in vector) ** 0.5
-        if norm > 0:
-            vector = [v / norm for v in vector]
-        return vector
-
-    @staticmethod
-    def _tokenize(text: str) -> list[str]:
-        """简单分词（中文字 + 英文词）。"""
-        tokens = []
-        current_word = []
-        for char in text:
-            if "\u4e00" <= char <= "\u9fff":
-                # 中文：按字
-                if current_word:
-                    tokens.append("".join(current_word).lower())
-                    current_word = []
-                tokens.append(char)
-            elif char.isalnum():
-                current_word.append(char)
-            else:
-                if current_word:
-                    tokens.append("".join(current_word).lower())
-                    current_word = []
-        if current_word:
-            tokens.append("".join(current_word).lower())
-        return tokens
+# 向后兼容别名（Day 8 重构）
+# 老代码引用 chroma_rag.HashEmbeddingFunction 不报错（指向新 HashEmbedder）
+HashEmbeddingFunction = HashEmbedder
 
 
 class ChromaRAGEngine(BaseRAGEngine):
@@ -122,7 +64,7 @@ class ChromaRAGEngine(BaseRAGEngine):
         self._client = chromadb.PersistentClient(path=str(self.data_dir))
 
         self.llm = llm_gateway or get_default_gateway()
-        self._embedding_function = embedding_function or HashEmbeddingFunction()
+        self._embedding_function = embedding_function or HashEmbedder()
 
         # 预创建 3 个 collection
         self._collections = {
@@ -203,6 +145,35 @@ class ChromaRAGEngine(BaseRAGEngine):
         except Exception as e:
             raise RuntimeError(f"添加文档失败: {e}") from e
 
+    def add_documents(
+        self,
+        documents: list[Document],
+        collection_name: str = COLLECTION_ERROR_CODES,
+    ) -> bool:
+        """批量添加文档（Day 8 新增 · 用于 seed 脚本）。
+
+        Chroma 原生支持批量 add；这里走 best-effort，partial success 不抛异常。
+        返回值：True = 全部成功；False = 入参空或 collection 不存在。
+        """
+        if not documents:
+            return False
+        if collection_name not in self._collections:
+            raise ValueError(f"Collection '{collection_name}' 不存在")
+
+        ids = [d.id for d in documents]
+        texts = [d.text for d in documents]
+        metadatas = [d.metadata if d.metadata else None for d in documents]
+
+        try:
+            self._collections[collection_name].add(
+                ids=ids,
+                documents=texts,
+                metadatas=metadatas,
+            )
+            return True
+        except Exception as e:
+            raise RuntimeError(f"批量添加文档失败: {e}") from e
+
     def delete_document(
         self, doc_id: str, collection_name: str = COLLECTION_ERROR_CODES
     ) -> bool:
@@ -257,3 +228,65 @@ class ChromaRAGEngine(BaseRAGEngine):
         for name, col in self._collections.items():
             stats[name] = col.count()
         return stats
+
+    # ===== Day 8 新增方法 =====
+
+    def recall_by_metadata(
+        self,
+        filter: dict,
+        limit: int = 100,
+        collection_name: str = COLLECTION_ERROR_CODES,
+    ) -> list[Document]:
+        """纯元数据召回（无 query）。
+
+        Chroma 支持 `where` 过滤；多键值组合需用 $and / $or 操作符。
+        自动转换：filter={"k1": v1, "k2": v2} → where={"$and": [{"k1": v1}, {"k2": v2}]}
+        """
+        if not filter:
+            raise ValueError("filter 必须至少 1 个键值对")
+        if collection_name not in self._collections:
+            raise ValueError(f"Collection '{collection_name}' 不存在")
+
+        # 多键值自动包装 $and
+        if len(filter) == 1:
+            where_clause = filter
+        else:
+            where_clause = {
+                "$and": [{k: v} for k, v in filter.items()]
+            }
+
+        try:
+            results = self._collections[collection_name].get(
+                where=where_clause,
+                limit=limit,
+            )
+        except Exception as e:
+            raise RuntimeError(f"recall_by_metadata 失败: {e}") from e
+
+        documents = []
+        if results and results.get("ids"):
+            for i, doc_id in enumerate(results["ids"]):
+                text = results["documents"][i] if results.get("documents") else ""
+                metadata = results["metadatas"][i] if results.get("metadatas") else {}
+                documents.append(Document(id=doc_id, text=text, metadata=metadata))
+        return documents
+
+    def get_by_id(
+        self,
+        doc_id: str,
+        collection_name: str = COLLECTION_ERROR_CODES,
+    ) -> Optional[Document]:
+        """按 ID 取单文档。"""
+        if collection_name not in self._collections:
+            return None
+        try:
+            results = self._collections[collection_name].get(ids=[doc_id])
+        except Exception:
+            return None
+
+        if not results or not results.get("ids"):
+            return None
+        # 取第一条
+        text = results["documents"][0] if results.get("documents") else ""
+        metadata = results["metadatas"][0] if results.get("metadatas") else {}
+        return Document(id=results["ids"][0], text=text, metadata=metadata)
