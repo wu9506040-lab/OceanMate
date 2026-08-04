@@ -1,0 +1,100 @@
+{
+  "_meta": {
+    "purpose": "Demo 占位数据 - 模拟 OP 工单路由规则表（按 problem_type + priority + tier → 责任团队 + SLA）",
+    "note": "真实环境由运营人员在飞书多维表格维护，本地缓存副本。规则匹配优先级：exact (problem_type + priority + tier) > exact (problem_type + priority + *) > exact (problem_type + medium + *) > default。",
+    "version": "demo-v1",
+    "last_updated": "2026-08-04"
+  },
+  "rules": [
+    {
+      "id": "rule_demo_payfail_vip_high",
+      "problem_type": "支付失败",
+      "priority": "high",
+      "tier": "vip",
+      "assignee": "技术团队-L2（VIP 专线）",
+      "sla_hours": 2,
+      "notification_channel": "飞书 VIP 群 + 电话"
+    },
+    {
+      "id": "rule_demo_payfail_premium_high",
+      "problem_type": "支付失败",
+      "priority": "high",
+      "tier": "premium",
+      "assignee": "技术团队-L2",
+      "sla_hours": 4,
+      "notification_channel": "飞书技术群"
+    },
+    {
+      "id": "rule_demo_payfail_standard_medium",
+      "problem_type": "支付失败",
+      "priority": "medium",
+      "tier": "standard",
+      "assignee": "技术团队-L1",
+      "sla_hours": 8,
+      "notification_channel": "飞书技术群"
+    },
+    {
+      "id": "rule_demo_payfail_any",
+      "problem_type": "支付失败",
+      "priority": "high",
+      "tier": "*",
+      "assignee": "技术团队-L2",
+      "sla_hours": 4,
+      "notification_channel": "飞书技术群"
+    },
+    {
+      "id": "rule_demo_chargeback_high",
+      "problem_type": "拒付",
+      "priority": "high",
+      "tier": "*",
+      "assignee": "财务团队-争议处理",
+      "sla_hours": 4,
+      "notification_channel": "飞书财务群 + 飞书审批流"
+    },
+    {
+      "id": "rule_demo_chargeback_medium",
+      "problem_type": "拒付",
+      "priority": "medium",
+      "tier": "*",
+      "assignee": "财务团队-争议处理",
+      "sla_hours": 12,
+      "notification_channel": "飞书财务群"
+    },
+    {
+      "id": "rule_demo_refund_high",
+      "problem_type": "退款异常",
+      "priority": "high",
+      "tier": "*",
+      "assignee": "财务团队-退款",
+      "sla_hours": 6,
+      "notification_channel": "飞书财务群"
+    },
+    {
+      "id": "rule_demo_refund_medium",
+      "problem_type": "退款异常",
+      "priority": "medium",
+      "tier": "*",
+      "assignee": "财务团队-退款",
+      "sla_hours": 24,
+      "notification_channel": "飞书财务群"
+    },
+    {
+      "id": "rule_demo_webhook_high",
+      "problem_type": "Webhook 回调失败",
+      "priority": "high",
+      "tier": "*",
+      "assignee": "技术团队-Webhook",
+      "sla_hours": 4,
+      "notification_channel": "飞书技术群 + PagerDuty"
+    },
+    {
+      "id": "rule_demo_default",
+      "problem_type": "*",
+      "priority": "medium",
+      "tier": "*",
+      "assignee": "通用支持团队",
+      "sla_hours": 24,
+      "notification_channel": "飞书通用群"
+    }
+  ]
+}
