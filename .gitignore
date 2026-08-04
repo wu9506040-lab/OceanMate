@@ -59,3 +59,11 @@ submission/product_screenshots/_src/__pycache__/
 *.tmp
 *.temp
 ~$*
+
+# ============ OceanMate runtime 数据（不提交，每次 init 重生） ============
+src/backend/data/*.db
+src/backend/data/chroma/
+src/backend/data/chroma_test/
+src/backend/data/audit_*.db
+src/backend/data/audit_*/
+src/backend/.feishu_mock_log.json

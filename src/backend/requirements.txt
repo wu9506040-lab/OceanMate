@@ -1,9 +1,29 @@
-# OceanMate AI Backend · PoC 依赖
+# OceanMate AI Backend · v2.2 PoC 依赖
 # 安装：pip install -r requirements.txt
+# Python 3.11+ · Windows 需配 chcp 65001 防中文乱码
 
+# === Web 框架 ===
 fastapi>=0.111.0
 uvicorn[standard]>=0.30.0
-pydantic>=2.0.0
 
-# 可选：仅当需要 Qwen LLM 调用时安装
+# === 数据模型 / 配置 ===
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# === 接口校验（BaseTool.validate_input 用）===
+jsonschema>=4.21.0
+
+# === AI 能力 ===
+# DashScope Qwen（按需启用，无 Key 时自动降级 Mock）
 # dashscope>=1.14.0
+
+# === 向量数据库 ===
+# Chroma 嵌入式（PoC 简化，不搭服务）
+chromadb>=0.5.0
+
+# === 飞书 API ===
+httpx>=0.27.0
+
+# === 测试 ===
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
