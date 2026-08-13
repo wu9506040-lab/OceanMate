@@ -16,7 +16,7 @@
 | 一句话定义 | **OP 商户成功团队的"数字员工体系"——4 类业务 Agent + 商户成功 AI 中枢，覆盖商户选型 / 接入 / 诊断 / 工单 / 知识沉淀 / 协同 6 个环节全生命周期** |
 | 业务价值 | 把 OP 内部"拉群 + 截图 + 翻文档"的协同模式，升级为"飞书智能伙伴一句话召唤 AI 中枢 → 多 Agent 自动诊断 → 飞书多维表自动派单 → 案例自动沉淀" |
 | 技术亮点 | 6 Agent 协作 + AtoA 协议 + 数据飞轮（自进化）+ 飞书生态全栈打通 |
-| 真实落地 | **193 条真实数据**（117 错误码 + 16 支付方式 + 60 工单）+ 飞书 WS 真实接收 + 真实 send_private briefing + 真实 Open API 调用 |
+| 真实落地 | **203 条真实数据**（117 错误码 + 16 支付方式 + 60 工单 + 10 路由规则）+ 飞书 WS 真实接收 + 真实 send_private briefing + 真实 Open API 调用 |
 | 6 Demo 全过 | Visa 13.1 / MC 4837 / BR Pix / NL 推荐 / 高优工单 / BR Pix FAQ 召回 |
 
 ---
@@ -323,7 +323,7 @@
 | 触发 | 诊断完成 / 商户直接转工单 |
 | 流程 | 4 层规则匹配 → 写入飞书多维表工单池 → send_private briefing 给团队 lead |
 | Demo | 高优拒付工单 → 财务团队-争议处理 · 2h SLA · 飞书群 + send_private |
-| 真实度 | 60 条工单池真实数据（Day 12 seed）+ 真实 lead open_id `ou_aa9ece53...` |
+| 真实度 | 60 条工单池真实数据（Day 12 seed，仅存于飞书多维表 `routing_rules`，**本地 SQLite 不存工单**）+ 真实 lead open_id（脱敏 `ou_***1a1c`）|
 | 亮点 | **智能交接简报**：完整 briefing（诊断摘要 + 商户画像 + 根因 + 证据链 + 申诉模板）|
 | 代码 | `src/backend/app/agents/tra/tool.py:49` |
 
@@ -430,7 +430,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | 模块 | 接口 | 真实凭证 | 回执 |
 |------|------|---------|------|
 | WebSocket | `wss://open.feishu.cn/open-apis/im/v1/messages` | `cli_***` | events_received=1 |
-| 多维表格 | `bitable/v1/apps/{token}/tables/{tid}/records` | `LQk***` | 193 条真实数据 |
+| 多维表格 | `bitable/v1/apps/{token}/tables/{tid}/records` | `LQk***` | 203 条真实数据 |
 | send_private | `im/v1/messages?receive_id_type=open_id` | `ou_********1a1c`（lead） | `om_***********86b` |
 | upload_image | `im/v1/images` | 同上 | image_key 真实回执 |
 
@@ -442,15 +442,17 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 
 ## 6. 真实数据证据
 
-### 6.1 193 条多维表数据（飞行社企业 · 真实）
+### 6.1 203 条多维表数据（飞行社企业 · 真实）
 
-| 表名 | 条数 | 内容 | 用途 |
-|------|------|------|------|
-| `error_codes` | **117** | Visa/MC/Amex/Discover 全量拒付码 | PDA 诊断依据 |
-| `payment_methods` | **16** | 跨境支付方式规则 | MSA PWR 推荐依据 |
-| `routing_rules` | **10** | 工单路由规则 | TRA 派单依据 |
-| `cases`（真实工单池）| **60** | 含 status / priority / problem_type / created_at | Dashboard 趋势图 |
-| **合计** | **193 + 60 = 193 条真实业务数据** |||
+| 表名 | 条数 | 内容 | 用途 | 存储位置 |
+|------|------|------|------|----------|
+| `error_codes` | **117** | Visa/MC/Amex/Discover 全量拒付码 | PDA 诊断依据 | 飞书多维表 + Chroma |
+| `payment_methods` | **16** | 跨境支付方式规则 | MSA PWR 推荐依据 | 飞书多维表 + Chroma |
+| `routing_rules` | **10** | 工单路由规则 | TRA 派单依据 | 飞书多维表 + 本地 JSON 缓存 |
+| `cases`（真实工单池）| **60** | 含 status / priority / problem_type / created_at | Dashboard 趋势图 | **仅飞书多维表** |
+| **合计** | **203 条真实业务数据** ||| |
+
+> **架构说明**：工单数据（60 条）**只存于飞书多维表**，不写本地 SQLite。原因是飞书多维表已经是运营团队的 source of truth，本地 SQLite 存工单会造成数据双写不一致（详见 §10.1 真实落地项）。SQLite `tickets` 表 = 0 行（设计如此，不是 bug）。
 
 ### 6.2 117 错误码分布（验证 PDA 真实度）
 
@@ -608,7 +610,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | 3 | 6 Agent 详解 | `docs/agents/{merchant_success,payment_diagnosis,ticket_routing,knowledge_evolution}_agent.md` | ✅ |
 | 4 | 依赖关系图 | 架构图（Mermaid）· `docs/architecture/agent_architecture.md` | ✅ |
 | 5 | 调用流程图 | 业务流（Mermaid sequence）· `docs/architecture/business_flow.md` | ✅ |
-| 6 | 真实数据 | 193 条多维表 + 107 张配图 + 158 测试用例 | ✅ |
+| 6 | 真实数据 | 203 条多维表 + 107 张配图 + 242 测试用例 | ✅ |
 | 7 | 录屏脚本 | `src/backend/scripts/demo_end_to_end.py` + `run_all_real.py` | ✅ |
 | 8 | 截图 | `docs/runbook/dashboard_screenshot.png` + 录屏（Day 14 补录）| 🟡 |
 
@@ -624,7 +626,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | 2 | 运营可视化 Dashboard 升级 | 趋势组件 + 飞书原生图表 6 个模块 |
 | 3 | 智能交接简报 SOP 化 | 团队 lead 培训 + 工单模板标准化 |
 | 4 | 数据飞轮 7 天 → 30 天 | 自进化能力线性增长 |
-| 5 | ~~**混合检索 + Rerank**~~ | **✅ Day 14 已完成**：Qwen 向量 + jieba BM25 + RRF 融合；"13.1" 字面命中从 CB_13.3 提升到 CB_13.1 |
+| 5 | 混合检索 + Rerank | **🟡 部分完成（V2.0）**：Qwen 向量 + jieba BM25 + RRF 融合已实现（"13.1" 字面命中从 CB_13.3 提升到 CB_13.1 ✅）；Rerank 接口已预留（`QwenReranker` 类），但当前 DashScope 账号 `gte-rerank` 返回 403 鉴权失败，**PoC 阶段降级为 RRF 顺序输出**。V2.0 切换有权限的 `qwen3-rerank` 或本地 cross-encoder 模型 |
 | 6 | ~~**LLM 意图识别 fallback**~~ | **✅ Day 14 已完成**：关键词命中 ≥1 走关键词；命中 0 调 Qwen chat_structured 兜底分类 |
 | 7 | ~~**AtoA 自动链式编排**~~ | **✅ Day 14 已完成**：chain_mode="auto" 默认开启；PDA → TRA → KEA search_faq 自动链式（chain 字段记录） |
 
@@ -657,7 +659,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | 0:10-0:15 | 三大挑战解决方案 | §3 |
 | 0:15-0:20 | 5 大能力真实演示 | §4 + Demo 录屏 |
 | 0:20-0:25 | 核心亮点（智能交接简报 + 配图 + 数据飞轮 + 飞书闭环）| §5 |
-| 0:25-0:30 | 193 条真实数据 + 6 Demo 全过 | §6 |
+| 0:25-0:30 | 203 条真实数据 + 6 Demo 全过 | §6 |
 
 ---
 

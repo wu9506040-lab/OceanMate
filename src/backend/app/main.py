@@ -171,6 +171,52 @@ app.add_middleware(
 )
 
 
+# === 全局异常处理（Day 14 P1 修复：防止 500 泄漏 stack trace） ===
+
+import logging
+import traceback
+from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """兜底所有未捕获异常，返回结构化 500 而非 HTML 错误页。
+
+    安全考虑：线上环境不应把 traceback 暴露给客户端。生产部署时把 include_trace=False。
+    评审 Demo 默认 include_trace=True，方便快速排查。
+    """
+    tb = traceback.format_exc()
+    logger.error(f"[UnhandledException] {request.method} {request.url.path}: {exc}\n{tb}")
+    include_trace = os.getenv("DEBUG", "1") == "1"  # 默认暴露便于评审；生产置 0
+    return JSONResponse(
+        status_code=500,
+        content={
+            "code": 500,
+            "message": f"服务器内部错误: {type(exc).__name__}",
+            "error_type": type(exc).__name__,
+            "error_message": str(exc)[:300],  # 截断防止日志泄漏
+            "trace": tb if include_trace else None,
+            "path": str(request.url.path),
+        },
+    )
+
+
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse:
+    """参数校验异常 → 400 而非 500。"""
+    return JSONResponse(
+        status_code=400,
+        content={
+            "code": 400,
+            "message": str(exc),
+            "error_type": "ValueError",
+            "path": str(request.url.path),
+        },
+    )
+
+
 # === Pydantic Schemas ===
 
 class ChatRequest(BaseModel):
