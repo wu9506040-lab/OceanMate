@@ -20,6 +20,11 @@ from typing import Optional
 from app.interfaces.base_tool import ToolRegistry, BaseTool
 from app.interfaces.base_llm import BaseLLMGateway
 from app.implementations.llm.qwen_gateway import MockLLMGateway, QwenGateway
+from app.agents.orchestrator.chain_config import get_next_chain_rule
+
+
+# Day 14 P1-3：链式触发最大深度（防止死循环）
+MAX_CHAIN_DEPTH = 5
 
 
 logger = logging.getLogger(__name__)
@@ -86,6 +91,7 @@ class Orchestrator:
         llm: Optional[BaseLLMGateway] = None,
         registry: Optional[ToolRegistry] = None,
         use_llm_fallback: bool = True,
+        chain_mode: str = "auto",  # Day 14 P1-3: "auto" 自动链式 / "single" 单步
     ):
         # 优先 Qwen，无 key 时降级 Mock（与原行为一致）
         if llm is not None:
@@ -97,6 +103,7 @@ class Orchestrator:
                 self.llm = MockLLMGateway()
         self.registry = registry or ToolRegistry()
         self.use_llm_fallback = use_llm_fallback
+        self.chain_mode = chain_mode
 
     def register_tool(self, tool: BaseTool) -> None:
         self.registry.register(tool)
@@ -110,22 +117,28 @@ class Orchestrator:
         user_query: str,
         merchant_context: Optional[dict] = None,
     ) -> dict:
-        """主入口：识别意图 → 调对应 Tool → 返回统一结果。
+        """主入口：识别意图 → 调对应 Tool → 可选链式触发下一 Tool → 返回。
+
+        Day 14 P1-3 新增 chain_mode="auto" 自动链式触发（如 PDA → TRA → KEA）。
 
         Returns:
             {
                 "intent": "payment_diagnosis" | ...,
                 "tool_name": "...",
-                "tool_result": {...},           # safe_execute 返回的 data
+                "tool_result": {...},           # safe_execute 返回的 wrapped {success, data, ...}
                 "trace": {
                     "matched_keywords": [...],
                     "llm_used": bool,
-                    "llm_intent": str | None,  # Day 14 P1-1
-                    "llm_confidence": float | None,  # Day 14 P1-1
+                    "llm_intent": str | None,
+                    "llm_confidence": float | None,
                 }
+                "chain": [                     # Day 14 P1-3
+                    {"step": 1, "tool": "payment_diagnosis", "result": {...}},
+                    {"step": 2, "tool": "ticket_routing", "result": {...}},
+                ]
             }
         """
-        ctx = merchant_context or {}
+        ctx = {"user_query": user_query, **(merchant_context or {})}
 
         # Step 1: 关键词匹配
         intent, matched = self._classify_intent(user_query)
@@ -160,7 +173,85 @@ class Orchestrator:
         if llm_used:
             result["trace"]["llm_intent"] = llm_intent
             result["trace"]["llm_confidence"] = llm_confidence
+
+        # Step 5: Day 14 P1-3 自动链式触发
+        if self.chain_mode == "auto":
+            result = self._maybe_chain(result, ctx, depth=1)
+
         return result
+
+    def _maybe_chain(self, result: dict, ctx: dict, depth: int) -> dict:
+        """链式触发：根据当前 Tool 的 CHAIN_RULES 决定是否调下一 Tool。
+
+        限制：
+        - 最大深度 MAX_CHAIN_DEPTH（防死循环）
+        - 链路 trigger 不命中 → 不链式
+        - 下一 Tool 未注册 → 跳过链式（记录到 trace.chain_skipped）
+
+        递归设计：
+        - 始终在原 result 上 append "chain" 步骤
+        - 递归调用时，把"刚执行的 next_wrapped"包装成临时 prev，递归
+        - 最终返回原 result（保留所有原始字段：intent/trace 等）
+        """
+        if depth > MAX_CHAIN_DEPTH:
+            logger.warning(f"[Orchestrator] 链式触发达到最大深度 {MAX_CHAIN_DEPTH}，停止")
+            result.setdefault("trace", {})["chain_max_depth"] = depth
+            return result
+
+        # 从最后一次链式步骤或原始 result 取当前 tool_name + data
+        current_tool, prev_data = self._peek_chain_state(result)
+        chain_rule = get_next_chain_rule(current_tool) if current_tool else None
+        if not chain_rule:
+            return result
+
+        # trigger 命中检查
+        if not chain_rule["trigger"](prev_data):
+            return result
+
+        # 构造下一 Tool params
+        next_params = chain_rule["params_builder"](prev_data, ctx)
+        next_tool = chain_rule["next_tool"]
+
+        # 下一 Tool 是否注册
+        if next_tool not in self.registry:
+            result.setdefault("trace", {})["chain_skipped"] = f"{next_tool} 未注册"
+            return result
+
+        logger.info(
+            f"[Orchestrator] 链式触发 step={depth}: {current_tool} → {next_tool} "
+            f"(trigger 命中, params keys: {list(next_params.keys())})"
+        )
+
+        # 执行下一 Tool
+        next_wrapped = self.registry.safe_execute(next_tool, next_params)
+        next_step = {
+            "step": depth + 1,
+            "tool": next_tool,
+            "result": next_wrapped,
+            "triggered_by": current_tool,
+        }
+        result.setdefault("chain", []).append(next_step)
+
+        # 递归：基于刚执行的 next_wrapped 判断是否继续链式
+        # 不修改 result，只递归检查
+        return self._maybe_chain(result, ctx, depth=depth + 1)
+
+    @staticmethod
+    def _peek_chain_state(result: dict) -> tuple[Optional[str], dict]:
+        """从 result 里取出"当前 Tool 名称 + data"用于链式判断。
+
+        优先从最后一步 chain 取（链中段），否则从 result.tool_result 取（链头）。
+        """
+        chain = result.get("chain", [])
+        if chain:
+            last_step = chain[-1]
+            last_wrapped = last_step.get("result", {})
+            last_data = last_wrapped.get("data", {}) if last_wrapped.get("success") else {}
+            return last_step.get("tool"), last_data
+        # 链头：用原始 tool_result
+        wrapped = result.get("tool_result", {})
+        data = wrapped.get("data", {}) if wrapped.get("success") else {}
+        return result.get("tool_name"), data
 
     # === 意图分类 ===
 
