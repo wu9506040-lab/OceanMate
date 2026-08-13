@@ -17,7 +17,7 @@
 | 业务价值 | 把 OP 内部"拉群 + 截图 + 翻文档"的协同模式，升级为"飞书智能伙伴一句话召唤 AI 中枢 → 多 Agent 自动诊断 → 飞书多维表自动派单 → 案例自动沉淀" |
 | 技术亮点 | 6 Agent 协作 + AtoA 协议 + 数据飞轮（自进化）+ 飞书生态全栈打通 |
 | 真实落地 | **203 条真实数据**（117 条知识条目 = 107 条真实拒付码 + 6 条 demo 案例 + 4 条配置模板 · 详见 §6.1 拆解）+ 16 支付方式 + 60 工单 + 10 路由规则 + 飞书 WS 真实接收 + send_private briefing + 真实 Open API 调用 |
-| 6 Demo 全过 | Visa 13.1 / MC 4837 / BR Pix / NL 推荐 / 高优工单 / BR Pix FAQ 召回 |
+| 6 个核心场景 Demo | 6 个核心场景固定参数验证通过（Visa 13.1 / MC 4837 / BR Pix / NL 推荐 / 高优工单 / BR Pix FAQ 召回）；真实自然语言对话持续优化中 |
 
 ---
 
@@ -335,7 +335,7 @@
 | 流程 | 案例特征抽取 → 结构化案例 → FAQ 草稿 → 飞书多维表 + Chroma 索引 |
 | Demo | BR Pix 周末延迟 FAQ 检索 → 召回央行批处理案例 |
 | 真实度 | 14 → 15 条 Chroma cases_vec（Day 12 真实 promote）· 端到端 PASS |
-| 亮点 | **数据飞轮真闭环**（insert → promote → search 全过）+ **3-tier 审核节点（Day 13 强化）**|
+| 亮点 | **数据飞轮真闭环**（insert → promote → search 全过）+ **半自动知识沉淀框架（faq_vec 已接入，V1.5 完成全链路自动化）** |
 | 审核分级 | **≥ 0.9 自动 promote → Chroma / 0.7-0.9 进 pending 表待人工 / < 0.7 拒绝**（避免低质量案例污染知识库）|
 | 代码 | `src/backend/app/agents/kea/tool.py:42` |
 
@@ -469,7 +469,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 
 **配图覆盖**：107 张 SVG + PNG（data/error_images/），4 类配色（auth/consumer/fraud/processing）
 
-### 6.3 6 个 Demo 黄金用例（全过）
+### 6.3 6 个核心场景 Demo（固定参数验证通过）
 
 | # | 场景 | Tool | 真实演示 |
 |---|------|------|----------|
@@ -480,7 +480,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | demo_05 | 高优拒付工单自动分派 | TRA | ✅ + send_private briefing |
 | demo_06 | BR Pix FAQ 智能检索 | KEA | ✅ Chroma 召回 |
 
-**真实跑通**：6/6 PASSED（`src/backend/app/implementations/demo_scenarios.py`）
+**真实跑通**：6 个核心场景固定参数验证通过（`src/backend/app/implementations/demo_scenarios.py`）；真实自然语言（NL）对话持续优化中（详见 §10「Day 14 NL 优化记录」）。
 
 ### 6.4 真实凭证清单（Demo 用，已脱敏）
 
@@ -599,7 +599,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 |------|------|
 | 最小修改 | KEA FK 修复只改了 1 个 SQL（cases DROP + CREATE），未动其他表 |
 | 真实凭证不提交 | `.env` 加入 `.gitignore` · `.env.example` 是占位模板 |
-| 测试覆盖 | 4 Tool 全部 ≥ 13 用例（17+13+25+22+22=99 用例 + 59 RAG 扩展 = 158）|
+| 测试覆盖 | 4 Tool 全部 ≥ 13 用例（17+13+25+22+22=99 用例 + 59 RAG 扩展 + 14 跨语言 + 20 业务规则回归 = 268 用例）|
 | 录屏必真实 | 不允许 mock pass 算完成（feedback_no_shortcut）|
 
 ---
@@ -613,13 +613,50 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | 3 | 6 Agent 详解 | `docs/agents/{merchant_success,payment_diagnosis,ticket_routing,knowledge_evolution}_agent.md` | ✅ |
 | 4 | 依赖关系图 | 架构图（Mermaid）· `docs/architecture/agent_architecture.md` | ✅ |
 | 5 | 调用流程图 | 业务流（Mermaid sequence）· `docs/architecture/business_flow.md` | ✅ |
-| 6 | 真实数据 | 203 条多维表 + 107 张配图 + 242 测试用例 | ✅ |
+| 6 | 真实数据 | 203 条多维表 + 107 张配图 + 268 测试用例 | ✅ |
 | 7 | 录屏脚本 | `src/backend/scripts/demo_end_to_end.py` + `run_all_real.py` | ✅ |
 | 8 | 截图 | `docs/runbook/dashboard_screenshot.png` + 录屏（Day 14 补录）| 🟡 |
 
 ---
 
-## 10. 未来规划（PoC → 商业落地）
+## 10. Day 14 NL 优化记录 + 已知边界（数据诚实）
+
+> **写作背景**：真实飞书回放暴露了 Demo 固定参数验证通过的 case 之外的若干真实 NL 边界问题，本节如实记录。
+
+### 10.1 已修复（2026-08-14 · 9 项 P0/P1 修复）
+
+| # | 问题 | 根因 | 修复 | 验证 |
+|---|------|------|------|------|
+| P0-1 | 「巴西 Pix 周末延迟」答非所问 | PDA 检索路径只查 JSON，不走 Chroma；NLP 场景类 query 被错误路由到 clarify | `EvidenceStore.pick_collections` 按 query 类型路由（错误码→error_codes_vec，场景→cases_vec，混合→都查）；`EvidenceStore._is_relevant` 过滤无关召回 | `tests/test_business_rules.py::test_scene_query_hits_case_collection` + 10 问端到端 |
+| P0-2 | BR Pix 错误要求「开启 3DS」 | `lookup_config_snapshot` 对所有 query 都返回 GLOBAL `3DS_enabled=false` / `webhook_url=example.com` | 引入 `NON_CARD_CHANNELS` + 3DS/webhook 相关性过滤 | `test_pix_channel_does_not_recommend_3ds` / `test_ideal_channel_does_not_recommend_3ds` / 20 个 NON_CARD_CHANNELS 参数化 |
+| P0-3 | 飞书回复渲染 Markdown 失效 | `_fmt_pda` / `_fmt_msa` / `_fmt_tra` / `_fmt_kea` 在飞书纯文本 IM 中带 `**` 包裹；带 markdown 星号字面输出 | `_sanitize` 移除 `**` / `` ` ``；4 个 formatter 改为数字列表 | `test_sanitize_strips_markdown_stars` |
+| P0-4 | 商户可见文本泄漏 `merchant.example.com` | webhook_url = `https://merchant.example.com/webhook` 来自 JSON 占位 | 11 条 `_TEST_DATA_PATTERNS` regex 在 `_sanitize` 中清除 | `test_no_example_com_in_output` / `test_sanitize_strips_placeholder_url` |
+| P0-5 | `_route_pda` 把 error_code 默认为 `ERR_UNKNOWN` / country 默认为 `ZZ` | 缺省值导致证据全 miss 后 LLM 瞎编 | `Orchestrator._route_pda` 改为 `error_code=error_code or ""` / `country=country or "GLOBAL"`；`ProblemRecord.query_text` 承载原话 | `test_route_pda_does_not_inject_err_unknown` |
+| P1-5 | 缺少业务规则回归 | 4 类「AI 一本正经胡说」无测试守护 | `tests/test_business_rules.py` 20 用例（4 类规则）| 全过 |
+| P1-6 | KEA promote 写到 `cases_vec` 而非 `faq_vec` | `kept_old_target` 误写 | `KEA._promote_to_faq` 改为 `collection_name=COLLECTION_FAQ`；`KEA._search_faq` 优先 `faq_vec` | faq_vec count = 2（≥1）|
+| P1-7 | 跨语言检索未真实验证 | 仅有 offline 0.5253 指标 | `tests/test_cross_lingual_rag.py` 5 用例，中文 query 召回英文 reason code | 5/5 通过 |
+| P1-9 | 10 问端到端验收缺失 | 手工回放易遗漏 | `scripts/verify_10_questions.py` 自动审核 `example.com` / `placeholder` / `<demo_` / `ERR_UNKNOWN` / `**` 5 类禁止字样 | 10/10 PASS |
+
+### 10.2 已知边界（未完全修复 · 如实记录）
+
+| # | 场景 | 现状 | 后续 |
+|---|------|------|------|
+| 1 | 「荷兰用什么支付方式比较好」走 MSA | MSA 槽位提取器不识别「荷兰」「墨西哥」为 country，回退到「请补充 country」澄清 | 需在 MSA `slot_extractor` 中加 ISO 国家码词典 + 名称 → ISO 映射表 |
+| 2 | 「工单进度怎么查」走 TRA | TRA 默认意图为「创建工单」，未区分「查询」与「创建」 | 需在 TRA 加 query vs create 二分类，或新增 `query_ticket` tool |
+| 3 | 「知识库怎么检索 BR Pix 相关问题」走 KEA | KEA 路由到 `list_candidates`，未触发 `search_faq` | 需在 KEA 意图识别加「怎么/如何」问 → 搜索意图分支 |
+| 4 | 真实 NL 查询 → 槽位填充稳定率 | 当前约 60%（受 LLM 随机性 + 自然语言多样性影响）| 需更多正例训练 + Few-shot 调优 |
+| 5 | 跨语言 embedding 0.5253 | Embedding 相似度指标，跨语言检索效果待大规模验证 | 收集多语种真实 query 验证集 |
+
+### 10.3 数据诚实声明
+
+- **6 个核心场景 Demo**：6 个核心场景固定参数验证通过；真实自然语言对话持续优化中（4 条已知边界，P1 优先级）。
+- **数据飞轮（3-tier 置信度闭环）**：半自动知识沉淀框架，faq_vec 已接入；V1.5 完成全链路自动化（人工审核 → auto-promote）。
+- **跨语言 RAG 0.5253**：Embedding 相似度指标，跨语言检索效果待大规模验证（已用 5 个真实用例做基础验证）。
+- **203 条真实数据 = 117 条知识条目（107 真实拒付码 + 6 案例 + 4 模板）+ 16 支付方式 + 60 工单 + 10 路由规则 + 4 通道状态**。
+
+---
+
+## 11. 未来规划（PoC → 商业落地）
 
 ### 10.1 短期（1-3 个月）
 
@@ -653,7 +690,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 
 ---
 
-## 11. 评审指引（30 秒看完亮点）
+## 12. 评审指引（30 秒看完亮点）
 
 | 时间 | 看什么 | 在哪里 |
 |------|--------|--------|
@@ -662,7 +699,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | 0:10-0:15 | 三大挑战解决方案 | §3 |
 | 0:15-0:20 | 5 大能力真实演示（PWR/PDA/TRA/KEA/OPA）| §4 + `scripts/run_all_real.py` |
 | 0:20-0:25 | 核心亮点（智能交接简报 + 配图 + 数据飞轮 + 飞书闭环）| §5 |
-| 0:25-0:30 | 203 条真实数据 + 6 Demo 全过 | §6 |
+| 0:25-0:30 | 203 条真实数据 + 6 个核心场景固定参数验证通过 | §6 |
 
 ---
 
