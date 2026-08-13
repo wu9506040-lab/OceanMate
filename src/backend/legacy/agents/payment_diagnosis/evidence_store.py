@@ -31,8 +31,13 @@ class EvidenceStore:
     # ===== 证据源 1: 风控规则库 =====
 
     def lookup_risk_rule(self, error_code: str, country: str, channel: str) -> Optional[EvidenceItem]:
-        """根据 error_code/country/channel 查找匹配的风控规则。"""
-        for case in self.data["cases"]:
+        """根据 error_code/country/channel 查找匹配的风控规则。
+
+        Day 9 扩展：除 cases 外，还查 reason_codes（107 条真实 Visa/MC 拒付码）。
+        优先 exact match；都 miss 则 None。
+        """
+        # 1) exact match in cases
+        for case in self.data.get("cases", []):
             if (
                 case["error_code"] == error_code
                 and case["country"] == country
@@ -40,18 +45,46 @@ class EvidenceStore:
             ):
                 return EvidenceItem(
                     type="risk_rule",
-                    id=case["id"],  # <risk_rule_demo_xxx> 占位符
+                    id=case["id"],
                     source="payment_error_database_demo",
                     description=case["rule_description"],
                 )
-        # 模糊匹配：仅按 error_code
-        for case in self.data["cases"]:
+        # 2) exact match in reason_codes (Visa/MC 真实拒付码)
+        for rc in self.data.get("reason_codes", []):
+            if (
+                rc["error_code"] == error_code
+                and (rc.get("country") == country or rc.get("country") == "GLOBAL")
+                and (rc.get("channel") == channel or rc.get("channel") == "ANY")
+            ):
+                return EvidenceItem(
+                    type="risk_rule",
+                    id=rc["id"],
+                    source="reason_code_public_reference",
+                    description=(
+                        f"{rc.get('rule_description', '')}。"
+                        f"建议处理：{rc.get('recommended_action', '')}"
+                    ),
+                )
+        # 3) 模糊匹配：仅按 error_code（cases 优先）
+        for case in self.data.get("cases", []):
             if case["error_code"] == error_code:
                 return EvidenceItem(
                     type="risk_rule",
                     id=case["id"],
                     source="payment_error_database_demo",
                     description=case["rule_description"] + "（模糊匹配 country/channel）",
+                )
+        # 4) 模糊匹配：reason_codes 仅按 error_code
+        for rc in self.data.get("reason_codes", []):
+            if rc["error_code"] == error_code:
+                return EvidenceItem(
+                    type="risk_rule",
+                    id=rc["id"],
+                    source="reason_code_public_reference",
+                    description=(
+                        f"{rc.get('rule_description', '')}。"
+                        f"建议处理：{rc.get('recommended_action', '')}"
+                    ),
                 )
         return None
 

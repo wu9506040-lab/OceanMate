@@ -306,6 +306,19 @@ class TRATool(BaseTool):
             "rule_id": rule["id"],
             "match_level": match_level,
             "create_time_estimate": sla_due.isoformat() + "Z",
+            # Day 10: 智能交接简报 — webhook 层会基于此发私有消息给团队 lead
+            "briefing": {
+                "team": rule["assignee"],
+                "notification_channel": rule["notification_channel"],
+                "ticket_id": ticket_id,
+                "merchant_id": merchant_id or "",
+                "problem_type": problem_type,
+                "priority": priority,
+                "diagnosis_id": diagnosis_id or "",
+                "problem_summary": summary,
+                "sla_hours": rule["sla_hours"],
+                "sla_due": sla_due.isoformat() + "Z",
+            },
             "trace": {
                 "rule_id": rule["id"],
                 "matched_priority": rule["priority"],

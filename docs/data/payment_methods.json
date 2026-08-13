@@ -1,10 +1,10 @@
 {
   "_meta": {
     "purpose": "Demo 占位数据 - 模拟 OP 支付方式库（payment_methods · PWR 用）",
-    "note": "所有 id 字段以 pm_demo_xxx 后缀呈现，非真实产品 ID。对接 OP 真实环境时仅替换 id 字段值，其余结构不变。",
-    "version": "demo-v1",
-    "last_updated": "2026-08-04",
-    "source": "OP 公开资料 + 行业研究（Airwallex / 连连 / Stripe Radar 等）"
+    "note": "所有 id 字段以 pm_demo_xxx 后缀呈现，非真实产品 ID。对接 OP 真实环境时仅替换 id 字段值，其余结构不变。新增 7 个跨境主流支付方式（Alipay+ / Klarna / iDEAL / OXXO / JCB / Konbini / POLi），覆盖 8 国主流市场。",
+    "version": "demo-v2-real-methods",
+    "last_updated": "2026-08-05",
+    "source": "OP 公开资料 + 行业研究（Airwallex / 连连 / Stripe Radar / 各国央行公开数据）"
   },
   "methods": [
     {
@@ -132,6 +132,104 @@
       "description": "微信支付覆盖 CN 移动支付 80%+ 用户。跨境电商需支持 CN 消费者购买。",
       "rationale": "CN 移动支付标配；小额高频",
       "evidence_tags": ["CN", "移动支付", "高频"]
+    },
+    {
+      "id": "pm_demo_alipayplus_global_001",
+      "method": "Alipay+",
+      "country": "GLOBAL",
+      "industries": ["fashion", "electronics", "digital", "education", "travel"],
+      "min_amount": 1,
+      "max_amount": 50000,
+      "settlement": "T+1",
+      "fee_rate": "1.2% to 2.0%",
+      "currency": "MULTI_CURRENCY",
+      "description": "Alipay+ 是蚂蚁集团跨境支付网关，覆盖全球 30+ 国家/地区电子钱包（Alipay HK / Touch'n Go / GCash / TrueMoney 等），合计 10 亿+ 用户。",
+      "rationale": "跨境电商 APAC 用户首选；一次集成覆盖多钱包",
+      "evidence_tags": ["GLOBAL", "电子钱包", "APAC", "覆盖广"]
+    },
+    {
+      "id": "pm_demo_klarna_eu_001",
+      "method": "Klarna",
+      "country": "EU",
+      "industries": ["fashion", "electronics", "travel"],
+      "min_amount": 1,
+      "max_amount": 10000,
+      "settlement": "T+2",
+      "fee_rate": "2.5% + €0.35",
+      "currency": "MULTI_CURRENCY",
+      "description": "Klarna 是 EU/UK/US 主流先买后付 (BNPL)，EU BNPL 市场占有率第一。客单价 $50-$500 转化率提升 30%+，但拒付风险需配套风控。",
+      "rationale": "EU/UK/US 年轻用户偏好；高客单价场景提升转化",
+      "evidence_tags": ["EU", "BNPL", "年轻人", "高客单"]
+    },
+    {
+      "id": "pm_demo_ideal_nl_001",
+      "method": "iDEAL",
+      "country": "NL",
+      "industries": ["fashion", "electronics", "digital", "travel", "education"],
+      "min_amount": 1,
+      "max_amount": 50000,
+      "settlement": "T+1",
+      "fee_rate": "€0.29 per transaction",
+      "currency": "EUR",
+      "description": "iDEAL 是 NL 国家支付系统（NPSP），电商支付市占率 70%+（NL 央行 2024 数据）。跨境收款必备通道。",
+      "rationale": "NL 强制标配；本地银行直连；无需卡",
+      "evidence_tags": ["NL", "银行直连", "高市占", "标配"]
+    },
+    {
+      "id": "pm_demo_oxxo_mx_001",
+      "method": "OXXO",
+      "country": "MX",
+      "industries": ["fashion", "electronics", "B2B", "education"],
+      "min_amount": 10,
+      "max_amount": 10000,
+      "settlement": "T+1 to T+3",
+      "fee_rate": "3.5% + MX$5",
+      "currency": "MXN",
+      "description": "OXXO 是 MX 最大便利店连锁（覆盖全国 2万+ 门店）的现金支付凭证，覆盖 MX 电商 25%+ 交易。MX 60%+ 人口无银行账户，现金支付是必选项。",
+      "rationale": "MX 现金支付标配；覆盖无银行账户人群",
+      "evidence_tags": ["MX", "现金", "便利店", "无银行账户"]
+    },
+    {
+      "id": "pm_demo_jcb_jp_001",
+      "method": "JCB",
+      "country": "JP",
+      "industries": ["travel", "education", "electronics", "fashion"],
+      "min_amount": 1,
+      "max_amount": 500000,
+      "settlement": "T+2",
+      "fee_rate": "2.5% + ¥30",
+      "currency": "JPY",
+      "description": "JCB 是 JP 本土发卡组织（持卡人 1.4 亿+），跨境 JP 消费者必备。海外商户接入 JCB 通常通过 J/Secure 3DS 体系。",
+      "rationale": "JP 跨境必备；本土卡组织；覆盖率高",
+      "evidence_tags": ["JP", "本土卡组织", "跨境"]
+    },
+    {
+      "id": "pm_demo_konbini_jp_001",
+      "method": "Konbini",
+      "country": "JP",
+      "industries": ["fashion", "digital", "education", "B2B"],
+      "min_amount": 100,
+      "max_amount": 300000,
+      "settlement": "T+3",
+      "fee_rate": "2.0% + ¥150",
+      "currency": "JPY",
+      "description": "Konbini 便利店支付覆盖 7-Eleven / Lawson / FamilyMart 等 5 万+ 门店，JP 现金支付主流。大额 / 不愿绑卡用户首选。",
+      "rationale": "JP 现金支付标配；高额订单必备",
+      "evidence_tags": ["JP", "现金", "便利店", "高额"]
+    },
+    {
+      "id": "pm_demo_poli_au_001",
+      "method": "POLi",
+      "country": "AU",
+      "industries": ["education", "travel", "B2B"],
+      "min_amount": 1,
+      "max_amount": 50000,
+      "settlement": "T+1",
+      "fee_rate": "1.5% + AU$0.30",
+      "currency": "AUD",
+      "description": "POLi 是 AU/NZ 主流银行直连支付，免信用卡即可扣款，AU 电商市占率 15%+。教育/B2B 场景标配。",
+      "rationale": "AU/NZ 银行直连标配；免信用卡",
+      "evidence_tags": ["AU", "银行直连", "教育", "B2B"]
     }
   ]
 }

@@ -71,8 +71,9 @@ class PDATool(BaseTool):
                 "country": {
                     "type": "string",
                     "minLength": 2,
-                    "maxLength": 2,
-                    "description": "ISO 国家码，大写，如 BR / US / CN",
+                    "maxLength": 6,
+                    "pattern": "^[A-Z]{2}$|^GLOBAL$",
+                    "description": "ISO 国家码 2 位（US/BR/CN...）或 'GLOBAL'（如 MC 4-digit 拒付码 4837/4863 适用于全球）",
                 },
                 "channel": {
                     "type": "string",
@@ -201,5 +202,6 @@ class PDATool(BaseTool):
             "recommended_actions": d.recommended_actions,
             "confidence": d.confidence,
             "next_agent": d.next_agent,
+            "error_image_path": resp.trace.get("error_image_path", ""),  # Day 9 拒付码配图
             "trace": resp.trace,
         }
