@@ -626,7 +626,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | 2 | 运营可视化 Dashboard 升级 | 趋势组件 + 飞书原生图表 6 个模块 |
 | 3 | 智能交接简报 SOP 化 | 团队 lead 培训 + 工单模板标准化 |
 | 4 | 数据飞轮 7 天 → 30 天 | 自进化能力线性增长 |
-| 5 | 混合检索 + Rerank | **🟡 部分完成（V2.0）**：Qwen 向量 + jieba BM25 + RRF 融合已实现（"13.1" 字面命中从 CB_13.3 提升到 CB_13.1 ✅）；Rerank 接口已预留（`QwenReranker` 类），但当前 DashScope 账号 `gte-rerank` 返回 403 鉴权失败，**PoC 阶段降级为 RRF 顺序输出**。V2.0 切换有权限的 `qwen3-rerank` 或本地 cross-encoder 模型 |
+| 5 | ~~**混合检索 + Rerank**~~ | **✅ Day 14 已完成（已修复）**：Qwen 向量(1024 维) + jieba BM25 + RRF 融合 + DashScope **qwen3-rerank** 重排（真实分数回传 Document.score）；"13.1" 字面命中从 CB_13.3 提升到 CB_13.1 ✅；"未收到货 chargeback" Rerank 后从 CB_C08 修正为 CB_13.1（Visa 13.1 未提供签收凭证）；旧 `gte-rerank` 403 → 切到 `qwen3-rerank`（200 实测）|
 | 6 | ~~**LLM 意图识别 fallback**~~ | **✅ Day 14 已完成**：关键词命中 ≥1 走关键词；命中 0 调 Qwen chat_structured 兜底分类 |
 | 7 | ~~**AtoA 自动链式编排**~~ | **✅ Day 14 已完成**：chain_mode="auto" 默认开启；PDA → TRA → KEA search_faq 自动链式（chain 字段记录） |
 
