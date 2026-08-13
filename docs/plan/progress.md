@@ -1,6 +1,6 @@
-# 进度跟踪（progress.md）
+# 进度跟踪（progress.md · Day 12）
 
-> 实时记录 2 天冲刺的进度。每完成一项打 ✅，遇到阻塞用 🔴 标记。
+> 实时记录 13 天冲刺的进度。每完成一项打 ✅，遇到阻塞用 🔴 标记。
 > 更新频率：每完成一个 WBS 任务更新一次；遇到阻塞立即更新。
 
 ---
@@ -9,87 +9,55 @@
 
 | 阶段 | 状态 | 完成度 |
 |------|------|--------|
-| Phase 1 仓库骨架（7-17 晚） | ✅ 完成 | 14/14 (100%) |
-| Phase 2 方案 + 架构（7-18 上午） | 🔄 进行中 | 5/7 (71%) |
-| Phase 3 代码 + Demo（7-18 下午） | ⏳ 未开始 | 0/7 (0%) |
-| Phase 4 录屏 + 提交（7-19） | ⏳ 未开始 | 0/7 (0%) |
+| Phase 1 仓库骨架（7-17） | ✅ 完成 | 14/14 (100%) |
+| Phase 2 方案 + 架构（7-18） | ✅ 完成 | 7/7 (100%) |
+| Phase 3 代码 + Demo（Day 1-10） | ✅ 完成 | 7/7 (100%) |
+| **Phase 4 真实接入 + 录屏 + 提交（Day 8-13）** | 🔄 **进行中** | 9/12 (75%) |
 
-**总进度**：14/30（47%）| **当前时间**：2026-07-17 晚 21:45
+**总进度**：**37/40（90%）** | **当前时间**：2026-08-10 21:00 · Day 12 末
+**距离截止**：**6 天**（2026-08-16）
 
 ---
 
-## Phase 1 详情（7-17 晚）
+## Phase 4 详情（Day 8-13 · 当前）
 
 | ID | 任务 | 状态 | 完成时间 | 备注 |
 |----|------|------|---------|------|
-| 1.1 | 创建目录结构 | ✅ | 18:06 | docs/src/demo/submission 全部就位 |
-| 1.2 | git init + .gitignore | ✅ | 18:08 | git 仓库就绪 |
-| 1.3 | 写精简版 CLAUDE.md | ✅ | 18:30 | 5 禁 + 5 反例 + 4 步法 |
-| 1.4 | 写 race_sop.md | ✅ | 19:00 | 方案/录屏/提交 3 套规范 |
-| 1.5 | 写 task_plan.md | ✅ | 19:30 | WBS 30 项任务分解 |
-| 1.6 | 写 findings.md | ✅ | 20:00 | 行业调研骨架（待补具体数据） |
-| 1.7 | 写 progress.md | ✅ | 21:45 | 本文件 + 决策日志更新 |
-| 1.8 | 申请飞书企业账号 | ⏳ | — | 阻塞 PM：权限未到 |
-| 1.9 | 招募工程师队友 | 🔄 | — | 单人冲路径已确认（如 7-18 上午无队友） |
-| 1.10 | 配 Gitee origin + push | ✅ | 21:00 | commit 343e585 |
-| 1.11 | 配 GitHub 远端 | ✅ | 21:15 | — |
-| 1.12 | 写 README.md | ✅ | 21:30 | 评审第一眼看 |
-| 1.13 | docs/business/merchant_success.md | ✅ | 21:30 | OP 5 方向 ↔ 4 Agent 对照表 |
-| 1.14 | docs/agents/4 Agent 文档 | ✅ | 21:30 | MSA / PDA / TRA / KEA |
-| 1.16 | submission/part1_前置分析.md | ✅ | 21:30 | 286 字（50-300 PASS） |
-| 1.17 | submission/part2_整体方案.md | ✅ | 21:30 | 595 字（300-600 PASS） |
-| 1.18 | docs/plan/progress.md 更新 | ✅ | 21:45 | 本轮（决策日志 + 路线调整） |
+| 4.1 | Chunking + Cleaner + Embedder 接口 + Pipeline | ✅ | Day 8 | 226 测试通过 + 17 新文件 |
+| 4.2 | 真实 Embedding（DashScope） | ✅ | Day 9 | Chroma 3 collection 满载 |
+| 4.3 | 107 张拒付码配图 | ✅ | Day 9 | SVG + PNG 4 类配色 |
+| 4.4 | PDA fallback 修复 | ✅ | Day 9 | country.maxLength=2→6 + pattern GLOBAL |
+| 4.5 | 真实 LLM 接入 Qwen | ✅ | Day 10 | MSA 走真 LLM + PDA Mock 降级 |
+| 4.6 | 智能交接简报（亮点） | ✅ | Day 10 | PDA→TRA + send_private briefing |
+| 4.7 | 飞书真实凭证切换 | ✅ | Day 11 | cli_aaf8271... + 新 Secret + bitable token |
+| 4.8 | 3 张多维表格 Seed | ✅ | Day 11 | error_codes 117 + payment_methods 16 + routing_rules 10 = 143 条 |
+| 4.9 | upload_image / records import 修 bug | ✅ | Day 11 | image_type 字段 + batch_create 端点 |
+| 4.10 | WS 真实事件接收 | ✅ | Day 11 | events_received=1 + 你好消息 + bot 主动回复 |
+| 4.11 | **submission.md 终稿** | 🔄 进行中 | Day 12 | 6 Agent 6 件套 + 4 Tool 详解 |
+| 4.12 | **3 段录屏**（主 demo + AtoA + 飞书原生） | ⏳ 待办 | Day 13-14 | 录屏脚本 + 视频 |
+| 4.13 | **GitHub README 包装** + 提交材料索引 | ⏳ 待办 | Day 15 | cross-check + 自检报告 |
 
 ---
 
-## Phase 2 详情（7-18 上午）
+## Day 12 关键里程碑（追加）
 
-| ID | 任务 | 状态 | 阻塞 | 备注 |
-|----|------|------|------|------|
-| 2.1 | 业务流图（Mermaid） | ⏳ | — | docs/architecture/business_flow.md（4 Agent ↔ 中枢） |
-| 2.2 | Agent 协作图（Mermaid） | ⏳ | — | docs/architecture/agent_architecture.md |
-| 2.3 | Part 1 终稿 | ✅ | — | 286 字 ✓（今晚提前完成） |
-| 2.4 | Part 2 终稿 | ✅ | — | 595 字 ✓（今晚提前完成，砍 10 轮后通过） |
-| 2.5 | 导出 PNG 架构图 | ⏳ | 2.1, 2.2 | mermaid-cli |
-| 2.6 | FastAPI + 4 Agent stub | ⏳ | 飞书权限 | 后端骨架 |
-| 2.7 | 飞书 webhook 基础 | ⏳ | 2.6 | — |
-
----
-
-## Phase 3 待办（7-18 下午）
-
-| ID | 任务 | 状态 | 阻塞 | 备注 |
-|----|------|------|------|------|
-| 3.1 | Payment Diagnosis Agent + RAG | ⏳ | 2.6 | P0 Agent 1（Demo 核心） |
-| 3.2 | Merchant Success Agent | ⏳ | 3.1 | P0 Agent 2（采集 + 推荐） |
-| 3.3 | Ticket Routing Agent | ⏳ | 3.1 | P0 Agent 3（工单路由） |
-| 3.4 | Knowledge Evolution Agent | ⏳ | 3.1 | P1 Agent 4（知识沉淀） |
-| 3.5 | Agent 协作机制（业务驱动版） | ⏳ | 3.1-3.3 | 不引入 MCP 完整框架，预留扩展接口 |
-| 3.6 | 多维表格配置（工单池/知识库） | ⏳ | 2.4 | 模拟数据 |
-| 3.7 | 联调：商户→Agent→飞书多维表格 | ⏳ | 3.5, 3.6 | 关键 Demo 路径 |
-
----
-
-## Phase 4 待办（7-19）
-
-| ID | 任务 | 状态 | 阻塞 | 备注 |
-|----|------|------|------|------|
-| 4.1 | 3 分钟主 demo | ⏳ | 3.7 | submission/demo_main.mp4 |
-| 4.2 | 1 分钟业务流 demo | ⏳ | 3.7 | submission/demo_business_flow.mp4 |
-| 4.3 | 1 分钟飞书生态 demo（多维表格） | ⏳ | 3.6 | submission/demo_feishu.mp4 |
-| 4.4 | GitHub README 包装升级 | ⏳ | 3.6 | 项目背景/业务流程/AI 方案/技术路线/已有能力 |
-| 4.5 | 提交材料索引 | ⏳ | 4.1-4.4 | submission/README.md |
-| 4.6 | cross-check | ⏳ | 4.5 | 字数/链接/录屏 |
-| 4.7 | 提交报名表 | ⏳ | 4.6 | 22:00 前提交 |
+| 里程碑 | 时间 | 通过判据 | 状态 |
+|--------|------|---------|------|
+| **M7-a 多维表迁飞行社** | **Day 12 20:30** | **新 APP_TOKEN 建表 + 143 条 + 50 模拟工单** | ✅ |
+| **M7-b 真实 lead open_id** | **Day 12 20:50** | **占位→ou_aa9ece53... + 加协作者 edit** | ✅ |
+| **M7-c Dashboard 配完** | **Day 12 21:00** | **5 模块配出（标题/配色/趋势图/柱状图 4 错误待修）** | 🔄 |
+| **M7-d submission.md 终稿** | Day 12 23:00 | 6 Agent 6 件套完整 | ⏳ |
 
 ---
 
 ## 阻塞清单（🔴）
 
-| 阻塞项 | 触发时间 | 影响范围 | 解阻塞动作 | 负责人 | 状态 |
-|--------|---------|---------|-----------|--------|------|
-| 飞书企业账号未到 | 7-17 22:00 | Phase 3 全部 | 改 mock + 本地 LLM；后天上真账号补录屏 | PM | 🔴 |
-| 单人冲路径确认 | 7-17 23:00 | Phase 3 工期 | 独立完成 4 Agent stub + Payment Diagnosis 主路径 | zwyyy7 | 🟡 已锁 |
+| 阻塞项 | 触发时间 | 影响范围 | 解阻塞动作 | 状态 |
+|--------|---------|---------|-----------|------|
+| ~~飞书企业账号未到~~ | ~~7-17 22:00~~ | ~~Phase 3 全部~~ | ~~改 mock + 本地 LLM~~ | ✅ **已解除（Day 11 凭证到位）** |
+| ~~跨租户问题~~ | ~~Day 11 00:30~~ | ~~WS 收不到事件~~ | ~~用户切到「飞行社企业」~~ | ✅ **已解除** |
+| ~~im:chat:readonly 权限缺失~~ | ~~Day 11 00:40~~ | ~~list_chats 99991672~~ | ~~后台开通应用身份权限~~ | ✅ **已解除** |
+| 真实 lead open_id 缺失 | Day 11 末 | 智能交接简报收件人是 demo 占位 | 后续从「飞行社企业」成员管理查 | 🟡 非阻塞（demo 占位可用） |
 
 ---
 
@@ -97,67 +65,56 @@
 
 | # | 风险 | 等级 | 触发条件 | 当前状态 | 应对 |
 |---|------|------|---------|---------|------|
-| 1 | 飞书 AI 权限未到 | 🔴 | 7-18 12:00 未申请到 | 待监控 | 改 mock + 文档截图 |
-| 2 | 工程师队友未到位（已接受） | 🟡 | 7-17 23:00 未确认 | 单人独立参赛 | 4 Agent stub + Payment Diagnosis 主路径 |
-| 3 | Part 2 字数超标 | ✅ 已解除 | 写超 600 字 | 已 595 字通过 | 砍细节（实际砍 10 轮） |
-| 4 | 录屏失败 | 🟡 | 7-19 12:00 未完成 | 待监控 | GIF + 截图代替 |
-| 5 | 诊断 Agent 跑不通 | 🟡 | 7-18 18:00 未跑通 | 待监控 | 砍到最简 demo |
+| 1 | ~~飞书 AI 权限未到~~ | ~~🔴~~ | ~~7-18 12:00 未申请到~~ | ~~改 mock + 文档截图~~ | ✅ **已解除** |
+| 2 | 录屏失败 | 🟡 | 8-14 未完成 | 待监控 | 拆 3 段独立短片（每段 1 分钟） |
+| 3 | submission.md 写不完 | 🟡 | 8-12 未完成 | 待监控 | 6 Agent 6 件套直接复 Day 8-10 文档 |
+| 4 | 飞书 WS 突然掉链 | 🟡 | 录屏时断 | Poller 兜底（FEISHU_POLL_CHAT_ID 已写入 .env） | 紧急时启 Poller |
+| 5 | 评委质疑真实度 | ✅ | — | 193 条数据（117+16+60）+ 真实 WS + 真实 send_private briefing | — |
 
 ---
 
-## 决策日志
+## 决策日志（2026-08-10 · Day 11 追加）
 
 | 时间 | 决策内容 | 决策理由 | 决策人 |
 |------|---------|---------|--------|
-| 2026-07-17 18:00 | 仓库模式：完全独立新仓库 | 单兵冲刺边界清晰 | zwyyy7 |
-| 2026-07-17 18:00 | 队伍配置：2 人组（业务架构 + 工程） | 与参赛人数 1-3 人对齐 | zwyyy7 |
-| 2026-07-17 18:00 | 命题：OP 跨境商户成功 | 与项目经验匹配度最高 | zwyyy7 |
-| 2026-07-17 18:30 | CLAUDE.md 精简策略：保留三原则 + 5 反例 | 时间紧 + 治理思想不可丢 | zwyyy7 |
-| 2026-07-17 19:00 | 队伍名：OceanMate | 与"AI 合伙人"定位呼应 | zwyyy7 |
-| 2026-07-17 21:30 | 品牌升级：OceanMate → **OceanMate AI** = AI 数字员工体系 | 评审视角下"AI 客服"减分，"CSM 团队数字员工"加分 | zwyyy7 |
-| 2026-07-17 21:30 | 路线调整：6 Agent → **4 业务 Agent + 商户成功 AI 中枢** | OP 5 方向评估，4 类足够覆盖；不堆 Agent | zwyyy7 |
-| 2026-07-17 21:30 | Agent 1 改名：Merchant Insight → **Merchant Success** | 避免被理解为"市场分析" | zwyyy7 |
-| 2026-07-17 21:30 | AtoA/MCP 降级："标准化工具接口预留 MCP 扩展" | 不假装 2 天交付完整 AtoA；保留关键词让评审知道你懂 | zwyyy7 |
-| 2026-07-17 21:30 | 量化口径修正：去具体数字改"预期可" + 可验证指标 | 数据引用风险 + 伪造案例零容忍 | zwyyy7 |
-| 2026-07-17 21:30 | Demo 设计：Payment Diagnosis 为核心亮点 | 错误码归因是最适合 Demo 的能力（含证据链可视化） | zwyyy7 |
-| 2026-07-17 21:30 | 仓库节奏重排：docs/business + docs/agents 落盘优先 | 时间紧，分阶段砍风险 | zwyyy7 |
+| 2026-08-10 00:30 | 飞书跨租户问题 → 用户切到「飞行社企业」 | list_chats 0 个 chat + WS 0 events，跨租户安全策略不可绕过 | zwyyy7 |
+| 2026-08-10 00:40 | im:chat:readonly 应用身份权限开通 | list_chats 99991672，需应用身份权限（非用户身份） | zwyyy7 |
+| 2026-08-10 00:50 | Poller fallback 写入 .env（chat_id=oc_6296625...） | WS 不稳定时快速切兜底，不需重新配置 | zwyyy7 |
+| 2026-08-10 01:00 | 完成度评估 90% | 飞书真实接入全通，剩文档 + 录屏 4 天足够 | zwyyy7 |
+| 2026-08-10 20:30 | 多维表迁飞行社企业 | 测试企业 91403 Forbidden 阻塞 → 重建在飞行社 APP_TOKEN `LQkTbJe1jaCM1PsFU48cslfgnSe` | zwyyy7 |
+| 2026-08-10 20:45 | 加 50 模拟工单 | 6 模块 dashboard 有真实数据看 | zwyyy7 |
+| 2026-08-10 20:50 | 真实 lead open_id 替换 | `ou_demo_lead_tech_l2` → `ou_aa9ece53b9a503cf7007ce2d42021a1c` | zwyyy7 |
+| 2026-08-10 21:00 | Dashboard 5 模块配出 | 4 个错误待修（标题/配色/趋势图/柱状图） | zwyyy7 |
 
 ---
 
-## 变更日志
+## 变更日志（2026-08-10 · Day 11 追加）
 
 | 时间 | 变更内容 | 变更人 |
 |------|---------|--------|
-| 2026-07-17 18:06 | 创建目录结构 | zwyyy7 |
-| 2026-07-17 18:08 | git init 完成 | zwyyy7 |
-| 2026-07-17 18:30 | CLAUDE.md 精简版定稿 | zwyyy7 |
-| 2026-07-17 19:00 | race_sop.md 定稿 | zwyyy7 |
-| 2026-07-17 19:30 | task_plan.md 定稿 | zwyyy7 |
-| 2026-07-17 20:00 | findings.md 骨架定稿 | zwyyy7 |
-| 2026-07-17 20:30 | progress.md 初始化 | zwyyy7 |
-| 2026-07-17 21:00 | Gitee origin 配置 + 首次 push（commit 343e585） | zwyyy7 |
-| 2026-07-17 21:15 | GitHub 远端配置 | zwyyy7 |
-| 2026-07-17 21:30 | README.md 写完 | zwyyy7 |
-| 2026-07-17 21:30 | docs/business/merchant_success.md 落盘（OP 5 方向对照表） | zwyyy7 |
-| 2026-07-17 21:30 | docs/agents/merchant_success_agent.md 落盘 | zwyyy7 |
-| 2026-07-17 21:30 | docs/agents/payment_diagnosis_agent.md 落盘（Demo 核心） | zwyyy7 |
-| 2026-07-17 21:30 | docs/agents/ticket_routing_agent.md 落盘 | zwyyy7 |
-| 2026-07-17 21:30 | docs/agents/knowledge_evolution_agent.md 落盘 | zwyyy7 |
-| 2026-07-17 21:30 | submission/part1_前置分析.md 落盘（**286 字 PASS**） | zwyyy7 |
-| 2026-07-17 21:30 | submission/part2_整体方案.md 落盘（**595 字 PASS**，砍 10 轮后通过） | zwyyy7 |
-| 2026-07-17 21:45 | progress.md 决策日志更新（路线 + 品牌 + 命名 + 量化 + AtoA + 节奏） | zwyyy7 |
+| 2026-08-10 00:00 | .env 写入新飞书凭证（cli_aaf8271... + 新 Secret + bitable token） | zwyyy7 |
+| 2026-08-10 00:10 | seed_bitables.py 落地（建 3 表 + 143 条） | zwyyy7 |
+| 2026-08-10 00:15 | test_real_feishu_e2e.py 落地（4 项通道测试） | zwyyy7 |
+| 2026-08-10 00:20 | diag_feishu.py 落地（list_chats + list_messages 诊断） | zwyyy7 |
+| 2026-08-10 00:30 | 修 upload_image 缺 image_type 字段 | zwyyy7 |
+| 2026-08-10 00:35 | 修 batch_create 端点（不是 /records）| zwyyy7 |
+| 2026-08-10 00:40 | 补 im:chat:readonly 权限 | zwyyy7 |
+| 2026-08-10 00:50 | 用户切到「飞行社企业」后 WS 收事件成功 | zwyyy7 |
+| 2026-08-10 00:55 | bot 主动 send_message 成功（message_id=om_x100b68bf...）| zwyyy7 |
+| 2026-08-10 01:00 | FEISHU_POLL_CHAT_ID 写入 .env（Poller 兜底） | zwyyy7 |
 
 ---
 
-## 备注
+## 备注（Day 11 末 · 截至 2026-08-10 01:00）
 
-- **今晚完成**：业务文档 + 4 Agent 文档 + Part 1/2 终稿（**14/30** 任务完成，47%）
-- **今晚 P0 阻塞**：
-  - 🔴 飞书企业账号申请（PM 待办）
-  - 🟡 工程队友招募（单人冲退路已确认）
-- **明天 7-18 上午**：Phase 2 剩余 2 项（业务流图 Mermaid + Agent 协作图 Mermaid + 导出 PNG）
-- **明天 7-18 下午**：Phase 3 代码 + Demo（4 Agent stub + 飞书 webhook 联调）
-- **后天 7-19**：录屏 + 提交（**22:00 前截止**）
-- **比赛评分自检（用户视角 8 项）**：
-  - 命题匹配 9.5 / 业务理解 9.0 / AI 方案合理性 8.5 / 技术可实现性 8.5
-  - 创新性 8.5 / 学生可信度 9.0 → **整体 85-90 分水平**
+- **今夜完成**：飞书真实接入全链路 ✅（凭证 / 3 表 / WS / 双向消息 / chat_id / open_id）
+- **完成度**：90%（↑15% 来自今天）
+- **剩余工期**：6 天（8-11 ~ 8-16）
+- **明天 8-11 必做**：submission.md 终稿（6 Agent 6 件套 + Part 1/2 更新）
+- **Day 13-14 必做**：3 段录屏（主 demo 3 分钟 + AtoA 1 分钟 + 飞书原生 1 分钟）
+- **Day 15 必做**：GitHub README 包装 + 提交材料索引 + cross-check
+- **Day 16 截止**：22:00 前提交
+
+**比赛评分自检（8 项 · 当前水平）**：
+- 命题匹配 9.5 / 业务理解 9.0 / AI 方案合理性 9.0 ↑ / 技术可实现性 9.0 ↑
+- 创新性 9.0 / 学生可信度 9.0 → **整体 90 分水平** ↑（昨天 85-90）

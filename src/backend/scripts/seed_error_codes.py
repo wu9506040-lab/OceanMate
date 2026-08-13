@@ -83,6 +83,25 @@ def _to_records(data: dict) -> list[dict]:
             "status": r.get("status", ""),
         })
 
+    # 4. reason_codes（107 条真实 Visa/MC 拒付码 · 来自 chargebackgurus.com）
+    for r in data.get("reason_codes", []):
+        text = (
+            f"{r.get('rule_description', '')}。"
+            f"触发条件：{r.get('trigger_condition', '')}。"
+            f"建议处理：{r.get('recommended_action', '')}。"
+            f"来源：{r.get('source', '')}"
+        )
+        records.append({
+            "id": r["id"],
+            "text": text.strip(),
+            "error_code": r.get("error_code", ""),
+            "country": r.get("country", "GLOBAL"),
+            "channel": r.get("channel", "ANY"),
+            "problem_type": r.get("problem_type", "拒付"),
+            "severity": r.get("severity", "medium"),
+            "image_path": f"data/error_images/{r['id']}.png",  # 错误码配图（4 类颜色 + emoji）
+        })
+
     return records
 
 
@@ -95,10 +114,12 @@ def seed(data_path: Path, reset: bool = False, collection: str = COLLECTION_ERRO
 
     # reset：清空 collection
     if reset:
-        existing_ids = engine.recall_by_metadata({}, limit=10000, collection_name=collection)
+        # recall_by_metadata 不支持空 filter；改用底层 get(limit=large)
+        existing = engine._collections[collection].get(limit=10000)
+        existing_ids = existing.get("ids", []) if existing else []
         if existing_ids:
-            for d in existing_ids:
-                engine.delete_document(d.id, collection_name=collection)
+            for doc_id in existing_ids:
+                engine.delete_document(doc_id, collection_name=collection)
             print(f"[reset] 清除 {len(existing_ids)} 条旧文档")
 
     records = _to_records(data)
