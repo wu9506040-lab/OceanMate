@@ -16,8 +16,10 @@ class ProblemRecord(BaseModel):
     merchant_id: str = Field(..., description="商户 ID（Demo 占位：<DEMO_MERCHANT_ID>）")
     country: str = Field(..., description="ISO 国家码，如 BR/US/CN")
     channel: str = Field(..., description="支付渠道，如 Visa/Mastercard/PayPal")
-    error_code: str = Field(..., description="错误码（Demo 占位：<DEMO_ERROR_CODE>）")
+    error_code: str = Field(..., description="错误码（可为空串：场景类问题无错误码）")
     affected_orders: List[str] = Field(default_factory=list, description="受影响的订单号列表")
+    # Day 14 P0-1：原始自然语言，用于知识库（Chroma）语义检索
+    query_text: str = Field(default="", description="商户原始提问原文（RAG 检索用）")
 
 
 class DiagnoseRequest(BaseModel):
@@ -31,7 +33,7 @@ class DiagnoseRequest(BaseModel):
 class EvidenceItem(BaseModel):
     """证据链单条。"""
 
-    type: Literal["risk_rule", "channel_status", "config_snapshot"]
+    type: Literal["risk_rule", "channel_status", "config_snapshot", "knowledge_base"]
     id: str = Field(..., description="证据 ID（Demo 阶段以 <xxx_demo_xxx> 占位符呈现）")
     source: str = Field(..., description="证据来源系统（Demo 后缀 _demo）")
     description: Optional[str] = Field(None, description="证据说明")

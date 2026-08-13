@@ -29,11 +29,11 @@ class PaymentDiagnosisService:
     def diagnose(self, req: DiagnoseRequest) -> DiagnoseResponse:
         problem = req.problem_record
 
-        # Step 1: 多源证据融合
-        evidence = self.evidence_store.collect_evidence(problem)
+        # Step 1: 先按 error_code 推断问题类型（决定证据相关性过滤）
+        problem_type = self._infer_problem_type(problem)
 
-        # Step 2: 根据 evidence 推断 problem_type
-        problem_type = self._infer_problem_type(problem, evidence)
+        # Step 2: 多源证据融合（含 Chroma 知识库真实检索 · Day 14 P0-1）
+        evidence = self.evidence_store.collect_evidence(problem, problem_type)
 
         # Step 3: LLM 因果归因
         llm_result = self.llm.generate_diagnosis(
@@ -89,14 +89,29 @@ class PaymentDiagnosisService:
         return None
 
     @staticmethod
-    def _infer_problem_type(problem: ProblemRecord, evidence) -> str:
-        """根据 error_code 前缀/evidence 推断问题类型。"""
-        ec = problem.error_code.upper()
-        if "RISK" in ec or "BLOCK" in ec or "3DS" in ec or "WEBHOOK" in ec:
+    def _infer_problem_type(problem: ProblemRecord, evidence=None) -> str:
+        """根据 error_code 前缀 / 原始问法推断问题类型。
+
+        Day 14 P0-2：error_code 可为空（场景类问题），此时退回 query_text 关键词。
+        """
+        ec = (problem.error_code or "").upper()
+        if "WEBHOOK" in ec or "CALLBACK" in ec:
+            return "Webhook 回调失败"
+        if "RISK" in ec or "BLOCK" in ec or "3DS" in ec:
             return "支付失败"
         # Day 9: CB_ 开头（Visa/MC 真实拒付码）也是拒付
         if "CHARGEBACK" in ec or ec.startswith("CB_"):
             return "拒付"
         if "REFUND" in ec:
             return "退款异常"
+        # 无 error_code → 看商户原话
+        q = getattr(problem, "query_text", "") or ""
+        if "webhook" in q.lower() or "回调" in q:
+            return "Webhook 回调失败"
+        if "拒付" in q or "chargeback" in q.lower():
+            return "拒付"
+        if "退款" in q:
+            return "退款异常"
+        if any(kw in q for kw in ("延迟", "慢", "不到账", "到账", "结算", "对账")):
+            return "结算延迟"
         return "支付失败"

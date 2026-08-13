@@ -1,12 +1,12 @@
 """KEATool - 知识进化助手（OP 命题方向 ⑤ · 案例→FAQ 自进化闭环）。
 
 3 个 intent：
-- promote_to_faq       把 cases 表中已结案的案例升格为 FAQ（写 Chroma + embedding_meta）
+- promote_to_faq       把 cases 表中已结案的案例升格为 FAQ（写 Chroma faq_vec + embedding_meta）
 - search_faq           按 query 检索 FAQ（Chroma retrieve → join cases 表返回富信息）
 - list_candidates      列高置信度 + 未沉淀的候选（供运营审阅 / 自动 promote）
 
 设计要点：
-- 复用 BaseRAGEngine（默认 ChromaRAGEngine.cases_vec）
+- 复用 BaseRAGEngine（Day 14 P1-6：目标集合 faq_vec，与原始案例库 cases_vec 分离）
 - 复用 CaseRepository（SQLite cases 表）
 - 复用 embedding_meta 表（SQLite ↔ Chroma 一致性追踪）
 - 严格 3 步事务逻辑：
@@ -27,6 +27,7 @@ from app.implementations.db.repositories import CaseRepository
 from app.implementations.rag.chroma_rag import (
     ChromaRAGEngine,
     COLLECTION_CASES,
+    COLLECTION_FAQ,
 )
 from app.models import Case
 
@@ -285,7 +286,7 @@ class KEATool(BaseTool):
             }
 
         # ≥ 0.9：自动升格（原逻辑）
-        # 3) 写 Chroma（cases_vec collection）
+        # 3) 写 Chroma（Day 14 P1-6：写 faq_vec，与原始 cases_vec 分离）
         chroma_id = f"faq_{case_id}_{uuid.uuid4().hex[:8]}"
         rag_text = self._case_to_rag_text(case)
         metadata = self._case_to_metadata(case)
@@ -295,7 +296,7 @@ class KEATool(BaseTool):
         try:
             rag.add_document(
                 Document(id=chroma_id, text=rag_text, metadata=metadata),
-                collection_name=COLLECTION_CASES,
+                collection_name=COLLECTION_FAQ,
             )
         except Exception as e:
             return self._error_result(
@@ -316,7 +317,7 @@ class KEATool(BaseTool):
                         "st": "cases",
                         "sid": case_id,
                         "cid": chroma_id,
-                        "cn": COLLECTION_CASES,
+                        "cn": COLLECTION_FAQ,
                     },
                 )
             except Exception as e:
@@ -336,7 +337,7 @@ class KEATool(BaseTool):
             "case_id": case_id,
             "chroma_id": chroma_id,
             "trace": {
-                "collection": COLLECTION_CASES,
+                "collection": COLLECTION_FAQ,
                 "chroma_id": chroma_id,
                 "decision": "auto_promoted",
                 "reason": f"confidence {confidence:.2f} ≥ {AUTO_PROMOTE_MIN_CONFIDENCE_PROMOTE_TO_CHROMA_UPPER} 阈值，自动升格",
@@ -360,16 +361,25 @@ class KEATool(BaseTool):
                 hint="传入商户提问文本，如 'BR Visa 拒付怎么办'。",
             )
 
-        # 1) Chroma 检索
+        # 1) Chroma 检索（Day 14 P1-6：优先 faq_vec 沉淀库，为空时回落原始 cases_vec）
         rag = self._ensure_rag()
         chroma_filter = {"country": country} if country else None
+        searched_collection = COLLECTION_FAQ
         try:
             docs = rag.retrieve(
                 query,
                 top_k=top_k,
                 filter=chroma_filter,
-                collection_name=COLLECTION_CASES,
+                collection_name=COLLECTION_FAQ,
             )
+            if not docs:
+                searched_collection = COLLECTION_CASES
+                docs = rag.retrieve(
+                    query,
+                    top_k=top_k,
+                    filter=chroma_filter,
+                    collection_name=COLLECTION_CASES,
+                )
         except Exception as e:
             return self._error_result(
                 "search_faq",
@@ -387,6 +397,7 @@ class KEATool(BaseTool):
                     "query": query,
                     "top_k": top_k,
                     "country": country,
+                    "collection": searched_collection,
                     "empty_reason": "no_match",
                 },
             }
@@ -434,6 +445,7 @@ class KEATool(BaseTool):
                 "query": query,
                 "top_k": top_k,
                 "country_filter": country,
+                "collection": searched_collection,
                 "rag_results": len(docs),
             },
         }

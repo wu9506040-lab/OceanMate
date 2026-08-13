@@ -81,7 +81,11 @@ class PDATool(BaseTool):
                 },
                 "error_code": {
                     "type": "string",
-                    "description": "错误码（Demo 占位：<DEMO_ERROR_CODE>）",
+                    "description": "错误码（如 CB_13.1 / ERR_xxx）。场景类问题（延迟/不稳定）可传空串",
+                },
+                "query_text": {
+                    "type": "string",
+                    "description": "商户原始提问原文（用于知识库语义检索，Day 14 P0-1）",
                 },
                 "affected_orders": {
                     "type": "array",
@@ -189,6 +193,7 @@ class PDATool(BaseTool):
                 channel=params["channel"],
                 error_code=params["error_code"],
                 affected_orders=params.get("affected_orders", []),
+                query_text=params.get("query_text", ""),
             )
         )
 
