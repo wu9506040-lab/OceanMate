@@ -2,7 +2,7 @@
 
 > **项目名称**：OceanMate AI — 跨境商户成功运营助手体系
 > **赛道**：2026 飞书 AI 先锋未来人才大赛 · 华南
-> **提交时间**：2026-08-13（Day 13 终稿）
+> **提交时间**：2026-08-14（Day 14 终稿）
 > **截止时间**：2026-08-16 22:00
 > **作者**：zwyyy7（单人参赛）
 > **GitHub**：E:\ai-pioneer（本地）· commit `5ea6482` · tag `day-13-fixes`
@@ -16,7 +16,7 @@
 | 一句话定义 | **OP 商户成功团队的"数字员工体系"——4 类业务 Agent + 商户成功 AI 中枢，覆盖商户选型 / 接入 / 诊断 / 工单 / 知识沉淀 / 协同 6 个环节全生命周期** |
 | 业务价值 | 把 OP 内部"拉群 + 截图 + 翻文档"的协同模式，升级为"飞书智能伙伴一句话召唤 AI 中枢 → 多 Agent 自动诊断 → 飞书多维表自动派单 → 案例自动沉淀" |
 | 技术亮点 | 6 Agent 协作 + AtoA 协议 + 数据飞轮（自进化）+ 飞书生态全栈打通 |
-| 真实落地 | **203 条真实数据**（117 错误码 + 16 支付方式 + 60 工单 + 10 路由规则）+ 飞书 WS 真实接收 + 真实 send_private briefing + 真实 Open API 调用 |
+| 真实落地 | **203 条真实数据**（117 条知识条目 = 107 条真实拒付码 + 6 条 demo 案例 + 4 条配置模板 · 详见 §6.1 拆解）+ 16 支付方式 + 60 工单 + 10 路由规则 + 飞书 WS 真实接收 + send_private briefing + 真实 Open API 调用 |
 | 6 Demo 全过 | Visa 13.1 / MC 4837 / BR Pix / NL 推荐 / 高优工单 / BR Pix FAQ 召回 |
 
 ---
@@ -231,7 +231,7 @@
 | 层 | 设计 |
 |----|------|
 | 接入层 | `PaymentErrorSource` 接口（Provider 抽象），统一 4 类数据格式 |
-| 存储层 | `payment_error_cases.json`（117 条 Demo 占位）+ 飞书多维表 `error_codes` 表（真实数据）|
+| 存储层 | `payment_error_cases.json`（117 条知识条目 = 107 真实拒付码 + 6 demo 案例 + 4 模板）+ 飞书多维表 `error_codes` 表（107 条真实拒付码）|
 | 融合层 | PDA Tool 多源融合 → 输出"问题类型 + 根因 + 证据链" |
 | 演化层 | KEA promote → cases_vec → Chroma 语义检索 |
 
@@ -313,7 +313,7 @@
 | Demo 1 | US 数字商品 Visa 13.1 → "未收到货"根因 + 3 类证据链 + 申诉模板 + **107 张配图自动匹配** |
 | Demo 2 | US 跨境电商 MC 4837 → "No Cardholder Authorization" + 3DS 2.0 建议 |
 | Demo 3 | BR Pix 周六凌晨 → 央行系统批处理窗口解释 |
-| 真实度 | 117 条真实错误码（Visa/MC/Amex/Discover 全覆盖）+ 4 类配色（auth/consumer/fraud/processing）+ **Qwen text-embedding-v3 真实语义召回（Day 13 升级）**（同义词命中："拒付"/"chargeback"/"refund" 互相召回）|
+| 真实度 | **107 条真实拒付码**（Visa/MC/Amex/Discover 全覆盖，来源 chargebackgurus.com 2026）+ 4 类配色（auth/consumer/fraud/processing）+ **Qwen text-embedding-v3 真实语义召回（Day 13 升级）**（同义词命中："拒付"/"chargeback"/"refund" 互相召回）|
 | 代码 | `src/backend/app/agents/pda/tool.py` |
 
 ### 4.3 TRA（Ticket Routing Agent）
@@ -418,7 +418,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
     → 下次 search_faq 自动召回
 ```
 
-**Day 13 修复**（commit `5ea6482`）：
+**Day 13 修复**（commit 历史已重写，详见 `git log`）：
 - **根因**：cases 表 `error_code REFERENCES error_codes(code)` 外键，但 error_codes 是 `UNIQUE(code, country, channel)` 复合约束 → SQLite "FK mismatch" 阻塞 KEA promote
 - **修复**：`scripts/migrate_drop_cases_fk.py` DROP FK + RECREATE 表（cases 是本地缓存，真相在飞书多维表）
 - **验证**：insert → promote → search 端到端 PASS（cases_vec 从 14 → 15）
@@ -446,7 +446,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 
 | 表名 | 条数 | 内容 | 用途 | 存储位置 |
 |------|------|------|------|----------|
-| `error_codes` | **117** | Visa/MC/Amex/Discover 全量拒付码 | PDA 诊断依据 | 飞书多维表 + Chroma |
+| `error_codes` | **117 条知识条目**（107 拒付码 + 6 案例 + 4 模板）| 107 条真实 Visa/MC/Amex/Discover 拒付码（来源 chargebackgurus.com 2026 公开数据）+ 6 条 demo 案例 + 2 条 config 模板 + 2 条 channel_status 模板 | PDA 诊断依据 | 飞书多维表 + Chroma（cases_vec 17 / error_codes_vec 117 / faq_vec 0 — faq_vec 待建）|
 | `payment_methods` | **16** | 跨境支付方式规则 | MSA PWR 推荐依据 | 飞书多维表 + Chroma |
 | `routing_rules` | **10** | 工单路由规则 | TRA 派单依据 | 飞书多维表 + 本地 JSON 缓存 |
 | `cases`（真实工单池）| **60** | 含 status / priority / problem_type / created_at | Dashboard 趋势图 | **仅飞书多维表** |
@@ -454,15 +454,18 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 
 > **架构说明**：工单数据（60 条）**只存于飞书多维表**，不写本地 SQLite。原因是飞书多维表已经是运营团队的 source of truth，本地 SQLite 存工单会造成数据双写不一致（详见 §10.1 真实落地项）。SQLite `tickets` 表 = 0 行（设计如此，不是 bug）。
 
-### 6.2 117 错误码分布（验证 PDA 真实度）
+### 6.2 107 条真实拒付码分布（验证 PDA 真实度）
 
-| 通道 | 错误码数 | 代表 |
+> ⚠️ **精确表述**：上表 117 条中，**仅 107 条是真实拒付码**（Visa/MC/Amex/Discover 全量），其余 10 条是 demo 占位（6 案例 + 4 模板）。下表只统计 107 条真实拒付码：
+
+| 通道 | 拒付码数 | 代表 |
 |------|---------|------|
 | Visa | 38 | CB_13.1 / IC / NC / CD / DP / NF |
 | Mastercard | 35 | CB_4837 / FR2 / FR4 / FR6 / M49 |
 | Amex | 22 | R03 / R13 / RG / RM |
 | Discover | 14 | IC / NC / DP |
 | Pix / 巴西本地 | 8 | ERR_PIX_SPI_DELAY / M01 / M10 |
+| **真实拒付码合计** | **107** | 来源：chargebackgurus.com 2026 公开数据 |
 
 **配图覆盖**：107 张 SVG + PNG（data/error_images/），4 类配色（auth/consumer/fraud/processing）
 
@@ -622,7 +625,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 
 | # | 任务 | 价值 |
 |---|------|------|
-| 1 | 接入 OP 真实风控 / 通道 / 对账 API | 替换 117 错误码 Demo 占位 |
+| 1 | 接入 OP 真实风控 / 通道 / 对账 API | 替换 6 条 demo 案例 + 4 条模板为 OP 真实数据（107 条拒付码保留）|
 | 2 | 运营可视化 Dashboard 升级 | 趋势组件 + 飞书原生图表 6 个模块 |
 | 3 | 智能交接简报 SOP 化 | 团队 lead 培训 + 工单模板标准化 |
 | 4 | 数据飞轮 7 天 → 30 天 | 自进化能力线性增长 |
@@ -657,7 +660,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | 0:00-0:05 | 项目定位（数字员工体系）| §1.3 |
 | 0:05-0:10 | 6 Agent 架构图 | §2.1 |
 | 0:10-0:15 | 三大挑战解决方案 | §3 |
-| 0:15-0:20 | 5 大能力真实演示 | §4 + Demo 录屏 |
+| 0:15-0:20 | 5 大能力真实演示（PWR/PDA/TRA/KEA/OPA）| §4 + `scripts/run_all_real.py` |
 | 0:20-0:25 | 核心亮点（智能交接简报 + 配图 + 数据飞轮 + 飞书闭环）| §5 |
 | 0:25-0:30 | 203 条真实数据 + 6 Demo 全过 | §6 |
 
@@ -677,13 +680,14 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 
 ## 附录 B：Git 提交信息
 
-- **当前 commit**：`5ea6482 fix(day13): KEA FK / .env open_id / dashboard 数据清理 + 截图`
-- **tag**：`day-13-fixes`（Day 13 修复完成版 · 安全标签）
-- **变更统计**：262 files changed, 9240 insertions(+), 297 deletions(-)
-- **关键新增**：`scripts/migrate_drop_cases_fk.py` · `scripts/cleanup_dashboard_data.py` · `scripts/render_dashboard.py` · `docs/runbook/dashboard_screenshot.png` · `.env.example`
+- **当前 commit**：`32e4e0c fix(day14): Rerank 真实生效 (gte-rerank 403 → qwen3-rerank 200)`
+- **tag**：`day-13-p0p1-complete`（Day 13-14 完整版 · P0 安全 + P1 三项 + Rerank 真生效）
+- **GitHub**：https://github.com/wu9506040-lab/OceanMate
+- **关键新增**：`scripts/verify_atoa_full_chain.py` · `scripts/verify_rerank_smoke.py` · `scripts/verify_hybrid_retrieval.py` · `docs/runbook/dashboard_screenshot.png` · `docs/reports/adversarial_review.md` · `docs/reports/p1_3_evidence.md`
 
 ## 附录 C：联系信息
 
 - **作者**：zwyyy7
-- **GitHub**：`E:\ai-pioneer`（本地仓库 · 待推送 GitHub）
+- **GitHub**：https://github.com/wu9506040-lab/OceanMate
+- **仓库地址**：`git@github.com:wu9506040-lab/OceanMate.git`
 - **联系方式**：飞书大赛报名表
