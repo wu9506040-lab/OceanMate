@@ -36,6 +36,7 @@ def create_default_orchestrator(
     from app.agents.pda import PDATool
     from app.agents.tra import TRATool
     from app.agents.kea import KEATool
+    from app.implementations.llm.qwen_gateway import get_default_gateway  # Day 10: 真 LLM 注入
 
     # Auto-init DB
     if auto_init_db:
@@ -58,9 +59,11 @@ def create_default_orchestrator(
     ticket_repo = TicketRepository(db)
     case_repo = CaseRepository(db)
 
+    # Day 10: 注入真 LLM（get_default_gateway 自动检测 DASHSCOPE_API_KEY，有则 Qwen，否则 Mock）
+    llm = get_default_gateway()
     orch = Orchestrator()
-    orch.register_tool(MSATool(rag=rag))  # MSATool 签名：rag + llm（默认 Mock）
-    orch.register_tool(PDATool())  # PDA 内部自管 service
+    orch.register_tool(MSATool(rag=rag, llm=llm))
+    orch.register_tool(PDATool())  # PDA 内部自管 service，LLM 自带降级
     orch.register_tool(TRATool(ticket_repo=ticket_repo))
     orch.register_tool(KEATool(
         case_repo=case_repo,

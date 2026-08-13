@@ -79,6 +79,8 @@ __all__ = [
     "FeishuAPIError",
     "FeishuWebhookHandler",
     "get_feishu_frontend",
+    "start_feishu_ws_in_background",
+    "should_start_ws_client",
 ]
 
 
@@ -96,4 +98,22 @@ def __getattr__(name):
     if name == "FeishuWebhookHandler":
         from app.implementations.feishu.webhook import FeishuWebhookHandler
         return FeishuWebhookHandler
+    if name == "start_feishu_ws_in_background":
+        from app.implementations.feishu.ws_client import start_feishu_ws_in_background
+        return start_feishu_ws_in_background
+    if name == "should_start_ws_client":
+        from app.implementations.feishu.ws_client import should_start_ws_client
+        return should_start_ws_client
+    if name == "get_ws_debug_state":
+        from app.implementations.feishu.ws_client import get_ws_debug_state
+        return get_ws_debug_state
+    if name == "start_feishu_poller_in_background":
+        from app.implementations.feishu.poller import start_feishu_poller_in_background
+        return start_feishu_poller_in_background
+    if name == "should_start_poller":
+        from app.implementations.feishu.poller import should_start_poller
+        return should_start_poller
+    if name == "get_poller_debug_state":
+        from app.implementations.feishu.poller import get_poller_debug_state
+        return get_poller_debug_state
     raise AttributeError(f"module 'app.implementations.feishu' has no attribute '{name}'")

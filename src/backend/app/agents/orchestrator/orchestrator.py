@@ -152,11 +152,15 @@ class Orchestrator:
             "error_code": ctx.get("error_code", "ERR_UNKNOWN"),
             "affected_orders": ctx.get("affected_orders", []),
         }
-        result = self.registry.safe_execute("payment_diagnosis", params)
+        wrapped = self.registry.safe_execute("payment_diagnosis", params)
+        # safe_execute 返回 {success, data, error_code, error_message}
+        data = wrapped.get("data", {}) if wrapped.get("success") else {}
+        error_image_path = data.get("error_image_path", "") if isinstance(data, dict) else ""
         return {
             "intent": "payment_diagnosis",
             "tool_name": "payment_diagnosis",
-            "tool_result": result,
+            "tool_result": wrapped,   # 保留 safe_execute 包装（前端能看 success）
+            "error_image_path": error_image_path,  # 顶层暴露
             "trace": {"matched_keywords": matched, "params": params},
         }
 

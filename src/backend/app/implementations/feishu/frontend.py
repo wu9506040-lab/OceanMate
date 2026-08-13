@@ -71,6 +71,27 @@ class FeishuFrontend(BaseFrontend):
             logger.warning(f"Feishu send_message failed: {e}")
             return False
 
+    def send_image(self, user_id: str, image_path: str) -> bool:
+        """发图片（先 upload_image 拿 key，再 send_message with image msg_type）。
+
+        异常处理：上传/发送失败 → 返回 False + log。
+        适合：错误码配图、商户 dashboard 截图等场景。
+        """
+        import os
+        if not os.path.exists(image_path):
+            logger.warning(f"Feishu send_image: file not found {image_path}")
+            return False
+        try:
+            image_key = self.api.upload_image(image_path)
+            if not image_key:
+                logger.warning(f"Feishu send_image: upload returned empty image_key")
+                return False
+            self.api.send_image(user_id=user_id, image_key=image_key)
+            return True
+        except FeishuAPIError as e:
+            logger.warning(f"Feishu send_image failed: {e}")
+            return False
+
     def send_private(self, user_id: str, message: str) -> bool:
         """发私有消息（人工交接简报）。"""
         try:

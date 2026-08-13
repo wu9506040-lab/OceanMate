@@ -1,13 +1,14 @@
 """BaseFrontend - 飞书前端抽象接口。
 
-5 个核心方法（商户交互 + 客服协同 + 运营看板）：
+6 个核心方法（商户交互 + 客服协同 + 运营看板 + 错误码配图）：
 - send_message()        发消息给商户
 - send_private()        发私有消息（仅指定用户可见，如交接简报）
+- send_image()          发图片（错误码配图、dashboard 截图等）—— Day 9 新增
 - create_group()        创建群聊
 - add_group_member()    拉人进群
 - sync_dashboard_data() 同步运营数据到多维表格
 
-实现层：app/implementations/feishu/api.py（Day 6-7 写）
+实现层：app/implementations/feishu/api.py（Day 6-7 写 + Day 9 加 send_image）
 SOP：SOP-FEISHU-001（4 个逆向场景：API 超时/JSON 错/唯一键冲突/Chroma 失败）
 """
 
@@ -32,6 +33,21 @@ class BaseFrontend(ABC):
         Returns:
             True 成功 / False 失败
         """
+
+    def send_image(self, user_id: str, image_path: str) -> bool:
+        """发图片（错误码配图 / dashboard 截图等）。
+
+        Args:
+            user_id: 接收者 ID
+            image_path: 本地图片路径（PNG/JPG）
+
+        Returns:
+            True 成功 / False 失败
+
+        默认实现：Mock/无图片时不发，返回 True（PoC 兜底）。真实 FeishuFrontend 覆盖。
+        """
+        # 默认 no-op：子类可覆盖
+        return True
 
     @abstractmethod
     def send_private(self, user_id: str, message: str) -> bool:
