@@ -19,6 +19,7 @@ from typing import Optional
 from app.interfaces.base_rag import BaseRAGEngine, Document
 from app.interfaces.base_chunker import BaseChunker
 from app.implementations.chunking import SmartChunker
+from app.implementations.data_cleaning.default_cleaner import DefaultDataCleaner
 
 
 class IngestionPipeline:
@@ -27,7 +28,8 @@ class IngestionPipeline:
     Args:
         rag: 必填，RAG 引擎
         chunker: 默认 SmartChunker（自动选策略）
-        cleaner: 可选，None 时不清理（直接 chunk）
+        cleaner: 默认 DefaultDataCleaner()（Day 14 启用：脏数据自动清洗）。
+                 None 等同于默认；可传 AggressiveCleaner 去 emoji/HTML
         embedder: 可选，None 时让 RAG 自己处理 embedding（Chroma 内置）
     """
 
@@ -40,7 +42,12 @@ class IngestionPipeline:
     ):
         self.rag = rag
         self.chunker = chunker or SmartChunker()
-        self.cleaner = cleaner
+        # Day 14 P0-2 修复：默认启用 DefaultDataCleaner，避免脏数据（emoji/HTML/控制字符）入 Chroma
+        # 显式传 cleaner=None 仍可关闭（向后兼容）
+        if cleaner is None:
+            self.cleaner = DefaultDataCleaner()
+        else:
+            self.cleaner = cleaner
         self.embedder = embedder
 
     def ingest(

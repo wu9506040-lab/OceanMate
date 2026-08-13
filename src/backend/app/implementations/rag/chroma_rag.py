@@ -12,13 +12,32 @@ PoC 阶段使用 HashEmbeddingFunction（无外部依赖、不下载模型），
 """
 
 import hashlib
+import logging
 import os
 from pathlib import Path
 from typing import Optional
 
+# P0-1 修复：PoC 工具自动加载项目根 .env（QwenEmbedder 需要 DASHSCOPE_API_KEY）
+# 放在最前面以保证 ChromaRAGEngine.__init__ 实例化 QwenEmbedder 时能读到 key
+try:
+    from dotenv import load_dotenv
+    # 向上找 .env（可能在 src/backend/、src/、项目根 任意一层）
+    _cur = Path(__file__).resolve().parent
+    for _ in range(6):  # 最多向上 6 层
+        if (_cur / ".env").exists():
+            load_dotenv(_cur / ".env", override=False)
+            break
+        _cur = _cur.parent
+except Exception:
+    # dotenv 未装 / .env 不存在 → 静默；后续 QwenEmbedder 会抛 ValueError 触发降级
+    pass
+
 from app.interfaces.base_rag import BaseRAGEngine, Document
-from app.implementations.embeddings import HashEmbedder
+from app.implementations.embeddings import HashEmbedder, QwenEmbedder
 from app.implementations.llm.qwen_gateway import get_default_gateway
+
+
+logger = logging.getLogger(__name__)
 
 
 # 默认数据目录（指向 src/backend/data/chroma/）
@@ -32,7 +51,9 @@ COLLECTION_PAYMENT_METHODS = "payment_methods_vec"
 
 # 向后兼容别名（Day 8 重构）
 # 老代码引用 chroma_rag.HashEmbeddingFunction 不报错（指向新 HashEmbedder）
-HashEmbeddingFunction = HashEmbedder
+# Day 14 P0-1：默认 Embedder 从 HashEmbedder 换成 QwenEmbedder（真实语义）
+# 真实环境无 DASHSCOPE_API_KEY 时 → ChromaRAGEngine.__init__ 自动降级 HashEmbedder
+HashEmbeddingFunction = HashEmbedder  # 仅兼容旧 import
 
 
 class ChromaRAGEngine(BaseRAGEngine):
@@ -64,7 +85,20 @@ class ChromaRAGEngine(BaseRAGEngine):
         self._client = chromadb.PersistentClient(path=str(self.data_dir))
 
         self.llm = llm_gateway or get_default_gateway()
-        self._embedding_function = embedding_function or HashEmbedder()
+        # Day 14 P0-1：默认 Embedder = Qwen Embedding v3（真实语义召回）
+        # 降级链：embedding_function 参数 > QwenEmbedder（API 可用） > HashEmbedder
+        if embedding_function is not None:
+            self._embedding_function = embedding_function
+        else:
+            try:
+                self._embedding_function = QwenEmbedder()
+                logger.info("[ChromaRAGEngine] 使用 Qwen text-embedding-v3（真实语义）")
+            except ValueError as e:
+                # 无 DASHSCOPE_API_KEY 或其他配置错误 → 降级 HashEmbedder
+                logger.warning(
+                    f"[ChromaRAGEngine] Qwen Embedder 不可用，降级 HashEmbedder: {e}"
+                )
+                self._embedding_function = HashEmbedder()
 
         # 预创建 3 个 collection
         self._collections = {
