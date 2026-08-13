@@ -144,7 +144,9 @@ python scripts/run_all_real.py
 | AtoA 自动链式编排 | [`docs/reports/p1_3_evidence.md`](./docs/reports/p1_3_evidence.md) | PDA→TRA→KEA 3 步链 1/20 首次命中 |
 | 对立面审查（360°） | [`docs/reports/adversarial_review.md`](./docs/reports/adversarial_review.md) | 4 子 Agent 并行审查，10 类 gap 暴露+分类 |
 | 完整参赛方案 | [`docs/reports/submission.md`](./docs/reports/submission.md) | 654 行 · 6 Demo 6/6 PASSED · 74% 测试覆盖 |
+| **冲奖冲刺 13 项** | **[`docs/reports/v10_award_boost.md`](./docs/reports/v10_award_boost.md)** | **820 行 · 量化收益+Prompt 设计+落地路径+安全合规** |
 | 真实飞书接入 | [`docs/runbook/dashboard_config_guide.md`](./docs/runbook/dashboard_config_guide.md) | WS 真接通 + 多维表真写 + briefing 真发 |
+| 飞书 AI 字段配置 | [`docs/runbook/feishu_ai_field_setup.md`](./docs/runbook/feishu_ai_field_setup.md) | 2 个 AI 字段 Prompt 模板 + 验证脚本（80% 准确率）|
 
 ### 演示截图（评审肉眼可见）
 
@@ -181,8 +183,9 @@ OceanMate/
 │   ├── reports/                         ← 评审硬证据
 │   │   ├── submission.md                ← 654 行完整参赛方案
 │   │   ├── adversarial_review.md        ← 对立面审查 360°
-│   │   └── p1_3_evidence.md             ← AtoA 自动链式编排证据
-│   ├── runbook/                         ← 运维手册 + 真实截图
+│   │   ├── p1_3_evidence.md             ← AtoA 自动链式编排证据
+│   │   └── v10_award_boost.md           ⭐ 冲奖冲刺 13 项（820 行）
+│   ├── runbook/                         ← 运维手册 + 真实截图 + AI 字段配置
 │   ├── plan/                            ← 任务计划 + 进度 + 行业调研
 │   ├── data/                            ← 真实业务数据（117 + 16 + 10）
 │   ├── governance/race_sop.md           ← 比赛 SOP
@@ -259,7 +262,7 @@ OceanMate/
 |------|-------|------|
 | **30 秒** | 一句话定位 + 5 Agent 架构图（本文档前半部分）| 你在这里 ✅ |
 | **5 分钟** | 痛点 → 方案 → 价值闭环 + 5 Agent 职责 + 真实数据证据 | [`docs/business/merchant_success.md`](./docs/business/merchant_success.md) + [`docs/reports/p1_3_evidence.md`](./docs/reports/p1_3_evidence.md) |
-| **30 分钟** | 完整深度方案 + Demo 核心 + 对立面审查 | [`docs/reports/submission.md`](./docs/reports/submission.md) + [`docs/reports/adversarial_review.md`](./docs/reports/adversarial_review.md) + [`docs/agents/payment_diagnosis_agent.md`](./docs/agents/payment_diagnosis_agent.md) |
+| **30 分钟** | 完整深度方案 + Demo 核心 + 对立面审查 + 冲奖冲刺 | [`docs/reports/submission.md`](./docs/reports/submission.md) + [`docs/reports/adversarial_review.md`](./docs/reports/adversarial_review.md) + [`docs/reports/v10_award_boost.md`](./docs/reports/v10_award_boost.md) |
 | **一键复现** | 跑 6 Demo（mock 模式 · 无需飞书凭证）| `cd src/backend && python scripts/run_all_real.py` |
 
 ---
