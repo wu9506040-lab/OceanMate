@@ -122,26 +122,40 @@ class ChromaRAGEngine(BaseRAGEngine):
     def retrieve(
         self, query: str, top_k: int = 5, filter: Optional[dict] = None,
         collection_name: str = COLLECTION_ERROR_CODES,
+        use_hybrid: bool = True,
+        use_rerank: bool = True,
     ) -> list[Document]:
-        """检索相关文档。
+        """检索相关文档（Day 14 P1-2：默认走混合检索 + Rerank）。
 
         Args:
             query: 查询文本
             top_k: 返回 Top-K
             filter: 元数据过滤（如 {"country": "BR"}）
             collection_name: Collection 名（默认错误码库）
+            use_hybrid: 是否启用 向量 + BM25 RRF 融合（默认 True）
+            use_rerank: 是否启用 Qwen text-rerank 重排（默认 True）
 
         Returns:
-            Document 列表（按相似度降序），知识库空时返回 []
+            Document 列表（按最终 score 降序），知识库空时返回 []
         """
         if collection_name not in self._collections:
             raise ValueError(f"Collection '{collection_name}' 不存在")
 
-        collection = self._collections[collection_name]
+        if not use_hybrid:
+            # Day 14 之前的纯向量路径（向后兼容）
+            return self._retrieve_vector(query, top_k, filter, collection_name)
 
-        # Chroma 的 query 用 embedding 函数（这里用 Chroma 自带的）
-        # 注：Chroma 默认用 all-MiniLM-L6-v2 模型，无需我们自己 embed
-        # 如果后续要切到 Qwen Embedding，可以改为自定义 embedding function
+        # Day 14 P1-2 混合路径：向量 + BM25 RRF → Rerank
+        return self._retrieve_hybrid(
+            query, top_k, filter, collection_name, use_rerank=use_rerank
+        )
+
+    def _retrieve_vector(
+        self, query: str, top_k: int, filter: Optional[dict],
+        collection_name: str,
+    ) -> list[Document]:
+        """纯向量检索（保留向后兼容）。"""
+        collection = self._collections[collection_name]
         try:
             results = collection.query(
                 query_texts=[query],
@@ -151,16 +165,87 @@ class ChromaRAGEngine(BaseRAGEngine):
         except Exception as e:
             raise RuntimeError(f"Chroma 检索失败: {e}") from e
 
-        # 解析结果
         documents = []
         if results and results.get("documents"):
             for i, text in enumerate(results["documents"][0]):
                 doc_id = results["ids"][0][i] if results.get("ids") else f"unknown_{i}"
                 metadata = results["metadatas"][0][i] if results.get("metadatas") else {}
-                documents.append(
-                    Document(id=doc_id, text=text, metadata=metadata)
-                )
+                documents.append(Document(id=doc_id, text=text, metadata=metadata))
         return documents
+
+    def _retrieve_hybrid(
+        self, query: str, top_k: int, filter: Optional[dict],
+        collection_name: str, use_rerank: bool,
+    ) -> list[Document]:
+        """混合检索：向量召回 + BM25 召回 → RRF 融合 → 可选 Rerank。
+
+        流程：
+        1. 向量召回 top_k * 3（保留宽候选）
+        2. BM25 召回 top_k * 3
+        3. RRF (Reciprocal Rank Fusion) 融合分数
+        4. Rerank 重排 top_k * 2 → 截断 top_k
+        """
+        # 1) 向量召回
+        vector_docs = self._retrieve_vector(query, top_k * 3, filter, collection_name)
+
+        # 2) BM25 召回
+        try:
+            from app.implementations.rag.bm25_retriever import BM25Retriever
+            if not hasattr(self, "_bm25_retriever"):
+                self._bm25_retriever = BM25Retriever(self)
+            bm25_docs = self._bm25_retriever.retrieve(
+                query, top_k=top_k * 3, collection_name=collection_name,
+            )
+        except Exception as e:
+            logger.warning(f"[ChromaRAGEngine] BM25 检索失败，降级纯向量: {e}")
+            bm25_docs = []
+
+        # 3) RRF 融合
+        fused = self._rrf_fuse(vector_docs, bm25_docs, k=top_k * 2)
+        if not fused:
+            return []
+
+        # 4) Rerank（可选）
+        if use_rerank and len(fused) > top_k:
+            try:
+                from app.implementations.rag.reranker import QwenReranker
+                if not hasattr(self, "_reranker"):
+                    self._reranker = QwenReranker()  # 无 key 时静默降级
+                fused = self._reranker.rerank(query, fused, top_k=top_k)
+            except Exception as e:
+                logger.warning(f"[ChromaRAGEngine] Rerank 失败: {e}，降级 RRF 顺序")
+                fused = fused[:top_k]
+        else:
+            fused = fused[:top_k]
+
+        return fused
+
+    @staticmethod
+    def _rrf_fuse(
+        vector_docs: list[Document],
+        bm25_docs: list[Document],
+        k: int = 10,
+        rrf_const: int = 60,
+    ) -> list[Document]:
+        """Reciprocal Rank Fusion 融合两个 ranked list。
+
+        公式：score(doc) = Σ 1 / (rrf_const + rank)，rank 从 1 开始。
+        同一 doc 在两路都出现 → 分数累加。
+        """
+        scores: dict[str, float] = {}
+        doc_map: dict[str, Document] = {}
+
+        for rank, doc in enumerate(vector_docs, start=1):
+            scores[doc.id] = scores.get(doc.id, 0.0) + 1.0 / (rrf_const + rank)
+            doc_map[doc.id] = doc
+
+        for rank, doc in enumerate(bm25_docs, start=1):
+            scores[doc.id] = scores.get(doc.id, 0.0) + 1.0 / (rrf_const + rank)
+            doc_map[doc.id] = doc
+
+        # 按 RRF score 排序
+        sorted_ids = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
+        return [doc_map[doc_id] for doc_id in sorted_ids[:k]]
 
     def add_document(
         self, document: Document, collection_name: str = COLLECTION_ERROR_CODES
