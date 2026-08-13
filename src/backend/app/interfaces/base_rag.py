@@ -26,17 +26,20 @@ class Document:
         text: str,
         metadata: Optional[dict] = None,
         embedding: Optional[list[float]] = None,
+        score: Optional[float] = None,  # Day 14 Rerank: rerank 后相关性分数（0-1）
     ):
         self.id = id
         self.text = text
         self.metadata = metadata or {}
         self.embedding = embedding
+        self.score = score
 
     def to_dict(self) -> dict:
         return {
             "id": self.id,
             "text": self.text,
             "metadata": self.metadata,
+            "score": self.score,
         }
 
 
