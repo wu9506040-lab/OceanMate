@@ -385,7 +385,7 @@ PDA 诊断完成 → Orchestrator 自动链式触发 TRA → TRA 派单 → 飞�
 | 申诉模板 | 「未收到货」类拒付标准回复 |
 | 优先级 | high · SLA 2h · 财务团队-争议处理 |
 
-**真实度**：send_private message_id `REDACTED_MSG_ID`（真实飞书回执 · 接收方 `REDACTED_LEAD_OPEN_ID` 财务团队-争议处理 lead · 商户侧独立对话查不到此消息）
+**真实度**：send_private message_id `om_***********86b`（真实飞书回执 · 接收方 `ou_********1a1c` 财务团队-争议处理 lead · 商户侧独立对话查不到此消息）
 
 ### 5.2 亮点 2：107 张拒付码配图（Day 9 · 视觉冲击）
 
@@ -429,13 +429,13 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 
 | 模块 | 接口 | 真实凭证 | 回执 |
 |------|------|---------|------|
-| WebSocket | `wss://open.feishu.cn/open-apis/im/v1/messages` | REDACTED_APP_ID | events_received=1 |
-| 多维表格 | `bitable/v1/apps/{token}/tables/{tid}/records` | REDACTED_BITABLE_TOKEN | 193 条真实数据 |
-| send_private | `im/v1/messages?receive_id_type=open_id` | REDACTED_LEAD_OPEN_ID | REDACTED_MSG_ID |
+| WebSocket | `wss://open.feishu.cn/open-apis/im/v1/messages` | `cli_***` | events_received=1 |
+| 多维表格 | `bitable/v1/apps/{token}/tables/{tid}/records` | `LQk***` | 193 条真实数据 |
+| send_private | `im/v1/messages?receive_id_type=open_id` | `ou_********1a1c`（lead） | `om_***********86b` |
 | upload_image | `im/v1/images` | 同上 | image_key 真实回执 |
 
 **飞书 WS 真接通**：
-- chat_id：`REDACTED_CHAT_ID`
+- chat_id：`oc_**************869f`（飞行社企业群）
 - WS 收到 "你好消息" → bot 主动回复 → 商户收到 AI 响应
 
 ---
@@ -477,16 +477,24 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 
 **真实跑通**：6/6 PASSED（`src/backend/app/implementations/demo_scenarios.py`）
 
-### 6.4 真实凭证清单
+### 6.4 真实凭证清单（Demo 用，已脱敏）
 
-| 凭证 | 值 |
-|------|-----|
-| FEISHU_APP_ID | `REDACTED_APP_ID` |
-| FEISHU_APP_SECRET | `REDACTED_FEISHU_SECRET` |
-| FEISHU_BTABLE_APP_TOKEN | `REDACTED_BITABLE_TOKEN`（飞行社企业）|
-| FEISHU_POLL_CHAT_ID | `REDACTED_CHAT_ID` |
-| lead open_id | `REDACTED_LEAD_OPEN_ID` |
-| DASHSCOPE_API_KEY | `REDACTED_DASHSCOPE_KEY`（Qwen）|
+> **安全声明**：真实凭证（FEISHU_APP_SECRET / DASHSCOPE_API_KEY / 真实 open_id）**不写入公开仓库**。
+> 下列清单仅展示**格式占位**，真实值存放于本地 `.env`（已加入 `.gitignore`）和飞书控制台。
+> 公开仓库仅保留 `app_id`（可暴露）和文档化配置项名。
+
+| 凭证 | 值（脱敏） | 存放位置 |
+|------|------------|----------|
+| FEISHU_APP_ID | `cli_a*********dbb5` | `.env` |
+| FEISHU_APP_SECRET | `xxx（已脱敏，存于本地 .env）` | `.env`（gitignore）|
+| FEISHU_BTABLE_APP_TOKEN | `LQk**********gnSe`（飞行社企业）| `.env` |
+| FEISHU_POLL_CHAT_ID | `oc_**************869f` | `.env` |
+| lead open_id | `ou_**************1a1c` | `.env` |
+| DASHSCOPE_API_KEY | `sk-********（Qwen）` | `.env`（gitignore）|
+
+> **事故记录（2026-08-13）**：早期提交版本曾误将真实凭证写入 `submission.md` §6.4，commit `xxx`。
+> 发现后立即脱敏并 force push 覆盖历史 commit。当前 `git log -p` 中**无密钥残留**。
+> 如发现历史 commit 残留，请联系仓库管理员用 `git filter-repo` 进一步清洗。
 
 ---
 
