@@ -248,7 +248,7 @@
 3. **Orchestrator 中枢调度**（PoC 单步路由 · 已落地）：意图分流 + 上下文传递 + **当前单 query 单 Tool**
 4. **数据飞轮闭环**：TRA 结案 → KEA promote → Chroma 索引 → 下次自动召回
 
-> **诚实说明**：当前 Orchestrator 是「**单步路由**」（一次 query → 一个 Tool），完整 AtoA 链式串联（PDA 诊断完成 → 自动触发 TRA → 自动触发 KEA）属于 **§10 未来规划的 V2.0 工作**。PoC 阶段通过主对话流携带 `merchant_context.diagnosis_id` 实现两次调用的手工串联（demo_05 已验证）。
+> **诚实说明（Day 14 更新）**：Orchestrator 已实现「**自动链式编排**」（chain_mode="auto" 默认开启）。链路规则：PDA confidence ≥ 0.7 + problem_type 非空 + next_agent 含"ticket" → 自动触发 TRA route_ticket → TRA 派单成功（status=pending/processing）→ 自动触发 KEA search_faq。最大深度 5 防死循环。`chain_mode="single"` 关闭链式（向后兼容）。
 
 **真实链路示例**（demo_05 · 单步路由 + 主对话流串联）：
 
@@ -359,9 +359,9 @@
 **业务背景**：OP 内部"商户反馈 → 拉群 → 截图 → 等响应"协同模式效率低。
 
 **解决方案**：
-PDA 诊断完成 → 主对话流携带 `diagnosis_id` 触发 TRA → TRA 派单 → 飞书 `send_private` 发完整 briefing 给团队 lead
+PDA 诊断完成 → Orchestrator 自动链式触发 TRA → TRA 派单 → 飞书 `send_private` 发完整 briefing 给团队 lead
 
-> **诚实说明（链路实现现状）**：PoC 阶段 Orchestrator 是「单步路由」，链路由主对话流通过 `merchant_context` 字段携带前序 Tool 结果（如 `diagnosis_id`）实现两次调用的手工串联。AtoA 协议字段（sender/receiver/intent/payload/context_ref/timestamp）已标准化，但「单 Tool 完成自动触发下一个 Tool」的链式编排属于 §10 未来规划的 V2.0 工作。**send_private 隐私语义本身完全跑通**（亮点核心在此，不在链式）。
+> **链路实现（Day 14 P1-3）**：Orchestrator 默认 `chain_mode="auto"`：PDA confidence ≥ 0.7 + problem_type 非空 + next_agent 含"ticket" → 自动触发 TRA route_ticket。AtoA 自动链式已落地（链路规则在 `chain_config.py`）。send_private 隐私语义本身完全跑通（亮点核心在此）。
 
 **「send_private」为什么是亮点（隐私语义 · 评审要点）**：
 
@@ -616,9 +616,9 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | 2 | 运营可视化 Dashboard 升级 | 趋势组件 + 飞书原生图表 6 个模块 |
 | 3 | 智能交接简报 SOP 化 | 团队 lead 培训 + 工单模板标准化 |
 | 4 | 数据飞轮 7 天 → 30 天 | 自进化能力线性增长 |
-| 5 | **混合检索 + Rerank**（Day 13 识别 P1）| 当前纯 Qwen 向量召回，叠加 BM25 关键词 + Qwen-Rerank，召回率 +20% |
-| 6 | **LLM 意图识别 fallback**（Day 13 识别 P1）| 当前关键词白名单，长尾 query 命中率 ~70%；LLM 兜底 → 95%+ |
-| 7 | **AtoA 自动链式编排**（Day 13 识别 P1）| 当前 Orchestrator 单步路由；升级为「PDA 完成自动触发 TRA → TRA 结案自动触发 KEA」链式触发 |
+| 5 | ~~**混合检索 + Rerank**~~ | **✅ Day 14 已完成**：Qwen 向量 + jieba BM25 + RRF 融合；"13.1" 字面命中从 CB_13.3 提升到 CB_13.1 |
+| 6 | ~~**LLM 意图识别 fallback**~~ | **✅ Day 14 已完成**：关键词命中 ≥1 走关键词；命中 0 调 Qwen chat_structured 兜底分类 |
+| 7 | ~~**AtoA 自动链式编排**~~ | **✅ Day 14 已完成**：chain_mode="auto" 默认开启；PDA → TRA → KEA search_faq 自动链式（chain 字段记录） |
 
 ### 10.2 中期（3-6 个月）
 
