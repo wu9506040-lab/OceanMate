@@ -10,7 +10,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-green?logo=python)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Qwen](https://img.shields.io/badge/LLM-Qwen%20(DashScope)-ff6a00)](https://help.aliyun.com/zh/dashscope)
-[![Tag](https://img.shields.io/badge/Tag-day--13--p0p1--complete-blue)](https://github.com/wu9506040-lab/OceanMate/releases/tag/day-13-p0p1-complete)
+[![Tag](https://img.shields.io/badge/Release-v1.0-blue)](https://github.com/wu9506040-lab/OceanMate/releases/tag/v1.0)
 
 ---
 
@@ -275,7 +275,7 @@ OceanMate/
 | 报名截止 | 2026-07-19 24:00（北京时间）|
 | 提交截止 | 2026-08-16 22:00（北京时间）|
 | 队伍名 | OceanMate AI |
-| 当前 Tag | `day-13-p0p1-complete`（[GitHub Release](https://github.com/wu9506040-lab/OceanMate/releases/tag/day-13-p0p1-complete)）|
+| 当前 Tag | [`v1.0`](https://github.com/wu9506040-lab/OceanMate/releases/tag/v1.0)（飞书 AI 大赛参赛终版 · 2026-08-14）|
 
 ---
 
