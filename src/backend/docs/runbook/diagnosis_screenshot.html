@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>PDA 诊断结果 · Visa 13.1</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, "Segoe UI", "PingFang SC", sans-serif; background: #F5F7FA; padding: 32px; color: #1F2329; }
+
+.header { display: flex; align-items: center; margin-bottom: 24px; }
+.logo { width: 48px; height: 48px; border-radius: 8px; background: #3370FF; color: white; font-weight: 700; font-size: 18px; display: flex; align-items: center; justify-content: center; margin-right: 14px; }
+.title h1 { font-size: 20px; color: #1F2329; }
+.title p { font-size: 12px; color: #646A73; margin-top: 2px; }
+
+/* 问题档案 */
+.profile { background: white; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.profile .label { font-size: 11px; color: #999; text-transform: uppercase; margin-bottom: 4px; }
+.profile .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 12px; }
+.profile .cell .v { font-size: 14px; font-weight: 600; color: #1F2329; }
+
+/* 主体两列 */
+.body { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.panel { background: white; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.panel h3 { font-size: 14px; color: #1F2329; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #F0F1F3; }
+.panel ul { list-style: none; padding: 0; }
+.panel li { padding: 8px 0; border-bottom: 1px dashed #F0F1F3; font-size: 13px; color: #4D5969; line-height: 1.5; }
+.panel li:last-child { border: none; }
+.panel .icon-num { display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: #3370FF; color: white; text-align: center; line-height: 20px; font-size: 11px; font-weight: 600; margin-right: 8px; }
+
+/* 配图 */
+.image-card { background: white; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.image-card h3 { font-size: 14px; margin-bottom: 12px; }
+.image-card .img { width: 100%; height: 140px; background: linear-gradient(135deg, #FFE4B5 0%, #FF8C00 100%); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; font-weight: 600; }
+
+/* 底部建议 */
+.actions { background: white; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.actions h3 { font-size: 14px; margin-bottom: 12px; }
+.action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.action { padding: 10px 14px; background: #F0F7FF; border-radius: 6px; font-size: 13px; color: #1F2329; border-left: 3px solid #3370FF; }
+.action .step { font-weight: 600; color: #3370FF; margin-right: 6px; }
+
+/* 元数据 footer */
+.footer { margin-top: 16px; padding-top: 12px; border-top: 1px solid #E5E5E5; font-size: 11px; color: #999; display: flex; justify-content: space-between; }
+</style></head>
+<body>
+
+<div class="header">
+    <div class="logo">OM</div>
+    <div class="title">
+        <h1>PDA 诊断结果 · Visa 13.1 数字商品拒付</h1>
+        <p>Payment Diagnosis Agent · 真实 demo_01 输出结构 · 2026-08-12 14:24</p>
+    </div>
+</div>
+
+<!-- 问题档案 -->
+<div class="profile">
+    <div class="label">问题档案（输入）</div>
+    <div class="row">
+        <div class="cell"><div class="v">M_US_DIGITAL_001</div><div class="label">商户 ID</div></div>
+        <div class="cell"><div class="v">US</div><div class="label">国家</div></div>
+        <div class="cell"><div class="v">Visa</div><div class="label">通道</div></div>
+        <div class="cell"><div class="v">CB_13.1</div><div class="label">错误码</div></div>
+    </div>
+</div>
+
+<!-- 主体两列：根因 + 证据 -->
+<div class="body">
+    <div class="panel">
+        <h3>🔍 根因分析（3 类）</h3>
+        <ul>
+            <li><span class="icon-num">1</span>数字商品未启用 3DS 2.0（Visa 数字商品强制要求）</li>
+            <li><span class="icon-num">2</span>发货流程未做物流签收确认（"未收到货"类拒付高发根因）</li>
+            <li><span class="icon-num">3</span>退款政策链接缺失（消费者找不到退款入口 → 直接拒付）</li>
+        </ul>
+    </div>
+
+    <div class="panel">
+        <h3>📎 证据链（可追溯）</h3>
+        <ul>
+            <li><strong>规则</strong>：R-CB-13.1（来源：Visa 拒付码手册 §13.1）</li>
+            <li><strong>日志</strong>：L-2026-08-12-001（商户配置快照 · 3DS=disabled）</li>
+            <li><strong>对账</strong>：S-AUG12（订单 ORD-2026-08-001 · 退款政策 URL=NULL）</li>
+            <li><strong>同类案例</strong>：3 条 2026-Q2 历史案例匹配（KEA 召回）</li>
+        </ul>
+    </div>
+</div>
+
+<!-- 配图卡片 -->
+<div class="image-card">
+    <h3>🖼️ 错误码配图（自动发送 · 107 张图库匹配）</h3>
+    <div class="img">cb_demo_13_1.png · 红色配色（鉴权类）· emoji: 📦❌</div>
+</div>
+
+<!-- 申诉建议 -->
+<div class="actions">
+    <h3>💡 申诉模板 + 立即行动</h3>
+    <div class="action-grid">
+        <div class="action"><span class="step">①</span>立即启用 3DS 2.0（Visa 数字商品要求）</div>
+        <div class="action"><span class="step">②</span>发货前确认物流签收 + 拍照存档</div>
+        <div class="action"><span class="step">③</span>商品页加退款政策链接 + 客服入口</div>
+        <div class="action"><span class="step">④</span>准备"未收到货"类拒付反驳话术（已自动 push 给财务团队 Lead）</div>
+    </div>
+</div>
+
+<div class="footer">
+    <span>demo_id: demo_01_visa_chargeback · tool: payment_diagnosis · latency: 2.3s</span>
+    <span>已自动派单：财务团队-争议处理 · SLA 2h · send_private briefing 已发出</span>
+</div>
+
+</body></html>

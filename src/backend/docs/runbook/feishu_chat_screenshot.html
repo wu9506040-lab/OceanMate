@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>飞书智能伙伴 · OceanMate 对话</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, "Segoe UI", "PingFang SC", sans-serif; background: #F5F5F5; min-height: 100vh; display: flex; }
+
+/* 左侧栏 */
+.sidebar { width: 220px; background: #2C2C2C; color: #FFF; padding: 16px; }
+.sidebar h3 { font-size: 14px; color: #B0B0B0; margin: 16px 0 8px 0; text-transform: uppercase; }
+.sidebar .item { padding: 10px 12px; border-radius: 6px; cursor: pointer; margin-bottom: 4px; font-size: 14px; }
+.sidebar .item.active { background: #4A90E2; color: white; }
+.sidebar .item:hover { background: #3A3A3A; }
+.sidebar .avatar { width: 32px; height: 32px; border-radius: 4px; background: #4A90E2; display: inline-block; vertical-align: middle; margin-right: 8px; text-align: center; line-height: 32px; color: white; font-weight: 600; font-size: 13px; }
+
+/* 主对话区 */
+.main { flex: 1; display: flex; flex-direction: column; }
+.header { background: white; padding: 16px 24px; border-bottom: 1px solid #E5E5E5; display: flex; align-items: center; }
+.header .bot-avatar { width: 40px; height: 40px; border-radius: 6px; background: #3370FF; color: white; text-align: center; line-height: 40px; font-weight: 600; font-size: 16px; margin-right: 12px; }
+.header .info h2 { font-size: 16px; color: #1F2329; }
+.header .info p { font-size: 12px; color: #646A73; margin-top: 2px; }
+
+/* 对话流 */
+.chat { flex: 1; padding: 24px; overflow-y: auto; }
+.msg { display: flex; margin-bottom: 20px; align-items: flex-start; }
+.msg.user { flex-direction: row-reverse; }
+.msg .av { width: 36px; height: 36px; border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; }
+.msg.bot .av { background: #3370FF; }
+.msg.user .av { background: #00D6B9; }
+.msg .bubble { max-width: 60%; padding: 12px 16px; border-radius: 8px; font-size: 14px; line-height: 1.6; margin: 0 12px; }
+.msg.bot .bubble { background: white; color: #1F2329; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+.msg.user .bubble { background: #3370FF; color: white; }
+.msg .meta { font-size: 11px; color: #999; margin-top: 4px; }
+
+/* bot 回复里的能力菜单 */
+.menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.menu-item { background: #F0F7FF; border: 1px solid #B8D9FF; border-radius: 6px; padding: 8px 12px; font-size: 13px; color: #1F2329; }
+.menu-item .icon { display: inline-block; width: 18px; height: 18px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+
+/* 诊断回执里的卡片 */
+.diag-card { background: #F8F9FA; border-left: 3px solid #3370FF; padding: 12px; margin: 8px 0; border-radius: 4px; font-size: 13px; }
+.diag-card .label { color: #646A73; font-size: 11px; text-transform: uppercase; margin-bottom: 4px; }
+.diag-card .value { color: #1F2329; font-weight: 500; }
+
+/* 配图缩略 */
+.img-thumb { width: 280px; height: 80px; background: linear-gradient(135deg, #FFE4B5 0%, #FF8C00 100%); border-radius: 6px; margin-top: 8px; display: flex; align-items: center; padding: 0 16px; color: white; font-weight: 600; }
+</style></head>
+<body>
+
+<div class="sidebar">
+    <h3>消息</h3>
+    <div class="item active"><span class="avatar">OM</span>OceanMate 数字员工</div>
+    <div class="item"><span class="avatar" style="background:#666">A</span>商户 A · M_US_DIGITAL_001</div>
+    <h3>联系人</h3>
+    <div class="item"><span class="avatar" style="background:#888">L</span>财务团队 Lead</div>
+    <div class="item"><span class="avatar" style="background:#888">T</span>技术团队 Lead</div>
+</div>
+
+<div class="main">
+    <div class="header">
+        <div class="bot-avatar">OM</div>
+        <div class="info">
+            <h2>OceanMate 数字员工体系</h2>
+            <p>商户成功 AI 中枢 · 6 Agent 协同 · 飞行社企业</p>
+        </div>
+    </div>
+
+    <div class="chat">
+        <!-- 第 1 轮：商户问候 -->
+        <div class="msg user">
+            <div class="av">商</div>
+            <div>
+                <div class="bubble">你好消息</div>
+                <div class="meta">14:23 · 商户 A</div>
+            </div>
+        </div>
+
+        <!-- bot 自动回复 -->
+        <div class="msg bot">
+            <div class="av">OM</div>
+            <div>
+                <div class="bubble">
+                    你好，我是 OceanMate 数字员工体系 AI 中枢，可以帮你：
+                    <div class="menu-grid">
+                        <div class="menu-item"><span class="icon" style="background:#3370FF"></span>① 推荐支付方式（PWR）</div>
+                        <div class="menu-item"><span class="icon" style="background:#00D6B9"></span>② 诊断拒付/失败（PDA）</div>
+                        <div class="menu-item"><span class="icon" style="background:#FF8C00"></span>③ 工单协同（TRA）</div>
+                        <div class="menu-item"><span class="icon" style="background:#B0B0B0"></span>④ 知识检索（KEA）</div>
+                    </div>
+                </div>
+                <div class="meta">14:23 · OceanMate AI 中枢</div>
+            </div>
+        </div>
+
+        <!-- 第 2 轮：商户问拒付 -->
+        <div class="msg user">
+            <div class="av">商</div>
+            <div>
+                <div class="bubble">我美国站卖软件的，Visa 13.1 拒付好多，怎么办？</div>
+                <div class="meta">14:24 · 商户 A</div>
+            </div>
+        </div>
+
+        <!-- bot 诊断回执 -->
+        <div class="msg bot">
+            <div class="av">OM</div>
+            <div>
+                <div class="bubble">
+                    <strong>📊 诊断完成 · PDA</strong>
+                    <div class="diag-card">
+                        <div class="label">问题类型</div>
+                        <div class="value">拒付（Visa 13.1 · 未收到货）</div>
+                    </div>
+                    <div class="diag-card">
+                        <div class="label">根因（3 类）</div>
+                        <div class="value">① 数字商品 3DS 未启用 ② 发货前未确认物流签收 ③ 退款政策链接缺失</div>
+                    </div>
+                    <div class="diag-card">
+                        <div class="label">证据链</div>
+                        <div class="value">规则 R-CB-13.1 + 日志 L-2026-08-12-001 + 对账快照 S-AUG12</div>
+                    </div>
+                    <div class="diag-card">
+                        <div class="label">建议</div>
+                        <div class="value">立即启用 3DS 2.0 + 添加退款政策 + 配图已发送 ↓</div>
+                    </div>
+                    <div class="img-thumb">🖼️ cb_demo_13_1.png · 错误码配图已发送</div>
+                </div>
+                <div class="meta">14:24 · OceanMate AI 中枢 · PDA · 已自动派单财务团队</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body></html>

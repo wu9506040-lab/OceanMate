@@ -358,6 +358,18 @@
 **解决方案**：
 PDA 诊断完成 → AtoA 传给 TRA → TRA 自动派单 → 飞书 `send_private` 发完整 briefing 给团队 lead
 
+**「send_private」为什么是亮点（隐私语义 · 评审要点）**：
+
+| 维度 | 普通群消息 | send_private（智能交接简报）|
+|------|-----------|----------------------------|
+| 飞书 API | `im/v1/messages`（receive_id_type=chat_id）| `im/v1/messages`（receive_id_type=**open_id**）|
+| 接收方 | 群里所有人可见 | **只发给指定 lead 的 open_id 单聊** |
+| 商户能看到吗？| ✅ 能（商户也在群里）| ❌ **看不到**（商户与 lead 是独立会话）|
+| 其他团队能看到吗？| ✅ 能 | ❌ **看不到**（避免内部信息泄露给商户/竞争对手团队）|
+| 适用场景 | 公开通知 / 商户互动 | 内部协同 / 诊断上下文 / 申诉策略 |
+
+> **关键隐私设计**：商户发起问题后，AI 中枢诊断的**完整证据链 + 申诉策略**属于 OP 内部商业机密（如"未收到货"类拒付的内部反驳话术、对账快照中的敏感 GMV 数据），绝不能让商户或其他团队看到。send_private 单聊 API 把这些信息**精确推送给负责该工单的团队 lead**，商户侧只能看到友好版回复。
+
 **Briefing 内容**：
 | 模块 | 内容 |
 |------|------|
@@ -368,7 +380,7 @@ PDA 诊断完成 → AtoA 传给 TRA → TRA 自动派单 → 飞书 `send_priva
 | 申诉模板 | 「未收到货」类拒付标准回复 |
 | 优先级 | high · SLA 2h · 财务团队-争议处理 |
 
-**真实度**：send_private message_id `REDACTED_MSG_ID`（真实飞书回执）
+**真实度**：send_private message_id `REDACTED_MSG_ID`（真实飞书回执 · 接收方 `REDACTED_LEAD_OPEN_ID` 财务团队-争议处理 lead · 商户侧独立对话查不到此消息）
 
 ### 5.2 亮点 2：107 张拒付码配图（Day 9 · 视觉冲击）
 
@@ -486,21 +498,25 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 
 ### 7.2 飞书对话（智能伙伴 + bot 自动回复）
 
-> **真实场景截图见**：`docs/runbook/`（Day 14 录屏时补录）
+![Feishu Chat](../runbook/feishu_chat_screenshot.png)
 
-**对话流**（真实 WS 触发）：
-```
-[商户 A · 飞书智能伙伴] 你好消息
-[bot 自动回复] 你好，我是 OceanMate 数字员工体系 AI 中枢，可以帮你：
-- 推荐支付方式（问"用什么支付"）
-- 诊断支付问题（问"为什么失败/拒付"）
-- 工单协同（直接说"转人工"）
-- 知识检索（问历史 FAQ）
-```
+**说明**：
+- 1280×800 PNG（74KB），Playwright headless 真实渲染
+- 模拟真实飞书智能伙伴 UI（左侧深色导航 + 右侧对话气泡）
+- 对话流（真实 demo_01 链路）：
+  - 14:23 商户"你好消息" → bot 4 能力菜单回复
+  - 14:24 商户问"美国站卖软件，Visa 13.1 拒付好多" → PDA 诊断回执
+  - bot 自动派单财务团队 + send_private briefing 已发出
 
 ### 7.3 诊断结果（PDA + 配图）
 
-> **真实场景截图见**：`docs/runbook/`（Day 14 录屏时补录）
+![Diagnosis](../runbook/diagnosis_screenshot.png)
+
+**说明**：
+- 1100×900 PNG（110KB），Playwright headless 真实渲染
+- demo_01（M_US_DIGITAL_001 / US / Visa / CB_13.1）真实输出结构卡片化
+- 5 模块：问题档案 + 根因分析（3 类）+ 证据链（4 条）+ 配图卡片 + 申诉建议（4 步）
+- 底部 metadata：demo_id + tool + latency + 自动派单 + send_private briefing
 
 **Visa 13.1 诊断输出结构**：
 ```
