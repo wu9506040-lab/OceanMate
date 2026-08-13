@@ -38,6 +38,13 @@ DEFAULT_MIN_CONFIDENCE = 0.85
 DEFAULT_LIST_LIMIT = 20
 """list_candidates 默认返回条数。"""
 
+# === Day 14 P0-3：confidence 三段审核阈值 ===
+AUTO_PROMOTE_MIN_CONFIDENCE_PROMOTE_TO_CHROMA_UPPER = 0.9
+"""confidence ≥ 0.9：自动升格写 Chroma。"""
+AUTO_PROMOTE_MIN_CONFIDENCE_PROMOTE_TO_CHROMA_LOWER = 0.7
+"""confidence < 0.7：直接拒绝。
+[0.7, 0.9)：标记"待审核"，不进 Chroma，进 list_candidates 候选池。"""
+
 
 class KEATool(BaseTool):
     """知识进化 Tool — MCP tool_spec 兼容。
@@ -195,6 +202,11 @@ class KEATool(BaseTool):
     def _promote_to_faq(self, params: dict) -> dict:
         """把 cases 表中已诊断好的案例写进 Chroma + embedding_meta。
 
+        Day 14 P0-3：加 confidence 三段审核节点（半自动知识沉淀）：
+        - confidence ≥ 0.9 → 自动升格（写 Chroma + embedding_meta）
+        - 0.7 ≤ confidence < 0.9 → 标记"待审核"，不进 Chroma，进 list_candidates 候选池
+        - confidence < 0.7 → 拒绝，不进 Chroma
+
         异常处理：
         - cases 表无此 ID → 友好 not_found
         - 已有 embedding_meta 记录 → 友好 already_promoted
@@ -226,7 +238,6 @@ class KEATool(BaseTool):
             )
 
         # 2) 查 embedding_meta（避免重复 promote）
-        chroma_id = f"faq_{case_id}_{uuid.uuid4().hex[:8]}"
         existing_meta = self._get_embedding_meta(source_table="cases", source_id=case_id)
         if existing_meta is not None:
             return self._error_result(
@@ -239,9 +250,47 @@ class KEATool(BaseTool):
                 existing_chroma_id=existing_meta,
             )
 
+        # 3) Day 14 P0-3：confidence 三段审核
+        confidence = case.confidence if case.confidence is not None else 0.0
+        if confidence < AUTO_PROMOTE_MIN_CONFIDENCE_PROMOTE_TO_CHROMA_LOWER:
+            # < 0.7：拒绝
+            return {
+                "intent": "promote_to_faq",
+                "count": 0,
+                "promoted": False,
+                "rejected": True,
+                "case_id": case_id,
+                "trace": {
+                    "decision": "rejected",
+                    "reason": f"confidence {confidence:.2f} < {AUTO_PROMOTE_MIN_CONFIDENCE_PROMOTE_TO_CHROMA_LOWER} 阈值，丢弃",
+                    "confidence": confidence,
+                    "problem_type": case.problem_type,
+                },
+            }
+        elif confidence < AUTO_PROMOTE_MIN_CONFIDENCE_PROMOTE_TO_CHROMA_UPPER:
+            # 0.7 ~ 0.9：待审核，不进 Chroma（list_candidates 可查到）
+            return {
+                "intent": "promote_to_faq",
+                "count": 0,
+                "promoted": False,
+                "pending_review": True,
+                "case_id": case_id,
+                "trace": {
+                    "decision": "pending_review",
+                    "reason": f"confidence {confidence:.2f} ∈ [{AUTO_PROMOTE_MIN_CONFIDENCE_PROMOTE_TO_CHROMA_LOWER}, {AUTO_PROMOTE_MIN_CONFIDENCE_PROMOTE_TO_CHROMA_UPPER})，标记待审核。运营可在 list_candidates 看到，审核通过后重试 promote_to_faq",
+                    "confidence": confidence,
+                    "problem_type": case.problem_type,
+                    "review_url": "list_candidates",
+                },
+            }
+
+        # ≥ 0.9：自动升格（原逻辑）
         # 3) 写 Chroma（cases_vec collection）
+        chroma_id = f"faq_{case_id}_{uuid.uuid4().hex[:8]}"
         rag_text = self._case_to_rag_text(case)
         metadata = self._case_to_metadata(case)
+        metadata["confidence"] = confidence  # 在 metadata 里也记录审核决策依据
+        metadata["auto_promoted"] = True
         rag = self._ensure_rag()
         try:
             rag.add_document(
@@ -289,7 +338,9 @@ class KEATool(BaseTool):
             "trace": {
                 "collection": COLLECTION_CASES,
                 "chroma_id": chroma_id,
-                "confidence": case.confidence,
+                "decision": "auto_promoted",
+                "reason": f"confidence {confidence:.2f} ≥ {AUTO_PROMOTE_MIN_CONFIDENCE_PROMOTE_TO_CHROMA_UPPER} 阈值，自动升格",
+                "confidence": confidence,
                 "problem_type": case.problem_type,
             },
         }
