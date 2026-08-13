@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>OceanMate Dashboard</title>
+<style>
+body { font-family: -apple-system, "Segoe UI", "PingFang SC", sans-serif; background: #F5F7FA; color: #1F2329; padding: 24px; margin: 0; }
+h1 { color: #1F2329; margin: 0 0 8px 0; font-size: 22px; }
+.subtitle { color: #646A73; font-size: 13px; margin-bottom: 20px; }
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.card { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.card .v { font-size: 28px; font-weight: 600; color: #1F2329; }
+.card .l { font-size: 12px; color: #646A73; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.panel { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.panel h3 { margin: 0 0 12px 0; font-size: 14px; color: #1F2329; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+td { padding: 6px 0; border-bottom: 1px solid #F0F1F3; }
+.bar { background: #3370FF; height: 14px; border-radius: 2px; }
+.bar2 { background: #00D6B9; height: 16px; border-radius: 2px; display: inline-block; vertical-align: middle; }
+.date-row { display: flex; align-items: center; margin: 4px 0; font-size: 13px; }
+.date { width: 90px; color: #646A73; }
+.cnt { margin-left: 8px; color: #1F2329; font-weight: 500; }
+.date-panel { margin-top: 16px; }
+</style></head><body>
+<h1>OceanMate AI 运营看板</h1>
+<div class="subtitle">实时数据 · 来源：飞书多维表格（飞行社企业）· 2026-08-13 12:50</div>
+
+<div class="cards">
+  <div class="card"><div class="v">59</div><div class="l">有效工单（过滤后）</div></div>
+  <div class="card"><div class="v">60</div><div class="l">原始工单数</div></div>
+  <div class="card"><div class="v">7</div><div class="l">覆盖天数</div></div>
+  <div class="card"><div class="v">4</div><div class="l">活跃团队</div></div>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h3>问题类型分布</h3>
+    <table><tr><td>拒付</td><td><div class="bar" style="width:440px"></div></td><td>22</td></tr><tr><td>支付失败</td><td><div class="bar" style="width:320px"></div></td><td>16</td></tr><tr><td>咨询</td><td><div class="bar" style="width:220px"></div></td><td>11</td></tr><tr><td>退款异常</td><td><div class="bar" style="width:200px"></div></td><td>10</td></tr></table>
+  </div>
+  <div class="panel">
+    <h3>状态分布</h3>
+    <table><tr><td>in_progress</td><td>25</td></tr><tr><td>pending</td><td>20</td></tr><tr><td>resolved</td><td>14</td></tr></table>
+  </div>
+  <div class="panel">
+    <h3>优先级分布</h3>
+    <table><tr><td>medium</td><td>34 (57%)</td></tr><tr><td>high</td><td>22 (37%)</td></tr><tr><td>low</td><td>3 (5%)</td></tr></table>
+  </div>
+  <div class="panel">
+    <h3>SLA / 通知</h3>
+    <table>
+      <tr><td>SLA ≤ 4h</td><td>23 条 (high)</td></tr>
+      <tr><td>SLA 8h</td><td>34 条 (medium)</td></tr>
+      <tr><td>SLA 24h+</td><td>3 条 (low)</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="panel date-panel">
+  <h3>报告日期分布（最近 8 天）</h3>
+  <div class="date-row"><span class="date">2026-08-07</span><div class="bar2" style="width:123px"></div><span class="cnt">8</span></div><div class="date-row"><span class="date">2026-08-08</span><div class="bar2" style="width:200px"></div><span class="cnt">13</span></div><div class="date-row"><span class="date">2026-08-09</span><div class="bar2" style="width:138px"></div><span class="cnt">9</span></div><div class="date-row"><span class="date">2026-08-10</span><div class="bar2" style="width:92px"></div><span class="cnt">6</span></div><div class="date-row"><span class="date">2026-08-11</span><div class="bar2" style="width:169px"></div><span class="cnt">11</span></div><div class="date-row"><span class="date">2026-08-12</span><div class="bar2" style="width:92px"></div><span class="cnt">6</span></div><div class="date-row"><span class="date">2026-08-13</span><div class="bar2" style="width:92px"></div><span class="cnt">6</span></div>
+</div>
+
+</body></html>
