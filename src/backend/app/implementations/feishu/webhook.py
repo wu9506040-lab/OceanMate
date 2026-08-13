@@ -28,12 +28,56 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any, Optional
 
 from app.interfaces.base_frontend import BaseFrontend
 from app.agents.orchestrator.orchestrator import Orchestrator
 
 logger = logging.getLogger(__name__)
+
+
+# === 测试数据过滤器（Day 14 P0 修复）===
+
+_TEST_DATA_PATTERNS = [
+    r"https?://[a-zA-Z0-9_.-]*example\.(com|net|org)[^\s]*",  # example.com 占位 URL
+    r"https?://[a-zA-Z0-9_-]+\.placeholder\.[a-z]+[^\s]*",
+    r"merchant\.example\.com",
+    r"placeholder\.(com|net|org|io)",
+    r"//.*Demo.*占位",
+    r"\|.*Demo\s*占位[^\n]*",
+    r"（?Demo\s*占位[^）\n]*）?",  # 裸露的"Demo 占位"字样
+    r"<DEMO_[A-Z_]+>",  # <DEMO_MERCHANT_ID> 等占位符
+    r"3DS_enabled\s*=\s*\w+",  # 技术参数
+    r"webhook_url\s*=\s*https?://[^\s]+",
+    r"[a-z_]+_demo_[a-z0-9_.]+",  # risk_rule_demo_001 / config_demo_xxx 内部 ID
+]
+
+
+def _sanitize(text: str) -> str:
+    """过滤测试数据 / 技术黑话，转成商户友好版本。
+
+    规则：
+    - example.com / placeholder / Demo 占位 / <DEMO_xxx> → "（请联系 OP 配置）"
+    - 内部证据 ID（xxx_demo_001）→ 不暴露给商户
+    - 3DS_enabled = false → 走 LLM Prompt 转人话，这里兜底删掉技术参数
+    """
+    if not text:
+        return text
+    cleaned = text
+    for pat in _TEST_DATA_PATTERNS:
+        cleaned = re.sub(pat, "（请联系 OP 配置）", cleaned)
+    # 把"OP merchant_config API" 之类改成 OP 后台，避免暴露 API 名称
+    cleaned = cleaned.replace("OP merchant_config API", "OP 商户后台")
+    cleaned = cleaned.replace("merchant_config API", "OP 商户后台")
+    # 飞书纯文本不渲染 Markdown → 去掉星号避免出现字面 **xxx**
+    cleaned = cleaned.replace("**", "").replace("`", "")
+    # 连续重复的占位提示合并
+    cleaned = re.sub(r"(（请联系 OP 配置）\s*){2,}", "（请联系 OP 配置）", cleaned)
+    # 截断过长内容
+    if len(cleaned) > 200:
+        cleaned = cleaned[:200] + "..."
+    return cleaned.strip()
 
 
 # === 飞书事件类型常量 ===
@@ -245,6 +289,9 @@ class FeishuWebhookHandler:
             return FeishuWebhookHandler._fmt_msa(data, trace)
         if intent == "payment_diagnosis":
             return FeishuWebhookHandler._fmt_pda(data, trace)
+        if intent == "payment_diagnosis_clarify":
+            # Day 14 P0-3：参数缺失 → 直接返回反问消息，不走瞎编
+            return orch_result.get("clarify_message", "🤔 需要更多信息，请补充具体错误码/国家/渠道。")
         if intent == "ticket_routing":
             return FeishuWebhookHandler._fmt_tra(data, trace)
         if intent == "knowledge_evolution":
@@ -260,29 +307,63 @@ class FeishuWebhookHandler:
         recs = data.get("recommendations", [])
         if not recs:
             return data.get("response", "暂无推荐。")
-        lines = ["📋 **支付方式推荐**：\n"]
-        for r in recs[:3]:
-            lines.append(f"- **{r.get('method', 'N/A')}**：{r.get('rationale', '')}")
+        lines = ["📋 支付方式推荐：", ""]
+        for i, r in enumerate(recs[:3], 1):
+            lines.append(f"  {i}. {r.get('method', 'N/A')} — {r.get('rationale', '')}")
         return "\n".join(lines)
 
     @staticmethod
     def _fmt_pda(data: dict, trace: dict) -> str:
+        """格式化 PDA 诊断结果（Day 14 P0 飞书友好版）。
+
+        设计原则：
+        1. 飞书 IM 私聊不渲染 Markdown 星号，用 emoji + 换行 + 编号
+        2. 过滤测试数据（example.com / placeholder / Demo 占位）
+        3. confidence 低（≤0.5）时显示"建议转人工"
+        """
         problem_type = data.get("problem_type", "未知")
         causes = data.get("root_causes", [])
         actions = data.get("recommended_actions", [])
         conf = data.get("confidence", 0)
+
+        # 过滤测试数据 + 截断
+        causes_clean = [_sanitize(c) for c in causes[:3] if c]
+        actions_clean = [_sanitize(a) for a in actions[:4] if a]
+
         lines = [
-            f"🔍 **诊断结果**：{problem_type}",
-            f"置信度：{conf:.0%}\n",
+            f"🔍 诊断结果：{problem_type}",
+            f"置信度：{conf:.0%}",
+            "",
         ]
-        if causes:
-            lines.append("**根因**：")
-            for c in causes[:3]:
-                lines.append(f"- {c}")
-        if actions:
-            lines.append("\n**建议**：")
-            for a in actions[:3]:
-                lines.append(f"- {a}")
+
+        # 低置信度 → 提示转人工
+        if conf <= 0.5:
+            lines.append("⚠️ 当前证据不足，建议转人工协助：")
+            lines.append("  1. 提供具体错误码 / 订单号 / 国家 + 渠道")
+            lines.append("  2. 我帮您创建工单，2h 内跟进")
+            if causes_clean:
+                lines.append("")
+                lines.append("📋 初步分析：")
+                for i, c in enumerate(causes_clean, 1):
+                    lines.append(f"  {i}. {c}")
+            return "\n".join(lines)
+
+        if causes_clean:
+            lines.append("📋 问题分析：")
+            for i, c in enumerate(causes_clean, 1):
+                lines.append(f"  {i}. {c}")
+            lines.append("")
+
+        if actions_clean:
+            lines.append("✅ 建议操作：")
+            for i, a in enumerate(actions_clean, 1):
+                lines.append(f"  {i}. {a}")
+
+        # 末尾加 ticket 引导（如果有 next_agent）
+        if data.get("next_agent"):
+            lines.append("")
+            lines.append("💡 提示：回复\"派单\"，我帮您创建工单跟进")
+
         return "\n".join(lines)
 
     @staticmethod
@@ -291,11 +372,11 @@ class FeishuWebhookHandler:
         if sub == "query_status":
             status = data.get("status", "未知")
             ticket_id = data.get("ticket_id", "")
-            return f"📄 工单 {ticket_id} 当前状态：**{status}**"
+            return f"📄 工单 {ticket_id} 当前状态：{status}"
         ticket_id = data.get("ticket_id", "")
         assignee = data.get("assignee", "运营团队")
         sla = data.get("sla_hours", 0)
-        return f"✅ 工单已创建（ID `{ticket_id}`），分派至 **{assignee}**，SLA {sla}h"
+        return f"✅ 工单已创建（ID {ticket_id}），分派至 {assignee}，SLA {sla}h"
 
     @staticmethod
     def _fmt_kea(data: dict, trace: dict) -> str:
@@ -309,9 +390,10 @@ class FeishuWebhookHandler:
             faqs = data.get("faqs", [])
             if count == 0:
                 return "🔍 未找到匹配的 FAQ。是否换个关键词？"
-            lines = [f"🔍 找到 {count} 条 FAQ：\n"]
-            for f in faqs[:3]:
-                lines.append(f"- {f.get('case_info', {}).get('problem_desc', 'N/A')[:60]}")
+            lines = [f"🔍 找到 {count} 条 FAQ：", ""]
+            for i, f in enumerate(faqs[:3], 1):
+                excerpt = (f.get("case_info") or {}).get("problem_desc") or f.get("text_excerpt", "")
+                lines.append(f"  {i}. {_sanitize(str(excerpt))[:80]}")
             return "\n".join(lines)
         # list_candidates
         count = data.get("count", 0)

@@ -172,14 +172,15 @@ class TestPromoteHappyPath:
         )
         assert len(rows) == 1
         assert rows[0]["source_table"] == "cases"
-        assert rows[0]["collection_name"] == "cases_vec"
+        # Day 14 P1-6：沉淀目标集合改为 faq_vec（与原始案例库 cases_vec 分离）
+        assert rows[0]["collection_name"] == "faq_vec"
 
         # Assert：Chroma 真的有这个文档
         rag = kea._ensure_rag()
         docs = rag.retrieve(
             "BR Visa 拒付",
             top_k=5,
-            collection_name="cases_vec",
+            collection_name="faq_vec",
         )
         # 至少有一条结果（HashEmbedding 相似度弱，但能召回同一个）
         assert any(doc.id == result["chroma_id"] for doc in docs)

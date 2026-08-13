@@ -36,6 +36,9 @@ INTENT_KEYWORDS = {
     "payment_diagnosis": [
         "失败", "错误码", "ERR_", "拒付", "退款异常",
         "Webhook 回调", "3DS 失败", "风控拦截", "无法支付",
+        # Day 14 P0-1：场景类问题（无错误码）此前根本进不来诊断意图
+        "延迟", "不到账", "到账慢", "结算", "对账", "不稳定",
+        "回调失败", "chargeback", "申诉", "扣款",
     ],
     "merchant_success": [
         "支付方式", "选什么", "推荐", "PWR",
@@ -321,29 +324,280 @@ class Orchestrator:
     # === 路由到各 Tool ===
 
     def _route_pda(self, query: str, ctx: dict, matched: list[str]) -> dict:
-        """路由到 PDATool。"""
+        """路由到 PDATool。
+
+        Day 14 P0-2：从 user_query 智能提取 PDA 参数（country/channel/error_code）
+        Day 14 P0-3：根据 query 类型智能反问，避免机械要所有参数
+            - 场景类（"周末延迟"）→ 不强求 error_code
+            - 错误码类（"13.1 拒付"）→ 可要 error_code
+            - 推荐类 → 走 MSA，不走 PDA
+        """
         if "payment_diagnosis" not in self.registry:
             return self._tool_not_available("payment_diagnosis")
 
-        # PDA 需要 country/channel/error_code，商户 ctx 可能不全
+        # 1. 从 query 提取参数
+        extracted = self._extract_pda_params(query)
+
+        # 2. ctx 优先（商户明确提供），query 提取次之
+        country = ctx.get("country") or extracted["country"]
+        channel = ctx.get("channel") or extracted["channel"]
+        error_code = ctx.get("error_code") or extracted["error_code"]
+
+        # 3. Day 14 P0-3：判断 query 类型，决定是否反问
+        query_type = self._classify_diagnosis_query_type(query, error_code)
+
+        if query_type == "consultation":
+            # 推荐/咨询类 → 不应走 PDA，转 MSA
+            return self._suggest_msa_response(query, matched, extracted)
+
+        if query_type == "scene":
+            # 场景类（"周末延迟"）→ 不强求 error_code，country+channel 即可
+            # 只有 country 和 channel 都缺才反问；其他情况直接给基于场景的诊断
+            missing = []
+            if not country or country == "ZZ":
+                missing.append("country（哪个国家？如 US/BR/NL）")
+            if not channel or channel == "unknown":
+                missing.append("channel（哪个支付渠道？如 Visa/Mastercard/Pix）")
+            if missing:
+                return self._pda_clarify_response(query, missing, matched, extracted, "scene")
+
+        elif query_type == "code_required":
+            # 错误码类 → error_code 缺失要反问
+            missing = []
+            if not country or country == "ZZ":
+                missing.append("country（哪个国家？如 US/BR/NL）")
+            if not channel or channel == "unknown":
+                missing.append("channel（哪个支付渠道？如 Visa/Mastercard/Pix）")
+            if not error_code or error_code == "ERR_UNKNOWN":
+                missing.append("error_code（具体错误码？如 13.1/4837）")
+            if missing:
+                # 软反问：即使缺，也只问最关键的 1 个
+                return self._pda_clarify_response(query, missing, matched, extracted, "code_required")
+
+        # 走到这里说明参数足够 → 调 PDA
+        # Day 14 P0-2：error_code 缺失时传空串（不再伪造 ERR_UNKNOWN 导致证据全 miss）
         params = {
             "merchant_id": ctx.get("merchant_id", "unknown"),
-            "country": ctx.get("country", "ZZ"),
-            "channel": ctx.get("channel", "unknown"),
-            "error_code": ctx.get("error_code", "ERR_UNKNOWN"),
+            "country": country if country else "GLOBAL",
+            "channel": channel if channel else "ANY",
+            "error_code": error_code or "",
+            "query_text": query,  # Day 14 P0-1：原话给知识库做语义检索
             "affected_orders": ctx.get("affected_orders", []),
         }
         wrapped = self.registry.safe_execute("payment_diagnosis", params)
-        # safe_execute 返回 {success, data, error_code, error_message}
         data = wrapped.get("data", {}) if wrapped.get("success") else {}
         error_image_path = data.get("error_image_path", "") if isinstance(data, dict) else ""
         return {
             "intent": "payment_diagnosis",
             "tool_name": "payment_diagnosis",
-            "tool_result": wrapped,   # 保留 safe_execute 包装（前端能看 success）
-            "error_image_path": error_image_path,  # 顶层暴露
-            "trace": {"matched_keywords": matched, "params": params},
+            "tool_result": wrapped,
+            "error_image_path": error_image_path,
+            "trace": {
+                "matched_keywords": matched,
+                "params": params,
+                "extracted_from_query": extracted,
+                "query_type": query_type,
+            },
         }
+
+    # Day 14 P0-3：判断 query 类型
+    _QUERY_TYPE_SCENE_KEYWORDS = [
+        "延迟", "慢", "不稳定", "时好时坏", "卡顿", "没响应", "不到账",
+        "到账慢", "周末", "凌晨", "高峰期", "流量大", "拥堵",
+    ]
+    _QUERY_TYPE_CODE_KEYWORDS = [
+        "拒付", "chargeback", "退款异常", "失败", "错误", "拦截",
+        "13.1", "4837", "拒", "报错", "ERR_",
+    ]
+
+    def _classify_diagnosis_query_type(self, query: str, error_code: Optional[str]) -> str:
+        """判断 PDA query 类型：
+        - consultation: 推荐/咨询类 → 走 MSA
+        - scene: 场景类（延迟/不稳定）→ country+channel 足够
+        - code_required: 错误码类 → error_code 重要
+
+        有 error_code 直接走 code_required（用户已提供）。
+        """
+        q = query or ""
+        # 有具体 error_code → code_required
+        if error_code and error_code != "ERR_UNKNOWN":
+            return "code_required"
+        # 错误码关键词命中（"拒付""失败""13.1"等）→ code_required
+        for kw in self._QUERY_TYPE_CODE_KEYWORDS:
+            if kw in q:
+                return "code_required"
+        # 场景关键词命中（"延迟""慢""不稳定"）→ scene
+        for kw in self._QUERY_TYPE_SCENE_KEYWORDS:
+            if kw in q:
+                return "scene"
+        # 默认：当作 code_required（错误码类兜底）
+        return "code_required"
+
+    @staticmethod
+    def _suggest_msa_response(query: str, matched: list[str], extracted: dict) -> dict:
+        """推荐/咨询类 query → 引导商户到 MSA 支付方式推荐。"""
+        msg = (
+            "💡 您的问题更适合支付方式推荐（选哪种通道）。\n\n"
+            "请告诉我：\n"
+            "  1. 目标国家\n"
+            "  2. 行业（B2C 零售 / 数字商品 / 旅游等）\n"
+            "  3. 客单价区间\n"
+            "  4. 主要客户群体（B2B / B2C）\n\n"
+            "我会基于您的画像推荐最优支付组合。"
+        )
+        return {
+            "intent": "payment_diagnosis_clarify",
+            "tool_name": None,
+            "tool_result": {
+                "success": True,
+                "data": {
+                    "problem_type": "推荐咨询",
+                    "root_causes": [],
+                    "evidence_chain": [],
+                    "recommended_actions": ["补充商户画像以获取支付方式推荐"],
+                    "confidence": 0.0,
+                    "next_agent": "Merchant Success Agent",
+                },
+            },
+            "clarify_message": msg,
+            "trace": {
+                "matched_keywords": matched,
+                "extracted_from_query": extracted,
+                "clarify_reason": "consultation_type_redirect_to_msa",
+            },
+        }
+
+    @staticmethod
+    def _pda_clarify_response(
+        query: str, missing: list[str], matched: list[str],
+        extracted: dict, query_type: str,
+    ) -> dict:
+        """PDA 参数缺失时的反问响应（Day 14 P0-3 优化版）。
+
+        软反问原则：
+        - 只列最关键的 1 个参数（不是全列）
+        - 给出可选"继续分析"按钮，避免强迫回答
+        """
+        # 只问最关键的 1 个
+        key_missing = missing[0] if missing else "更多信息"
+
+        # 区分风格
+        if query_type == "scene":
+            msg = (
+                f"🤔 要给出更准确分析，建议补充：{key_missing}\n\n"
+                "💡 没拿到也没关系，回复「继续」我就基于现有信息先给您一份初步分析。"
+            )
+        else:
+            msg = (
+                f"🤔 您的问题我需要更多信息才能给出准确诊断。\n\n"
+                f"{key_missing}\n\n"
+                "💡 没拿到也没关系，回复「继续」我就基于现有信息先给您一份初步分析。"
+            )
+
+        return {
+            "intent": "payment_diagnosis_clarify",
+            "tool_name": None,
+            "tool_result": {
+                "success": True,
+                "data": {
+                    "problem_type": "需补充信息",
+                    "root_causes": [],
+                    "evidence_chain": [],
+                    "recommended_actions": ["补充信息后重新提问，或回复\"继续\"基于现有信息分析"],
+                    "confidence": 0.0,
+                    "next_agent": None,
+                },
+            },
+            "clarify_message": msg,
+            "trace": {
+                "matched_keywords": matched,
+                "extracted_from_query": extracted,
+                "missing_params": missing,
+                "clarify_reason": "params_insufficient",
+                "query_type": query_type,
+            },
+        }
+
+    # Day 14 P0-2：从 user_query 智能提取 PDA 参数
+    _COUNTRY_KEYWORDS = {
+        # 中文国家名 → ISO 2 位
+        "美国": "US", "美站": "US", "美国站": "US",
+        "日本": "JP", "日本站": "JP",
+        "英国": "GB", "英国站": "GB",
+        "德国": "DE", "德国站": "DE",
+        "法国": "FR", "法国站": "FR",
+        "巴西": "BR", "巴西站": "BR",
+        "荷兰": "NL", "荷兰站": "NL",
+        "墨西哥": "MX", "墨西哥站": "MX",
+        "加拿大": "CA", "加拿大站": "CA",
+        "澳洲": "AU", "澳大利亚": "AU",
+        "新加坡": "SG", "香港": "HK",
+    }
+
+    _CHANNEL_KEYWORDS = {
+        "Visa": ["visa"],
+        "Mastercard": ["mastercard", "master card", "mc", "万事达", "万事达卡"],
+        "Amex": ["amex", "american express", "运通"],
+        "Discover": ["discover"],
+        "PayPal": ["paypal", "贝宝"],
+        "Pix": ["pix"],
+        "iDEAL": ["ideal", "iDEAL"],
+        "UnionPay": ["银联", "unionpay"],
+    }
+
+    _ERROR_CODE_PATTERN = None  # 懒加载
+
+    def _extract_pda_params(self, query: str) -> dict:
+        """从用户自然语言中提取 country / channel / error_code。
+
+        Returns:
+            {"country": "US" | None, "channel": "Visa" | None, "error_code": "CB_13.1" | None}
+        """
+        import re
+        result = {"country": None, "channel": None, "error_code": None}
+        q = query or ""
+
+        # 1. country 提取（中英文都支持）
+        for kw, iso in self._COUNTRY_KEYWORDS.items():
+            if kw in q:
+                result["country"] = iso
+                break
+        if not result["country"]:
+            # ISO 2 位大写字母直接命中（如 "US" "BR"）
+            m = re.search(r"\b([A-Z]{2})\b", q)
+            if m:
+                result["country"] = m.group(1)
+
+        # 2. channel 提取（关键词匹配，长的优先避免 "mc" 误命中）
+        for channel, kws in sorted(
+            self._CHANNEL_KEYWORDS.items(), key=lambda kv: -max(len(k) for k in kv[1])
+        ):
+            for kw in kws:
+                if kw.lower() in q.lower():
+                    result["channel"] = channel
+                    break
+            if result["channel"]:
+                break
+
+        # 3. error_code 提取（CB_xx / ERR_xx / 数字模式）
+        # 3a) CB_xxx 模式（如 CB_13.1）
+        m = re.search(r"(CB_[A-Za-z0-9._]+)", q)
+        if m:
+            result["error_code"] = m.group(1)
+        # 3b) ERR_xxx 模式（如 ERR_DEMO_*）
+        if not result["error_code"]:
+            m = re.search(r"(ERR_[A-Z0-9_]+)", q)
+            if m:
+                result["error_code"] = m.group(1)
+        # 3c) "Visa 13.1" / "MC 4837" 模式 → CB_13.1 / CB_4837
+        if not result["error_code"] and result["channel"]:
+            m = re.search(r"\b(\d{4}|\d+\.\d)\b", q)
+            if m:
+                num = m.group(1)
+                # 关键：真实数据用 "." 不是 "_"（CB_13.1 / CB_4837）
+                result["error_code"] = f"CB_{num}"
+
+        return result
 
     def _route_msa(self, query: str, ctx: dict, matched: list[str]) -> dict:
         """路由到 MSATool（决定 recommend vs collect_profile）。"""
