@@ -5,6 +5,11 @@ import json
 import httpx
 
 sys.path.insert(0, '.')
+# Day 14 P1 修复：Windows GBK console 编码崩溃
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except (AttributeError, OSError):
+    pass
 
 # 加载 .env
 env_path = '../../.env'
