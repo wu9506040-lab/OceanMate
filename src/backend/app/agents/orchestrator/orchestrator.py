@@ -1,7 +1,7 @@
 """Orchestrator - 商户成功 AI 中枢（意图分流 + Tool 编排）。
 
-设计（PoC 精简版 · Day 4）：
-- 基于关键词 + LLM 兜底的意图分类
+设计（PoC 精简版 · Day 4 + Day 14 P1-1）：
+- 关键词匹配（白名单）→ LLM 兜底（Qwen chat_structured）
 - 单 query 单意图（最常见）
 - 显式 unknown intent → 友好提示
 
@@ -9,16 +9,20 @@
 - ReAct 模式（思考 → 行动 → 观察 → 循环）
 - 多意图拆分（同一 query 命中多种）
 - 上下文管理（多轮对话）
-- LLM 动态 Tool 选择（vs 当前关键词白名单）
+- AtoA 自动链式编排（Day 14 P1-3）
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from app.interfaces.base_tool import ToolRegistry, BaseTool
 from app.interfaces.base_llm import BaseLLMGateway
-from app.implementations.llm.qwen_gateway import MockLLMGateway
+from app.implementations.llm.qwen_gateway import MockLLMGateway, QwenGateway
+
+
+logger = logging.getLogger(__name__)
 
 
 # === 意图识别（关键词白名单） ===
@@ -49,6 +53,20 @@ MSA_SUB_INTENT_BY_PROFILE = {
     "incomplete": "collect_profile",
 }
 
+# Day 14 P1-1：LLM fallback 调用的 prompt 模板
+LLM_INTENT_PROMPT_TEMPLATE = """你是跨境支付商户成功 AI 中枢的意图分类器。请判断用户消息属于以下哪种意图：
+
+- payment_diagnosis：支付失败 / 错误码 / 拒付 / 退款异常 / 风控拦截 等诊断类
+- merchant_success：支付方式推荐 / 商户画像采集 / 选什么方案 等商户成功类
+- ticket_routing：工单状态 / 派单 / SLA / 转人工 / 客服 等工单类
+- knowledge_evolution：FAQ 查询 / 知识库 / 文档 / 教程 / 如何操作 等知识类
+- unknown：都不属于
+
+用户消息："{query}"
+
+请严格按照以下 JSON Schema 输出（不要任何额外文字）：
+{{"intent": "<以上5个之一>", "confidence": <0.0-1.0的浮点数>, "reason": "<一句话解释>"}}"""
+
 
 class Orchestrator:
     """商户成功 AI 中枢。
@@ -58,15 +76,27 @@ class Orchestrator:
         orch.register_tool(PDATool())
         orch.register_tool(MSATool())
         result = orch.route(user_query="...")
+
+    Day 14 P1-1 新增：
+        orch = Orchestrator(use_llm_fallback=False)  # 关闭 LLM fallback（仅关键词模式）
     """
 
     def __init__(
         self,
         llm: Optional[BaseLLMGateway] = None,
         registry: Optional[ToolRegistry] = None,
+        use_llm_fallback: bool = True,
     ):
-        self.llm = llm or MockLLMGateway()
+        # 优先 Qwen，无 key 时降级 Mock（与原行为一致）
+        if llm is not None:
+            self.llm = llm
+        else:
+            try:
+                self.llm = QwenGateway()
+            except Exception:
+                self.llm = MockLLMGateway()
         self.registry = registry or ToolRegistry()
+        self.use_llm_fallback = use_llm_fallback
 
     def register_tool(self, tool: BaseTool) -> None:
         self.registry.register(tool)
@@ -90,6 +120,8 @@ class Orchestrator:
                 "trace": {
                     "matched_keywords": [...],
                     "llm_used": bool,
+                    "llm_intent": str | None,  # Day 14 P1-1
+                    "llm_confidence": float | None,  # Day 14 P1-1
                 }
             }
         """
@@ -98,26 +130,49 @@ class Orchestrator:
         # Step 1: 关键词匹配
         intent, matched = self._classify_intent(user_query)
 
-        # Step 2: 按意图构造 params 并调 Tool
+        # Step 2: 关键词未命中 + 启用 LLM fallback → 调 LLM 兜底
+        llm_used = False
+        llm_intent = None
+        llm_confidence = None
+        if intent == "unknown" and self.use_llm_fallback:
+            llm_intent, llm_confidence = self._classify_intent_with_llm(user_query)
+            if llm_intent and llm_intent in INTENT_KEYWORDS:
+                intent = llm_intent
+                matched = []  # LLM fallback 时关键词为空
+                llm_used = True
+            elif llm_intent == "unknown":
+                llm_used = True  # LLM 也认不出，保持 unknown
+
+        # Step 3: 按意图构造 params 并调 Tool
         if intent == "payment_diagnosis":
-            return self._route_pda(user_query, ctx, matched)
+            result = self._route_pda(user_query, ctx, matched)
         elif intent == "merchant_success":
-            return self._route_msa(user_query, ctx, matched)
+            result = self._route_msa(user_query, ctx, matched)
         elif intent == "ticket_routing":
-            return self._route_tra(user_query, ctx, matched)
+            result = self._route_tra(user_query, ctx, matched)
         elif intent == "knowledge_evolution":
-            return self._route_kea(user_query, ctx, matched)
+            result = self._route_kea(user_query, ctx, matched)
         else:
-            return self._unknown_response(user_query, matched)
+            result = self._unknown_response(user_query, matched)
+
+        # Step 4: 把 LLM fallback 信息追加到 trace（Day 14 P1-1）
+        result["trace"]["llm_used"] = llm_used
+        if llm_used:
+            result["trace"]["llm_intent"] = llm_intent
+            result["trace"]["llm_confidence"] = llm_confidence
+        return result
 
     # === 意图分类 ===
 
-    @staticmethod
-    def _classify_intent(query: str) -> tuple[str, list[str]]:
-        """关键词匹配，返回 (best_intent, all_matched_keywords)。
+    def _classify_intent(self, query: str) -> tuple[str, list[str]]:
+        """关键词匹配 + LLM 兜底决策，返回 (best_intent, all_matched_keywords)。
 
-        评分：每个 intent 命中关键词数。
-        Tie-break：intent 顺序（payment_diagnosis > merchant_success > ticket_routing > knowledge_evolution）。
+        Day 14 P1-1 改造：
+        - 关键词命中 ≥1 → 返回关键词结果（不变）
+        - 关键词命中 0 → 调 LLM 分类（返回的 intent 是 LLM 结果）
+
+        注：本方法被 route() 调用时已做 LLM 兜底，这里实际只跑关键词。
+        单独抽出来便于测试 + 未来扩展（如多轮对话复用关键词结果）。
         """
         scores = {}
         matched_by_intent = {}
@@ -136,6 +191,41 @@ class Orchestrator:
             key=lambda i: (scores[i], -list(INTENT_KEYWORDS.keys()).index(i)),
         )
         return best_intent, matched_by_intent.get(best_intent, [])
+
+    def _classify_intent_with_llm(self, query: str) -> tuple[str, Optional[float]]:
+        """LLM 兜底分类（Day 14 P1-1）。
+
+        Returns:
+            (intent, confidence) — 失败时返回 ("unknown", None)
+        """
+        prompt = LLM_INTENT_PROMPT_TEMPLATE.format(query=query)
+        try:
+            result = self.llm.chat_structured(
+                messages=[{"role": "user", "content": prompt}],
+                output_schema={
+                    "type": "object",
+                    "properties": {
+                        "intent": {"type": "string"},
+                        "confidence": {"type": "number"},
+                        "reason": {"type": "string"},
+                    },
+                    "required": ["intent", "confidence"],
+                },
+                model="qwen-turbo",  # 分类任务用 turbo 即可，省 token
+            )
+            intent = result.get("intent", "unknown")
+            confidence = result.get("confidence")
+            logger.info(
+                f"[Orchestrator] LLM fallback intent='{intent}', confidence={confidence}, reason='{result.get('reason', '')}'"
+            )
+            # 校验 intent 在合法列表
+            if intent not in INTENT_KEYWORDS and intent != "unknown":
+                logger.warning(f"[Orchestrator] LLM 返回非法 intent '{intent}'，降级 unknown")
+                return "unknown", confidence
+            return intent, confidence
+        except Exception as e:
+            logger.warning(f"[Orchestrator] LLM 兜底失败，降级 unknown: {e}")
+            return "unknown", None
 
     # === 路由到各 Tool ===
 
