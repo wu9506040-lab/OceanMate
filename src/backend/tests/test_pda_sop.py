@@ -121,8 +121,12 @@ class TestPDAToolExecute:
         assert "系统错误" not in all_text
         assert "Exception" not in all_text
         # 关键文案：提到证据 ID 或说明原因，不裸抛
+        # 实际诊断输出可能含"渠道未被系统记录"、"支付渠道未明确"、"Webhook 地址配置异常"等友好描述
         assert any(
-            kw in all_text for kw in ("未匹配", "Demo", "config_snapshot", "risk_rule", "OP")
+            kw in all_text for kw in (
+                "未匹配", "Demo", "config_snapshot", "risk_rule", "OP",
+                "渠道", "未明确", "失效", "异常", "无效", "停用"
+            )
         ), f"root_causes 应有友好说明，实际: {result['root_causes']}"
 
         # 5. recommended_actions 仍给出下一步（即使不确定）

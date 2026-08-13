@@ -47,6 +47,7 @@ _DEFAULT_DATA_DIR = Path(__file__).resolve().parents[3] / "data" / "chroma"
 COLLECTION_ERROR_CODES = "error_codes_vec"
 COLLECTION_CASES = "cases_vec"
 COLLECTION_PAYMENT_METHODS = "payment_methods_vec"
+COLLECTION_FAQ = "faq_vec"  # Day 14：KEA promote_to_faq 目标集合
 
 
 # 向后兼容别名（Day 8 重构）
@@ -115,6 +116,11 @@ class ChromaRAGEngine(BaseRAGEngine):
             COLLECTION_PAYMENT_METHODS: self._client.get_or_create_collection(
                 name=COLLECTION_PAYMENT_METHODS,
                 metadata={"description": "支付方式知识（PWR 用）"},
+                embedding_function=self._embedding_function,
+            ),
+            COLLECTION_FAQ: self._client.get_or_create_collection(
+                name=COLLECTION_FAQ,
+                metadata={"description": "FAQ 知识库（KEA promote_to_faq 目标）"},
                 embedding_function=self._embedding_function,
             ),
         }

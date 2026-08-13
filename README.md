@@ -141,7 +141,7 @@ python scripts/run_all_real.py
 
 | 维度 | 证据文档 | 关键 KPI |
 |------|----------|---------|
-| AtoA 自动链式编排 | [`docs/reports/p1_3_evidence.md`](./docs/reports/p1_3_evidence.md) | PDA→TRA→KEA 3 步链 1/20 首次命中 |
+| AtoA 自动链式编排 | [`docs/reports/p1_3_evidence.md`](./docs/reports/p1_3_evidence.md) | PDA→TRA→KEA 3 步链 · 4/20 拿到完整链（实测） |
 | 对立面审查（360°） | [`docs/reports/adversarial_review.md`](./docs/reports/adversarial_review.md) | 4 子 Agent 并行审查，10 类 gap 暴露+分类 |
 | 完整参赛方案 | [`docs/reports/submission.md`](./docs/reports/submission.md) | 654 行 · 6 Demo 6/6 PASSED · 74% 测试覆盖 |
 | **冲奖冲刺 13 项** | **[`docs/reports/v10_award_boost.md`](./docs/reports/v10_award_boost.md)** | **820 行 · 量化收益+Prompt 设计+落地路径+安全合规** |
