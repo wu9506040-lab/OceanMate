@@ -169,15 +169,21 @@ class FeishuOpenAPI:
     def list_messages(
         self,
         chat_id: str,
-        start_time_ms: Optional[int] = None,
+        start_time_sec: Optional[int] = None,
+        end_time_sec: Optional[int] = None,
         page_size: int = 20,
     ) -> list[dict]:
         """拉取 chat 最近消息（im/v1/messages）。
 
         Args:
             chat_id: 目标 chat
-            start_time_ms: 仅返回此时间戳之后的消息（毫秒）
+            start_time_sec: 仅返回此时间戳之后的消息（**秒**，飞书 API 单位）
+            end_time_sec: 仅返回此时间戳之前的消息（秒）；默认 = 当前时间
+                （必传：飞书服务端会校验 end_time > start_time）
             page_size: 最多拉取条数（最大 50）
+
+        注意：start_time / end_time 单位是**秒**（不是毫秒），但返回的
+        create_time 字段是毫秒。
 
         需要权限 im:message:readonly。
 
@@ -185,9 +191,15 @@ class FeishuOpenAPI:
             [{"message_id": "...", "sender": {...}, "msg_type": "text", "body": {"content": "..."},
               "create_time": 1700000000000}, ...]
         """
-        params = f"container_id_type=chat&container_id={chat_id}&page_size={page_size}&sort_type=ByCreateTimeAsc"
-        if start_time_ms is not None:
-            params += f"&start_time={start_time_ms}"
+        import time as _time
+        if end_time_sec is None:
+            end_time_sec = int(_time.time())
+        params = (
+            f"container_id_type=chat&container_id={chat_id}&page_size={page_size}"
+            f"&sort_type=ByCreateTimeAsc&end_time={end_time_sec}"
+        )
+        if start_time_sec is not None:
+            params += f"&start_time={start_time_sec}"
         url = f"{self.base_url}/im/v1/messages?{params}"
         return self._get_authed(url, "im.list_messages").get("data", {}).get("items", [])
 
