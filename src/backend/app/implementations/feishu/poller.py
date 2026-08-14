@@ -117,9 +117,10 @@ def start_feishu_poller_in_background(
                 _poller_state["polls_total"] += 1
                 _poller_state["last_poll_at"] = _now_iso()
 
+                # 飞书 API start_time/end_time 单位是**秒**（不是毫秒）
                 messages = api.list_messages(
                     chat_id=chat_id,
-                    start_time_ms=last_time_ms,
+                    start_time_sec=last_time_ms // 1000 if last_time_ms > 10**12 else int(last_time_ms),
                     page_size=20,
                 )
 
@@ -139,11 +140,12 @@ def start_feishu_poller_in_background(
                         continue
 
                     sender = msg.get("sender", {}) or {}
-                    sender_id = sender.get("sender_id", {}) or {}
+                    # 飞书 list_messages 返回的 sender 结构是扁平：
+                    # {"id": "ou_xxx", "id_type": "open_id", "sender_type": "user", ...}
+                    # 注意：sender.id 就是 open_id（不是 sender.sender_id.open_id）
                     user_id = (
-                        sender_id.get("open_id")
-                        or sender_id.get("user_id")
-                        or sender_id.get("union_id")
+                        sender.get("id")
+                        or sender.get("open_id")
                         or ""
                     )
 
