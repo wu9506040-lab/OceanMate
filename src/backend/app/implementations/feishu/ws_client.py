@@ -28,9 +28,9 @@ import threading
 from collections import deque
 from typing import Optional
 
+from app.implementations.feishu.webhook import _mark_message_seen, FeishuWebhookHandler
 from app.agents.orchestrator.orchestrator import Orchestrator
 from app.interfaces.base_frontend import BaseFrontend
-from app.implementations.feishu.webhook import FeishuWebhookHandler
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +95,13 @@ def _handle_p2_im_message(
         )
         chat_id = getattr(message, "chat_id", "") or ""
         chat_type = getattr(message, "chat_type", "p2p")
+        message_id = getattr(message, "message_id", "") or ""
+
+        # Day 17 Fix：message_id 去重（与 webhook 共享 dedup 状态，
+        # 防 WS + Poller + Webhook 三路同消息重复处理推 3 条相同 reply）
+        if message_id and not _mark_message_seen(message_id):
+            logger.info(f"[WS][dedup] message_id 重复，跳过: message_id={message_id[:24]}")
+            return
 
         # 2. 提取文本（content 是 JSON 字符串："text" / "interactive" 等）
         content_str = getattr(message, "content", "") or ""

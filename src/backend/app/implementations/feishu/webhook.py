@@ -31,6 +31,9 @@ import hmac
 import json
 import logging
 import re
+import threading
+import time
+from collections import deque
 from typing import Any, Optional
 
 from fastapi import HTTPException
@@ -43,6 +46,38 @@ from app.agents.orchestrator.polishing import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# === Day 17 message_id 去重（修"重复 3 遍"bug）===
+# 背景：WS + Poller + Webhook 三条路径都可能接到同一 message_id 的事件，
+#      之前 webhook 完全没去重，导致同一条 user 消息会被处理 + 推 3 条相同 reply。
+# 方案：模块级 LRU deque + 时间戳，5 分钟内同 message_id 直接 short-circuit。
+_RECENT_MSG_IDS_MAXLEN = 500  # 最多缓存 500 个 id（足够覆盖 5 分钟内活跃用户）
+_RECENT_MSG_IDS_TTL_SEC = 300  # 5 分钟
+_recent_message_ids: deque = deque(maxlen=_RECENT_MSG_IDS_MAXLEN)
+_message_id_lock = threading.Lock()
+
+
+def _mark_message_seen(message_id: str) -> bool:
+    """检查 + 标记 message_id 是否在最近 5 分钟内见过。
+
+    Returns:
+        True = 新消息（已加入 seen 集合，业务继续处理）
+        False = 重复消息（short-circuit，业务跳过）
+    """
+    if not message_id:
+        return True  # 无 message_id 视为新消息（不阻断流程）
+    with _message_id_lock:
+        now = time.time()
+        # 清理过期（懒清理：append 前先 pop 老的）
+        while _recent_message_ids and _recent_message_ids[0][0] < now - _RECENT_MSG_IDS_TTL_SEC:
+            _recent_message_ids.popleft()
+        # 检查是否重复
+        for ts, mid in _recent_message_ids:
+            if mid == message_id:
+                return False
+        _recent_message_ids.append((now, message_id))
+        return True
 
 
 # === 测试数据过滤器（Day 14 P0 修复）===
@@ -448,6 +483,14 @@ class FeishuWebhookHandler:
             if event_type != EVENT_IM_MESSAGE_RECEIVE:
                 logger.debug(f"忽略非聊天事件: {event_type}")
                 return {"code": 0, "msg": "ok"}
+
+            # 3.0 Day 17 Fix：message_id 去重（防 WS + Poller + Webhook 三路同消息重复处理）
+            message_id = payload.get("event", {}).get("message", {}).get("message_id", "")
+            if message_id and not _mark_message_seen(message_id):
+                logger.info(
+                    f"[dedup] message_id 重复，跳过: message_id={message_id[:24]}"
+                )
+                return {"code": 0, "msg": "success"}
 
             sender_info = self._extract_sender(payload)
             text = self._extract_text(payload)
