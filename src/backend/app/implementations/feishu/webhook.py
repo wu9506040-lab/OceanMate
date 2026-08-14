@@ -37,6 +37,10 @@ from fastapi import HTTPException
 
 from app.interfaces.base_frontend import BaseFrontend
 from app.agents.orchestrator.orchestrator import Orchestrator
+from app.agents.orchestrator.polishing import (
+    polish_query,
+    record_recent_ticket,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -219,11 +223,46 @@ class FeishuWebhookHandler:
 
             user_id, chat_id = sender_info
 
+            # 3.5 Day 16「像真人客服」polishing 层（Fix E/F/G/H）
+            # 在 Orchestrator 之前过滤掉告别语 / 去重派单 / 提取补充事实 / 检测同理心信号
+            polish = polish_query(text, user_id=user_id)
+
+            # Fix E：告别语识别 → 直接返短文本，不调 Orchestrator
+            if polish.is_farewell:
+                self._safe_send(user_id, polish.farewell_reply or "🙌 不客气！")
+                logger.info(f"[polishing] 告别语识别: user={user_id[:12]} text={text[:20]}")
+                return {"code": 0, "msg": "success"}
+
+            # Fix F：5 分钟内同 user+query 已派过工单 → 返查询链接（不重复派）
+            if polish.recent_ticket_id:
+                dedup_reply = (
+                    f"💡 您刚才已经就该问题提交过工单 **{polish.recent_ticket_id}**，"
+                    f"我们的同事正在跟进，无需重复提交。\n\n"
+                    "如有新信息（如物流单号 / 已开 3DS / 退款记录），"
+                    "请直接发给我，我会更新到原工单上。"
+                )
+                self._safe_send(user_id, dedup_reply)
+                logger.info(
+                    f"[polishing] 去重派单命中: user={user_id[:12]} "
+                    f"ticket={polish.recent_ticket_id}"
+                )
+                return {"code": 0, "msg": "success"}
+
+            # Fix G：商户反驳 / 补充事实 → 注入 ctx
+            ctx = {"user_id": user_id, "chat_id": chat_id}
+            if polish.merchant_supplement:
+                ctx["merchant_supplement"] = polish.merchant_supplement
+                ctx["is_rebuttal"] = True
+                logger.info(f"[polishing] 商户反驳识别: user={user_id[:12]} text={text[:40]}")
+
+            # Fix H：同理心信号 → 存到 ctx，format_reply 后 prepend
+            urgent_prepend = polish.urgent_prepend
+
             # 4. 路由到 Orchestrator
             try:
                 result = self.orchestrator.route(
                     user_query=text,
-                    merchant_context={"user_id": user_id, "chat_id": chat_id},
+                    merchant_context=ctx,
                 )
             except Exception as e:
                 logger.exception(f"Orchestrator 路由失败: {e}")
@@ -626,6 +665,29 @@ class FeishuWebhookHandler:
                 },
             },
         }
+
+    @staticmethod
+    def _extract_created_ticket_id(orch_result: dict) -> Optional[str]:
+        """Day 16 Fix F：从 Orchestrator 结果提取「本轮创建的工单 ID」（用于去重）。
+
+        只关心 TRA 创建的工单（sub_intent=route_ticket + ticket_id 非空 + status=pending）。
+        TRA query_status 不算创建。
+        """
+        if not orch_result or orch_result.get("intent") != "ticket_routing":
+            return None
+        trace = orch_result.get("trace") or {}
+        if trace.get("sub_intent") != "route_ticket":
+            return None
+        tool_result = orch_result.get("tool_result") or {}
+        if not tool_result.get("success"):
+            return None
+        data = tool_result.get("data") or {}
+        if not isinstance(data, dict):
+            return None
+        ticket_id = data.get("ticket_id", "")
+        if not ticket_id or not str(ticket_id).startswith("tkt_"):
+            return None
+        return str(ticket_id)
 
     def _extract_briefing(self, orch_result: dict) -> Optional[dict]:
         """从 Orchestrator 结果提取 briefing（兼容 wrapped result.data 结构）。

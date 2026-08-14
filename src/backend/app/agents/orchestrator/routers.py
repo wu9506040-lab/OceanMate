@@ -422,12 +422,18 @@ def route_pda(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
 
     # 走到这里说明参数足够 → 调 PDA
     # error_code 缺失时传空串（不再伪造 ERR_UNKNOWN 导致证据全 miss）
+    # Day 16 Fix G：商户反驳 / 补充事实 → 把补充事实拼到 query_text 让 PDA 知识库检索看到新事实
+    effective_query = query
+    merchant_supplement = ctx.get("merchant_supplement")
+    if merchant_supplement:
+        effective_query = f"{query}\n\n[商户补充事实]\n{merchant_supplement}"
+
     params = {
         "merchant_id": ctx.get("merchant_id", "unknown"),
         "country": country if country else "GLOBAL",
         "channel": channel if channel else "ANY",
         "error_code": error_code or "",
-        "query_text": query,  # 原话给知识库做语义检索
+        "query_text": effective_query,
         "affected_orders": ctx.get("affected_orders", []),
     }
     wrapped = registry.safe_execute("payment_diagnosis", params)
@@ -443,6 +449,7 @@ def route_pda(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
             "params": params,
             "extracted_from_query": extracted,
             "query_type": query_type,
+            "is_rebuttal": bool(ctx.get("is_rebuttal")),
         },
     }
 
