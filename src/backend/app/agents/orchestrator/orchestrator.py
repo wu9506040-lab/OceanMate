@@ -600,9 +600,16 @@ class Orchestrator:
         return result
 
     def _route_msa(self, query: str, ctx: dict, matched: list[str]) -> dict:
-        """路由到 MSATool（决定 recommend vs collect_profile）。"""
+        """路由到 MSATool（决定 recommend vs collect_profile）。
+
+        Day 14 #4/#7 优化：先从 query 提取画像（country/industry/avg/target_users）填到 ctx，
+        再判断画像完整性，避免「荷兰」「墨西哥」等 NL 场景下 ctx 全空导致机械反问采集。
+        """
         if "merchant_success" not in self.registry:
             return self._tool_not_available("merchant_success")
+
+        # Day 14 #4/#7：路由阶段先做 slot 提取（ctx 优先 → query 提取补充）
+        ctx = self._enrich_msa_ctx(ctx, query)
 
         # 根据画像完整度决定 MSA 子意图
         required = ("country", "industry", "avg_amount", "target_users")
@@ -628,13 +635,130 @@ class Orchestrator:
             },
         }
 
+    # Day 14 优化 #9：query/create 二分类关键词（让"工单进度怎么查"走 query_status 而不是错误创建工单）
+    _TRA_QUERY_KEYWORDS = [
+        "进度", "状态", "查询", "查", "看看", "查一下", "进度如何",
+        "进展", "处理到哪", "处理到", "跟进", "在哪儿", "在哪",
+        "tkt_", "工单号",
+    ]
+
+    # Day 14 #4/#7 优化：ISO 国家码中文词典 + 行业 / 客户 / 客单价关键词
+    # 与 MSA Tool 的 _COUNTRY_NAME_TO_ISO 共享一份语义（Orchestrator 路由 + MSA Tool 都用）
+    _COUNTRY_NAME_TO_ISO = {
+        "美国": "US", "美站": "US", "美国站": "US",
+        "日本": "JP", "日本站": "JP",
+        "英国": "GB", "英国站": "GB", "英站": "GB",
+        "德国": "DE", "德国站": "DE", "德站": "DE",
+        "法国": "FR", "法国站": "FR", "法站": "FR",
+        "西班牙": "ES", "意大利": "IT",
+        "荷兰": "NL", "荷兰站": "NL",  # Day 14 #4
+        "比利时": "BE", "瑞士": "CH", "奥地利": "AT", "瑞典": "SE",
+        "挪威": "NO", "丹麦": "DK", "波兰": "PL", "捷克": "CZ",
+        "葡萄牙": "PT", "希腊": "GR",
+        "巴西": "BR", "巴西站": "BR",
+        "墨西哥": "MX", "墨西哥站": "MX",  # Day 14 #7
+        "阿根廷": "AR", "智利": "CL", "哥伦比亚": "CO", "秘鲁": "PE",
+        "加拿大": "CA", "加拿大站": "CA",
+        "澳洲": "AU", "澳大利亚": "AU", "新西兰": "NZ",
+        "中国": "CN", "国内": "CN", "中国站": "CN",
+        "香港": "HK", "台湾": "TW", "澳门": "MO",
+        "新加坡": "SG", "马来西亚": "MY", "泰国": "TH", "越南": "VN",
+        "印尼": "ID", "印度尼西亚": "ID", "菲律宾": "PH", "印度": "IN",
+        "韩国": "KR", "韩国站": "KR",
+        "俄罗斯": "RU", "土耳其": "TR", "阿联酋": "AE", "迪拜": "AE",
+        "南非": "ZA", "埃及": "EG",
+    }
+
+    _INDUSTRY_KEYWORDS = {
+        "fashion": ["时尚", "服装", "鞋包", "服饰", "fashion"],
+        "electronics": ["电子", "数码", "硬件", "3C", "electronics"],
+        "digital": ["软件", "数字商品", "游戏", "虚拟", "SaaS", "digital"],
+        "travel": ["旅游", "机票", "酒店", "航空", "travel"],
+        "education": ["教育", "培训", "课程", "education"],
+        "food": ["食品", "餐饮", "food"],
+        "beauty": ["美妆", "化妆品", "beauty"],
+        "sports": ["运动", "体育", "户外", "sports"],
+        "b2b": ["B2B", "b2b", "批发"],
+    }
+
+    _TARGET_USERS_KEYWORDS = {
+        "B2B": ["B2B", "b2b", "批发", "企业", "公司客户", "对公"],
+        "B2C": ["B2C", "b2c", "零售", "个人", "消费者", "终端"],
+    }
+
+    def _enrich_msa_ctx(self, ctx: dict, query: str) -> dict:
+        """从 query 自动提取画像字段填充 ctx（与 MSA Tool 的 slot extractor 共享语义）。
+
+        Day 14 #4/#7 优化：路由阶段就提取 slot，避免 ctx 空导致：
+        1. 子意图判断走错（profile 不全走 collect 而不走 recommend）
+        2. MSA Tool 内部反问采集体验差
+        """
+        import re
+        merged = dict(ctx or {})
+        q = (query or "").strip()
+        if not q:
+            return merged
+
+        # 1. country
+        if not merged.get("country"):
+            for kw, iso in self._COUNTRY_NAME_TO_ISO.items():
+                if kw in q:
+                    merged["country"] = iso
+                    break
+            if not merged.get("country"):
+                m = re.search(r"\b([A-Z]{2})\b", q)
+                if m:
+                    merged["country"] = m.group(1)
+
+        # 2. industry
+        if not merged.get("industry"):
+            for industry, kws in self._INDUSTRY_KEYWORDS.items():
+                if any(kw in q for kw in kws):
+                    merged["industry"] = industry
+                    break
+
+        # 3. target_users
+        if not merged.get("target_users"):
+            for tu, kws in self._TARGET_USERS_KEYWORDS.items():
+                if any(kw in q for kw in kws):
+                    merged["target_users"] = tu
+                    break
+
+        # 4. avg_amount
+        if not merged.get("avg_amount"):
+            m = re.search(r"(\d+(?:\.\d+)?)\s*(?:美元|美金|USD|usd|刀|欧|欧元|EUR|eur|€|¥|元|RMB|rmb|块)", q)
+            if m:
+                try:
+                    merged["avg_amount"] = float(m.group(1))
+                except ValueError:
+                    pass
+            else:
+                m2 = re.search(r"客单价\s*(\d+(?:\.\d+)?)", q)
+                if m2:
+                    try:
+                        merged["avg_amount"] = float(m2.group(1))
+                    except ValueError:
+                        pass
+
+        return merged
+
+    # Day 14 优化 #9：query/create 二分类关键词（让"工单进度怎么查"走 query_status 而不是错误创建工单）
+    _TRA_QUERY_KEYWORDS = [
+        "进度", "状态", "查询", "查", "看看", "查一下", "进度如何",
+        "进展", "处理到哪", "处理到", "跟进", "在哪儿", "在哪",
+        "tkt_", "工单号",
+    ]
+
     def _route_tra(self, query: str, ctx: dict, matched: list[str]) -> dict:
         """路由到 TRATool（Day 5 已实现）。
 
-        自动选 intent：
-        - ctx 含 ticket_id → query_status（商户问现有工单状态）
-        - ctx 含 problem_type → route_ticket（典型 PDA → TRA 链）
-        - 都没有 → 默认 route_ticket（让 TRA 自己反问）
+        自动选 intent（优先级从高到低）：
+        1. ctx 含 ticket_id → query_status（商户问现有工单状态）
+        2. query 命中 query 关键词（"进度"/"状态"/"查询"等）→ query_status
+        3. ctx 含 problem_type → route_ticket（典型 PDA → TRA 链）
+        4. 都没有 → 默认 route_ticket（让 TRA 自己反问）
+
+        Day 14 #9 修复：「工单进度怎么查」「查一下工单状态」等查询类 query 不再被错误地创建空工单。
         """
         if "ticket_routing" not in self.registry:
             return self._tool_not_available(
@@ -643,11 +767,20 @@ class Orchestrator:
             )
 
         if ctx.get("ticket_id"):
+            # 优先：商户明确提供 ticket_id（链式查询）
             sub_intent = "query_status"
+            query_matched = []
         elif ctx.get("problem_type"):
+            # 链式触发优先：PDA → TRA 这种 ctx 带 problem_type 的走 route_ticket
             sub_intent = "route_ticket"
+            query_matched = []
         else:
-            sub_intent = "route_ticket"
+            # Day 14 #9：从 query 文本里查 query 关键词（不依赖 ctx）
+            query_matched = [k for k in self._TRA_QUERY_KEYWORDS if k in query]
+            if query_matched:
+                sub_intent = "query_status"
+            else:
+                sub_intent = "route_ticket"
 
         params = {
             "intent": sub_intent,
@@ -668,17 +801,27 @@ class Orchestrator:
             "trace": {
                 "matched_keywords": matched,
                 "sub_intent": sub_intent,
+                "query_intent_matched": query_matched,  # Day 14 #9: 记录 query 命中的关键词
                 "params": params,
             },
         }
 
+    # Day 14 优化 #10：「怎么 / 如何 / 检索」query 关键词 → search_faq
+    _KEA_SEARCH_KEYWORDS = [
+        "怎么", "如何", "咋", "怎样", "什么样",
+        "查", "搜", "检索", "搜索", "找", "找一下",
+        "看看", "看一下", "问", "问下", "了解",
+        "教程", "文档", "FAQ", "faq", "知识",
+    ]
+
     def _route_kea(self, query: str, ctx: dict, matched: list[str]) -> dict:
         """路由到 KEATool（Day 6 已实现）。
 
-        自动选 intent：
-        - ctx.case_id         → promote_to_faq （商户问"这个案例能进FAQ吗"）
-        - ctx.query           → search_faq     （商户直接搜 FAQ）
-        - 否则                → list_candidates（让 KEA 列候选给商户看）
+        自动选 intent（优先级从高到低）：
+        1. ctx.case_id             → promote_to_faq （"这个案例能进FAQ吗"）
+        2. ctx.query 显式传入      → search_faq     （商户直接搜 FAQ）
+        3. query 命中 search 关键词 → search_faq    （Day 14 #10："知识库怎么检索..."）
+        4. 否则                    → list_candidates（让 KEA 列候选给商户看）
         """
         if "knowledge_evolution" not in self.registry:
             return self._tool_not_available(
@@ -688,10 +831,23 @@ class Orchestrator:
 
         if ctx.get("case_id"):
             sub_intent = "promote_to_faq"
-        elif ctx.get("query"):
-            sub_intent = "search_faq"
+            search_matched = []
         else:
-            sub_intent = "list_candidates"
+            # Day 14 #10：从 query 文本判断意图
+            query_clean = (query or "").strip()
+            # 去掉头部「知识库」/「FAQ」等提示词（避免误命中"知识"）
+            for prefix in ("知识库", "FAQ", "faq"):
+                if query_clean.startswith(prefix):
+                    query_clean = query_clean[len(prefix):].strip()
+            search_matched = [k for k in self._KEA_SEARCH_KEYWORDS if k in query_clean]
+            if ctx.get("query") or search_matched:
+                sub_intent = "search_faq"
+            else:
+                sub_intent = "list_candidates"
+
+        # search_faq 时把原 query 写入 ctx.query（让 KEA 拿来做语义检索）
+        if sub_intent == "search_faq" and not ctx.get("query"):
+            ctx = {**ctx, "query": query}
 
         params = {
             "intent": sub_intent,
@@ -712,6 +868,7 @@ class Orchestrator:
             "trace": {
                 "matched_keywords": matched,
                 "sub_intent": sub_intent,
+                "search_intent_matched": search_matched,  # Day 14 #10: 记录命中关键词
                 "params": params,
             },
         }

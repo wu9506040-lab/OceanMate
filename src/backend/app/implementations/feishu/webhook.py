@@ -372,7 +372,21 @@ class FeishuWebhookHandler:
         if sub == "query_status":
             status = data.get("status", "未知")
             ticket_id = data.get("ticket_id", "")
-            return f"📄 工单 {ticket_id} 当前状态：{status}"
+            # Day 14 #9：没 ticket_id 或 not_found 时给友好反问
+            if not ticket_id or status == "not_found":
+                return (
+                    "🤔 要查询工单状态，请提供工单 ID。\n\n"
+                    "💡 工单 ID 格式示例：tkt_a1b2c3d4e5f6\n\n"
+                    "📌 没有工单 ID？回复「我的工单」我帮您列出最近 7 天的工单。"
+                )
+            assignee = data.get("assignee", "")
+            problem_type = data.get("problem_type", "")
+            return (
+                f"📄 工单 {ticket_id}\n"
+                f"  状态：{status}\n"
+                f"  类型：{problem_type}\n"
+                f"  负责人：{assignee}"
+            )
         ticket_id = data.get("ticket_id", "")
         assignee = data.get("assignee", "运营团队")
         sla = data.get("sla_hours", 0)
