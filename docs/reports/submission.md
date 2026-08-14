@@ -446,7 +446,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 
 | 表名 | 条数 | 内容 | 用途 | 存储位置 |
 |------|------|------|------|----------|
-| `error_codes` | **117 条知识条目**（107 拒付码 + 6 案例 + 4 模板）| 107 条真实 Visa/MC/Amex/Discover 拒付码（来源 chargebackgurus.com 2026 公开数据）+ 6 条 demo 案例 + 2 条 config 模板 + 2 条 channel_status 模板 | PDA 诊断依据 | 飞书多维表 + Chroma（cases_vec 17 / error_codes_vec 117 / faq_vec 0 — faq_vec 待建）|
+| `error_codes` | **117 条知识条目**（107 拒付码 + 6 案例 + 4 模板）| 107 条真实 Visa/MC/Amex/Discover 拒付码（来源 chargebackgurus.com 2026 公开数据）+ 6 条 demo 案例 + 2 条 config 模板 + 2 条 channel_status 模板 | PDA 诊断依据 | 飞书多维表 + Chroma（cases_vec 12 / error_codes_vec 117 / faq_vec 2）|
 | `payment_methods` | **16** | 跨境支付方式规则 | MSA PWR 推荐依据 | 飞书多维表 + Chroma |
 | `routing_rules` | **10** | 工单路由规则 | TRA 派单依据 | 飞书多维表 + 本地 JSON 缓存 |
 | `cases`（真实工单池）| **60** | 含 status / priority / problem_type / created_at | Dashboard 趋势图 | **仅飞书多维表** |
