@@ -233,14 +233,39 @@ class FeishuWebhookHandler:
 
             # 4.5 Day 10 PDA → TRA 自动链：商户问题被诊断后，若命中「紧急/转人工/拒付/支付失败」
             #     → 自动调 TRA 创建工单 + briefing（亮点：AI 一条龙诊断 + 派单）
+            #
+            # Day 15 P0-C2 修复：之前直接 result=chain_result 导致商户只看到「✅ 工单已创建」
+            # 看不到 PDA 诊断文字。修复：chain_result 不替换 result，单独作为第 2 条消息发送
+            # → 商户先看到诊断文字+配图，再看到自动派单确认（设计预期：1问 → 多条消息串）
             chain_result = self._maybe_chain_to_tra(result, user_query=text, user_id=user_id, chat_id=chat_id)
+            chain_text = None
             if chain_result:
-                # 用链式结果替换：商户看到完整「诊断 + 工单」回复
-                result = chain_result
+                # 关键：保留 PDA result 不变（商户第 1 条消息看 PDA 诊断 + 配图）
+                # chain_result 仅用来发第 2 条「工单已创建」消息
+                chain_text = FeishuWebhookHandler.format_reply(chain_result)
 
             # 5. 格式化回复 + 推送
+            # Fix H：同理心信号 → 在 reply 前加同理心短句
             reply = FeishuWebhookHandler.format_reply(result)
+            if urgent_prepend:
+                reply = urgent_prepend + reply
             self._safe_send(user_id, reply)
+
+            # 5.0 Day 15 P0-C2 修复：链式 TRA 工单创建结果作为「追加消息」单独发送
+            # 让商户先看到 PDA 诊断 + 配图，再看到自动派单确认
+            if chain_text:
+                self._safe_send(user_id, chain_text)
+
+            # Fix F：去重派单 — 若本轮创建了 TRA 工单，记入 SQLite 用于下次去重
+            created_ticket_id = self._extract_created_ticket_id(result)
+            if not created_ticket_id and chain_result:
+                created_ticket_id = self._extract_created_ticket_id(chain_result)
+            if created_ticket_id:
+                record_recent_ticket(user_id, text, created_ticket_id)
+                logger.info(
+                    f"[polishing] 记录工单去重: user={user_id[:12]} "
+                    f"ticket={created_ticket_id}"
+                )
 
             # 5.1 Day 9 增强：若结果含 error_code/image_path（拒付码诊断），推配图
             image_path = result.get("error_image_path") or result.get("image_path")
@@ -257,9 +282,14 @@ class FeishuWebhookHandler:
                     logger.warning(f"send_image 失败: {e}")
 
             # 5.2 Day 10 智能交接简报：TRA 创建工单后 → 向团队 lead 发私有简报
+            # Day 15 P0-C2：优先从 chain_result（链式 TRA）取 briefing；若 result 是链式触发后
+            # 已合并的 TRA result，briefing 也能从 tool_result.data.briefing 拿到
             briefing = self._extract_briefing(result)
+            if not briefing and chain_result:
+                briefing = self._extract_briefing(chain_result)
             if briefing:
-                self._send_briefing_to_team(briefing, chat_id=chat_id, merchant_user_id=user_id)
+                # 注意：不要重复给商户发「简报已发送」消息（chain_text 已包含工单创建信息）
+                self._send_briefing_to_team_silent(briefing, chat_id=chat_id)
 
             return {"code": 0, "msg": "success"}
 
@@ -636,6 +666,10 @@ class FeishuWebhookHandler:
 
         失败降级：team_open_id 未配 → 只在商户消息中追加「正在转接」，
                   send_private 失败 → log warning 不影响主流程。
+
+        Day 15 P0-C2：注意此方法会推一条消息给商户（"💼 已发送至 X"）。
+        链式触发场景（商户已经看到 chain_text "✅ 工单已创建"）请用 _send_briefing_to_team_silent
+        避免商户收到重复消息。
         """
         team = briefing.get("team", "")
         team_open_id = self._resolve_team_open_id(team)
@@ -665,6 +699,33 @@ class FeishuWebhookHandler:
                     merchant_user_id,
                     f"💼 人工交接简报已发送至 **{team}** 团队，预计 {briefing.get('sla_hours', '?')}h 内回复您。",
                 )
+            return ok
+        except Exception as e:
+            logger.warning(f"send_private 失败: {e}")
+            return False
+
+    def _send_briefing_to_team_silent(self, briefing: dict, *, chat_id: str) -> bool:
+        """Day 15 P0-C2：仅向团队 lead 发私有简报，不向商户追加「已发送」消息。
+
+        用于链式触发场景：商户已经收到 chain_text（"✅ 工单已创建 ..."），
+        重复发「已发送」会变 3 条消息（PDA 文字 + 配图 + 派单 + 已发送），这里只发 lead 不发商户。
+        """
+        team = briefing.get("team", "")
+        team_open_id = self._resolve_team_open_id(team)
+        if not team_open_id:
+            logger.info(
+                f"交接简报：团队 '{team}' 未配置 lead open_id，降级静默"
+                "（商户已收到 chain_text 派单确认，无需追加）"
+            )
+            return False
+
+        text = self._format_briefing_text(briefing, chat_id=chat_id, merchant_user_id="")
+        try:
+            ok = self.frontend.send_private(team_open_id, text)
+            logger.info(
+                f"交接简报（silent） → team='{team}' open_id={team_open_id[:8]}... ok={ok} "
+                f"ticket_id={briefing.get('ticket_id')}"
+            )
             return ok
         except Exception as e:
             logger.warning(f"send_private 失败: {e}")

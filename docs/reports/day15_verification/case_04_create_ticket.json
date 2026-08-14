@@ -1,0 +1,51 @@
+{
+  "case": "case_04_create_ticket",
+  "via": "api",
+  "elapsed_ms": 5,
+  "result": {
+    "intent": "ticket_routing",
+    "tool_name": "ticket_routing",
+    "tool_result": {
+      "success": true,
+      "data": {
+        "intent": "route_ticket",
+        "ticket_id": "",
+        "problem_type": "",
+        "priority": "medium",
+        "status": "not_found",
+        "assignee": "",
+        "source": "",
+        "diagnosis_id": null,
+        "sla_hours": 0,
+        "notification_channel": "",
+        "rule_id": "",
+        "match_level": "no_match",
+        "create_time_estimate": "",
+        "trace": {
+          "error": "problem_type 必填",
+          "hint": "请从 PDA 诊断结果中传入 problem_type，或商户明确告知问题类型。",
+          "rules_loaded": 10
+        }
+      }
+    },
+    "trace": {
+      "matched_keywords": [
+        "工单",
+        "帮我创建",
+        "创建"
+      ],
+      "sub_intent": "route_ticket",
+      "query_intent_matched": [],
+      "params": {
+        "intent": "route_ticket",
+        "priority": "medium",
+        "tier": "standard"
+      },
+      "llm_used": false
+    }
+  },
+  "expect": {
+    "intent": "ticket_routing",
+    "sub_intent": "route_ticket"
+  }
+}

@@ -1,0 +1,1193 @@
+{
+  "summary": {
+    "total": 11,
+    "ok": 11,
+    "err": 0,
+    "ts": "2026-08-14 21:03:56"
+  },
+  "cases": [
+    {
+      "case": "case_01_nl_recommend",
+      "via": "api",
+      "elapsed_ms": 1939,
+      "result": {
+        "intent": "merchant_success",
+        "tool_name": "merchant_success",
+        "tool_result": {
+          "success": true,
+          "data": {
+            "intent": "recommend_payment_methods",
+            "response": "推荐 iDEAL 作为主要支付方式，因其在荷兰市场占有率高、银行直连且为标配；同时建议添加 Alipay+ 以覆盖全球华人用户，提升跨境销售能力。",
+            "recommendations": [
+              {
+                "method": "iDEAL",
+                "evidence_id": "pm_demo_ideal_nl_001",
+                "rationale": "iDEAL NL 支付方式。iDEAL 是 NL 国家支付系统（NPSP），电商支付市占率 70%+（NL 央行 2024 数据）。跨境收款必备通道。 理由：NL 强制标配；本地银行直连；无需卡 标签：NL, 银行直连, 高市占, 标配",
+                "fee_rate": "€0.29 per transaction",
+                "settlement": "T+1"
+              },
+              {
+                "method": "WeChat Pay",
+                "evidence_id": "pm_demo_wechat_cn_001",
+                "rationale": "WeChat Pay CN 支付方式。微信支付覆盖 CN 移动支付 80%+ 用户。跨境电商需支持 CN 消费者购买。 理由：CN 移动支付标配；小额高频 标签：CN, 移动支付, 高频",
+                "fee_rate": "1.0%",
+                "settlement": "T+1"
+              },
+              {
+                "method": "Boleto",
+                "evidence_id": "pm_demo_boleto_br_001",
+                "rationale": "Boleto BR 支付方式。Boleto 是 BR 现金/银行转账支付，覆盖无银行账户人群（约 30% 人口）。适合高客单或分期。 理由：BR 现金支付补充；覆盖无银行账户人群 标签：BR, 现金, 无银行账户, 补充",
+                "fee_rate": "1.5% to 3%",
+                "settlement": "T+1 to T+3"
+              },
+              {
+                "method": "Alipay+",
+                "evidence_id": "pm_demo_alipayplus_global_001",
+                "rationale": "Alipay+ GLOBAL 支付方式。Alipay+ 是蚂蚁集团跨境支付网关，覆盖全球 30+ 国家/地区电子钱包（Alipay HK / Touch'n Go / GCash / TrueMoney 等），合计 10 亿+ 用户。 理由",
+                "fee_rate": "1.2% to 2.0%",
+                "settlement": "T+1"
+              },
+              {
+                "method": "Visa",
+                "evidence_id": "pm_demo_visa_br_001",
+                "rationale": "Visa BR 支付方式。BR Visa 信用卡。注意：BR 区域 Visa 有 3DS 强制要求（按当地合规）。需配套 3DS 配置。 理由：BR 信用卡用户基础大；必须配套 3DS 标签：BR, 信用卡, 3DS",
+                "fee_rate": "3.5% + $0.30",
+                "settlement": "T+2"
+              }
+            ],
+            "follow_up_questions": [],
+            "profile_completeness": 1.0,
+            "trace": {
+              "rag_results": 5,
+              "llm_provider": "QwenGateway"
+            }
+          }
+        },
+        "trace": {
+          "matched_keywords": [
+            "客单价",
+            "B2C",
+            "想做"
+          ],
+          "sub_intent": "recommend_payment_methods",
+          "is_profile_complete": true,
+          "country": "NL",
+          "best_practice_filled": true,
+          "llm_used": false
+        }
+      },
+      "expect": {
+        "intent": "merchant_success",
+        "sub_intent": "recommend_payment_methods",
+        "best_practice_filled": true
+      }
+    },
+    {
+      "case": "case_02_visa_13_1",
+      "via": "api",
+      "elapsed_ms": 1989,
+      "result": {
+        "intent": "payment_diagnosis",
+        "tool_name": "payment_diagnosis",
+        "tool_result": {
+          "success": true,
+          "data": {
+            "problem_type": "拒付",
+            "root_causes": [
+              "拒付原因码 13.1「Merchandise/Services Not Received」（商品/服务未收到）",
+              "持卡人/发卡行发起拒付，理由码 13.1，商品/服务未收到"
+            ],
+            "evidence_chain": [
+              {
+                "type": "code_specific_rule",
+                "id": "cb_specific_13_1",
+                "source": "pda_internal_rule_table",
+                "description": "Visa 13.1 专属诊断：Merchandise/Services Not Received。对应业务场景：商品/服务未收到。差异化建议：准备物流签收记录、投递证明、买家沟通截图; 如数字商品：附登录日志、下载记录、激活时间"
+              },
+              {
+                "type": "risk_rule",
+                "id": "cb_demo_13_1",
+                "source": "reason_code_public_reference",
+                "description": "13.1: Merchandise/Services Not Received。建议处理：消费者争议。准备 CB 申诉材料（订单详情/物流/退款记录）；优先 RDR 拦截"
+              },
+              {
+                "type": "knowledge_base",
+                "id": "cb_demo_13_1#w0",
+                "source": "chroma:error_codes_vec",
+                "description": "13.1: Merchandise/Services Not Received。触发条件:持卡人/发卡行发起拒付,理由码 13.1。建议处理:消费者争议。准备 CB 申诉材料(订单详情/物流/退款记录);优先 RDR 拦截。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+              },
+              {
+                "type": "knowledge_base",
+                "id": "cb_demo_R13#w0",
+                "source": "chroma:error_codes_vec",
+                "description": "R13: No Reply。触发条件:持卡人/发卡行发起拒付,理由码 R13。建议处理:再请款争议(Representment)。提供二次清算证据。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+              },
+              {
+                "type": "knowledge_base",
+                "id": "cb_demo_13_5#w0",
+                "source": "chroma:error_codes_vec",
+                "description": "13.5: Misrepresentation。触发条件:持卡人/发卡行发起拒付,理由码 13.5。建议处理:消费者争议。准备 CB 申诉材料(订单详情/物流/退款记录);优先 RDR 拦截。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+              }
+            ],
+            "recommended_actions": [
+              "准备物流签收记录、投递证明、买家沟通截图",
+              "如数字商品：附登录日志、下载记录、激活时间",
+              "准备订单详情、物流信息、退款记录",
+              "开通 RDR 拦截防止后续争议"
+            ],
+            "confidence": 0.8,
+            "next_agent": "Ticket Routing Agent",
+            "error_image_path": "data/error_images/cb_demo_13_1.png",
+            "trace": {
+              "evidence_count": 4,
+              "llm_provider": "QwenProvider",
+              "evidence_types": [
+                "risk_rule",
+                "knowledge_base",
+                "knowledge_base",
+                "knowledge_base"
+              ],
+              "error_image_path": "data/error_images/cb_demo_13_1.png",
+              "code_specific_enriched": {
+                "channel": "Visa",
+                "error_code": "13.1",
+                "reason_name": "Merchandise/Services Not Received",
+                "category": "not_received",
+                "injected_actions_count": 2
+              }
+            }
+          }
+        },
+        "error_image_path": "data/error_images/cb_demo_13_1.png",
+        "trace": {
+          "matched_keywords": [
+            "拒付"
+          ],
+          "params": {
+            "merchant_id": "M001",
+            "country": "US",
+            "channel": "Visa",
+            "error_code": "CB_13.1",
+            "query_text": "我美国站卖软件的，Visa 13.1 拒付好多，怎么办？",
+            "affected_orders": []
+          },
+          "extracted_from_query": {
+            "country": "US",
+            "channel": "Visa",
+            "error_code": "CB_13.1"
+          },
+          "query_type": "code_required",
+          "llm_used": false
+        },
+        "chain": [
+          {
+            "step": 2,
+            "tool": "ticket_routing",
+            "result": {
+              "success": true,
+              "data": {
+                "intent": "route_ticket",
+                "ticket_id": "tkt_055acaf2c086",
+                "problem_type": "拒付",
+                "priority": "medium",
+                "status": "pending",
+                "assignee": "财务团队-争议处理",
+                "source": "merchant_diagnosis",
+                "diagnosis_id": "",
+                "sla_hours": 12,
+                "notification_channel": "飞书财务群",
+                "rule_id": "rule_demo_chargeback_medium",
+                "match_level": "priority_wildcard",
+                "create_time_estimate": "2026-08-15T01:03:40.116801Z",
+                "briefing": {
+                  "team": "财务团队-争议处理",
+                  "notification_channel": "飞书财务群",
+                  "ticket_id": "tkt_055acaf2c086",
+                  "merchant_id": "M001",
+                  "problem_type": "拒付",
+                  "priority": "medium",
+                  "diagnosis_id": "",
+                  "problem_summary": "我美国站卖软件的，Visa 13.1 拒付好多，怎么办？",
+                  "sla_hours": 12,
+                  "sla_due": "2026-08-15T01:03:40.116801Z"
+                },
+                "trace": {
+                  "rule_id": "rule_demo_chargeback_medium",
+                  "matched_priority": "medium",
+                  "matched_tier": "*",
+                  "persisted_via": "memory",
+                  "feishu_record_id": "fss_62523c0d85ed46ef",
+                  "summary_chars": 28,
+                  "rules_loaded": 10
+                }
+              }
+            },
+            "triggered_by": "payment_diagnosis"
+          },
+          {
+            "step": 3,
+            "tool": "knowledge_evolution",
+            "result": {
+              "success": true,
+              "data": {
+                "intent": "search_faq",
+                "count": 3,
+                "faqs": [
+                  {
+                    "chroma_id": "case_demo_005#w0",
+                    "case_id": null,
+                    "text_excerpt": "Visa reason code 13.1 (Merchandise/Services Not Received) 高发于数字商品电商。诊断:数字商品(软件/课程/会员)因即时交付特性,13.1(未收到货)拒付率显著高于实物。持卡人 dispute 时发卡行直接判商户败诉比例高。。处理建议:1) 启用 Visa Rapid Dispute Resolution (RDR) - 满足阈值(<$5K ",
+                    "country": "GLOBAL",
+                    "problem_type": "拒付",
+                    "score_proxy": 0.92,
+                    "case_info": null
+                  },
+                  {
+                    "chroma_id": "case_demo_003#w0",
+                    "case_id": null,
+                    "text_excerpt": "US 区域商户 Visa 拒付 chargeback ERR_DEMO_CHARGEBACK_001。诊断:持卡人在发卡行侧发起 dispute,需走 RDR/CDRN 流程。处理建议:准备 CB 申诉材料(订单/物流/签收凭证);通过 Verifi/Mastercard RDR 提前拦截",
+                    "country": "US",
+                    "problem_type": "拒付",
+                    "score_proxy": 0.78,
+                    "case_info": null
+                  },
+                  {
+                    "chroma_id": "case_demo_008#w0",
+                    "case_id": null,
+                    "text_excerpt": "US 订阅类商户 Visa 12.6.1 (Duplicate Processing) 高发。诊断:订阅扣款场景因用户首次失败重试 + 系统未做幂等,触发 12.6.1(重复处理)。Visa 12.6.1 持卡人可主张商户多扣款拒付。。处理建议:1) 商户系统强制 idempotency-key;2) 首次失败 N 秒内不重试同一卡号;3) webhook + 清算文件对账,重复记录自动退款;4)",
+                    "country": "US",
+                    "problem_type": "拒付",
+                    "score_proxy": 0.87,
+                    "case_info": null
+                  }
+                ],
+                "trace": {
+                  "query": "拒付 我美国站卖软件的，Visa 13.1 拒付好多，怎么办？",
+                  "top_k": 3,
+                  "country_filter": "US",
+                  "collection": "cases_vec",
+                  "rag_results": 3
+                }
+              }
+            },
+            "triggered_by": "ticket_routing"
+          }
+        ]
+      },
+      "expect": {
+        "intent": "payment_diagnosis",
+        "reason_name_contains": "Merchandise",
+        "image_path": "data/error_images/cb_demo_13_1.png"
+      }
+    },
+    {
+      "case": "case_03_mc_4837",
+      "via": "api",
+      "elapsed_ms": 2235,
+      "result": {
+        "intent": "payment_diagnosis",
+        "tool_name": "payment_diagnosis",
+        "tool_result": {
+          "success": true,
+          "data": {
+            "problem_type": "拒付",
+            "root_causes": [
+              "拒付原因码 4837「No Cardholder Authorization」（未获得持卡人授权）",
+              "持卡人或发卡行发起拒付，理由码 4837：未获得持卡人授权",
+              "持卡人或发卡行发起拒付，理由码 4849：可疑商户行为"
+            ],
+            "evidence_chain": [
+              {
+                "type": "code_specific_rule",
+                "id": "cb_specific_4837",
+                "source": "pda_internal_rule_table",
+                "description": "Mastercard 4837 专属诊断：No Cardholder Authorization。对应业务场景：未获得持卡人授权。差异化建议：复核 3DS/SecureCode 验证记录（是否在交易中触发）; 排查 Card-on-File 存储与 CVV 校验配置"
+              },
+              {
+                "type": "risk_rule",
+                "id": "cb_demo_4837",
+                "source": "reason_code_public_reference",
+                "description": "4837: No Cardholder Authorization。建议处理：Mastercard 争议码。准备订单/物流/退款凭证；优先 RDR/Collaboration 拦截"
+              },
+              {
+                "type": "knowledge_base",
+                "id": "cb_demo_4837#w0",
+                "source": "chroma:error_codes_vec",
+                "description": "4837: No Cardholder Authorization。触发条件:持卡人/发卡行发起拒付,理由码 4837。建议处理:Mastercard 争议码。准备订单/物流/退款凭证;优先 RDR/Collaboration 拦截。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+              },
+              {
+                "type": "knowledge_base",
+                "id": "cb_demo_4849#w0",
+                "source": "chroma:error_codes_vec",
+                "description": "4849: Questionable Merchant Activity。触发条件:持卡人/发卡行发起拒付,理由码 4849。建议处理:Mastercard 争议码。准备订单/物流/退款凭证;优先 RDR/Collaboration 拦截。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+              }
+            ],
+            "recommended_actions": [
+              "复核 3DS/SecureCode 验证记录（是否在交易中触发）",
+              "排查 Card-on-File 存储与 CVV 校验配置",
+              "准备订单、物流、退款凭证",
+              "开通 RDR 或 Collaboration 拦截争议"
+            ],
+            "confidence": 0.85,
+            "next_agent": "Ticket Routing Agent",
+            "error_image_path": "data/error_images/cb_demo_4837.png",
+            "trace": {
+              "evidence_count": 3,
+              "llm_provider": "QwenProvider",
+              "evidence_types": [
+                "risk_rule",
+                "knowledge_base",
+                "knowledge_base"
+              ],
+              "error_image_path": "data/error_images/cb_demo_4837.png",
+              "code_specific_enriched": {
+                "channel": "Mastercard",
+                "error_code": "4837",
+                "reason_name": "No Cardholder Authorization",
+                "category": "not_authorized",
+                "injected_actions_count": 2
+              }
+            }
+          }
+        },
+        "error_image_path": "data/error_images/cb_demo_4837.png",
+        "trace": {
+          "matched_keywords": [
+            "拒付"
+          ],
+          "params": {
+            "merchant_id": "M002",
+            "country": "US",
+            "channel": "Mastercard",
+            "error_code": "CB_4837",
+            "query_text": "美国 MC 4837 拒付越来越多",
+            "affected_orders": []
+          },
+          "extracted_from_query": {
+            "country": "US",
+            "channel": "Mastercard",
+            "error_code": "CB_4837"
+          },
+          "query_type": "code_required",
+          "llm_used": false
+        },
+        "chain": [
+          {
+            "step": 2,
+            "tool": "ticket_routing",
+            "result": {
+              "success": true,
+              "data": {
+                "intent": "route_ticket",
+                "ticket_id": "tkt_5591cb18d1fe",
+                "problem_type": "拒付",
+                "priority": "medium",
+                "status": "pending",
+                "assignee": "财务团队-争议处理",
+                "source": "merchant_diagnosis",
+                "diagnosis_id": "",
+                "sla_hours": 12,
+                "notification_channel": "飞书财务群",
+                "rule_id": "rule_demo_chargeback_medium",
+                "match_level": "priority_wildcard",
+                "create_time_estimate": "2026-08-15T01:03:42.358022Z",
+                "briefing": {
+                  "team": "财务团队-争议处理",
+                  "notification_channel": "飞书财务群",
+                  "ticket_id": "tkt_5591cb18d1fe",
+                  "merchant_id": "M002",
+                  "problem_type": "拒付",
+                  "priority": "medium",
+                  "diagnosis_id": "",
+                  "problem_summary": "美国 MC 4837 拒付越来越多",
+                  "sla_hours": 12,
+                  "sla_due": "2026-08-15T01:03:42.358022Z"
+                },
+                "trace": {
+                  "rule_id": "rule_demo_chargeback_medium",
+                  "matched_priority": "medium",
+                  "matched_tier": "*",
+                  "persisted_via": "memory",
+                  "feishu_record_id": "fss_c11a925026c14f0b",
+                  "summary_chars": 17,
+                  "rules_loaded": 10
+                }
+              }
+            },
+            "triggered_by": "payment_diagnosis"
+          },
+          {
+            "step": 3,
+            "tool": "knowledge_evolution",
+            "result": {
+              "success": true,
+              "data": {
+                "intent": "search_faq",
+                "count": 3,
+                "faqs": [
+                  {
+                    "chroma_id": "case_demo_006#w0",
+                    "case_id": null,
+                    "text_excerpt": "Mastercard reason code 4837 (No Cardholder Authorization) - 持卡人否认交易。诊断:4837 是 MC 体系最常见的拒付码之一(约占 40%)。触发场景:未授权交易 / 家庭成员盗用 / BIN 撞库攻击。。处理建议:1) 优先 MATCH 名单核查(确认是否命中);2) Ethoca/Verifi 提前拦截;3) 3DS 2.0 强制开启",
+                    "country": "GLOBAL",
+                    "problem_type": "拒付",
+                    "score_proxy": 0.88,
+                    "case_info": null
+                  },
+                  {
+                    "chroma_id": "case_demo_003#w0",
+                    "case_id": null,
+                    "text_excerpt": "US 区域商户 Visa 拒付 chargeback ERR_DEMO_CHARGEBACK_001。诊断:持卡人在发卡行侧发起 dispute,需走 RDR/CDRN 流程。处理建议:准备 CB 申诉材料(订单/物流/签收凭证);通过 Verifi/Mastercard RDR 提前拦截",
+                    "country": "US",
+                    "problem_type": "拒付",
+                    "score_proxy": 0.78,
+                    "case_info": null
+                  },
+                  {
+                    "chroma_id": "case_demo_005#w0",
+                    "case_id": null,
+                    "text_excerpt": "Visa reason code 13.1 (Merchandise/Services Not Received) 高发于数字商品电商。诊断:数字商品(软件/课程/会员)因即时交付特性,13.1(未收到货)拒付率显著高于实物。持卡人 dispute 时发卡行直接判商户败诉比例高。。处理建议:1) 启用 Visa Rapid Dispute Resolution (RDR) - 满足阈值(<$5K ",
+                    "country": "GLOBAL",
+                    "problem_type": "拒付",
+                    "score_proxy": 0.92,
+                    "case_info": null
+                  }
+                ],
+                "trace": {
+                  "query": "拒付 美国 MC 4837 拒付越来越多",
+                  "top_k": 3,
+                  "country_filter": "US",
+                  "collection": "cases_vec",
+                  "rag_results": 3
+                }
+              }
+            },
+            "triggered_by": "ticket_routing"
+          }
+        ]
+      },
+      "expect": {
+        "intent": "payment_diagnosis",
+        "reason_name_contains": "Cardholder Authorization",
+        "image_path": "data/error_images/cb_demo_4837.png"
+      }
+    },
+    {
+      "case": "case_04_create_ticket",
+      "via": "api",
+      "elapsed_ms": 5,
+      "result": {
+        "intent": "ticket_routing",
+        "tool_name": "ticket_routing",
+        "tool_result": {
+          "success": true,
+          "data": {
+            "intent": "route_ticket",
+            "ticket_id": "",
+            "problem_type": "",
+            "priority": "medium",
+            "status": "not_found",
+            "assignee": "",
+            "source": "",
+            "diagnosis_id": null,
+            "sla_hours": 0,
+            "notification_channel": "",
+            "rule_id": "",
+            "match_level": "no_match",
+            "create_time_estimate": "",
+            "trace": {
+              "error": "problem_type 必填",
+              "hint": "请从 PDA 诊断结果中传入 problem_type，或商户明确告知问题类型。",
+              "rules_loaded": 10
+            }
+          }
+        },
+        "trace": {
+          "matched_keywords": [
+            "工单",
+            "帮我创建",
+            "创建"
+          ],
+          "sub_intent": "route_ticket",
+          "query_intent_matched": [],
+          "params": {
+            "intent": "route_ticket",
+            "priority": "medium",
+            "tier": "standard"
+          },
+          "llm_used": false
+        }
+      },
+      "expect": {
+        "intent": "ticket_routing",
+        "sub_intent": "route_ticket"
+      }
+    },
+    {
+      "case": "case_05_query_ticket",
+      "via": "api",
+      "elapsed_ms": 2,
+      "result": {
+        "intent": "ticket_routing",
+        "tool_name": "ticket_routing",
+        "tool_result": {
+          "success": true,
+          "data": {
+            "intent": "query_status",
+            "ticket_id": "",
+            "status": "not_found",
+            "match_level": "queried",
+            "trace": {
+              "error": "ticket_id 必填"
+            }
+          }
+        },
+        "trace": {
+          "matched_keywords": [
+            "工单",
+            "状态"
+          ],
+          "sub_intent": "query_status",
+          "query_intent_matched": [
+            "状态"
+          ],
+          "params": {
+            "intent": "query_status",
+            "priority": "medium",
+            "tier": "standard"
+          },
+          "llm_used": false
+        }
+      },
+      "expect": {
+        "intent": "ticket_routing"
+      }
+    },
+    {
+      "case": "case_06_br_pix_weekend",
+      "via": "api",
+      "elapsed_ms": 1902,
+      "result": {
+        "intent": "payment_diagnosis",
+        "tool_name": "payment_diagnosis",
+        "tool_result": {
+          "success": true,
+          "data": {
+            "problem_type": "结算延迟",
+            "root_causes": [
+              "BR Pix 通道在周六 22:00-周日 06:00 出现结算延迟",
+              "BR 央行 SPI 系统批处理窗口导致周末 T+1 延迟"
+            ],
+            "evidence_chain": [
+              {
+                "type": "knowledge_base",
+                "id": "case_demo_007#w0",
+                "source": "chroma:cases_vec",
+                "description": "BR Pix 通道偶发 T+0 结算延迟。诊断:BR Pix 央行系统虽 7x24,但商户端偶发清算延迟与银行批处理窗口冲突;周六 22:00-周日 06:00 BRT 出现概率较高。。处理建议:1) 商户端切到 Boleto 兜底;2) 提示商户该时段属预期延迟,避免升级投诉;3) PIX SPI 故障时通知商户切换备用通道"
+              },
+              {
+                "type": "knowledge_base",
+                "id": "faq_case_flywheel_demo_br_pix_v2_56ea43b0",
+                "source": "chroma:faq_vec",
+                "description": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A"
+              },
+              {
+                "type": "knowledge_base",
+                "id": "faq_case_flywheel_demo_br_pix_v2_a2781a82",
+                "source": "chroma:faq_vec",
+                "description": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A"
+              },
+              {
+                "type": "knowledge_base",
+                "id": "faq_case_flywheel_demo_br_pix_v2_c134bcd2",
+                "source": "chroma:faq_vec",
+                "description": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A"
+              }
+            ],
+            "recommended_actions": [
+              "切换到 Boleto 作为兜底通道",
+              "提前告知客户避开延迟时段",
+              "通知商户在 PIX SPI 故障时切换备用通道"
+            ],
+            "confidence": 0.85,
+            "next_agent": "Ticket Routing Agent",
+            "error_image_path": "",
+            "trace": {
+              "evidence_count": 4,
+              "llm_provider": "QwenProvider",
+              "evidence_types": [
+                "knowledge_base",
+                "knowledge_base",
+                "knowledge_base",
+                "knowledge_base"
+              ],
+              "error_image_path": ""
+            }
+          }
+        },
+        "error_image_path": "",
+        "trace": {
+          "matched_keywords": [
+            "延迟",
+            "不到账"
+          ],
+          "params": {
+            "merchant_id": "M_BR",
+            "country": "BR",
+            "channel": "Pix",
+            "error_code": "",
+            "query_text": "BR 站 Pix 周六凌晨怎么总是延迟不到账",
+            "affected_orders": []
+          },
+          "extracted_from_query": {
+            "country": "BR",
+            "channel": "Pix",
+            "error_code": null
+          },
+          "query_type": "scene",
+          "llm_used": false
+        },
+        "chain": [
+          {
+            "step": 2,
+            "tool": "ticket_routing",
+            "result": {
+              "success": true,
+              "data": {
+                "intent": "route_ticket",
+                "ticket_id": "tkt_7455cf025295",
+                "problem_type": "结算延迟",
+                "priority": "medium",
+                "status": "pending",
+                "assignee": "通用支持团队",
+                "source": "merchant_diagnosis",
+                "diagnosis_id": "",
+                "sla_hours": 24,
+                "notification_channel": "飞书通用群",
+                "rule_id": "rule_demo_default",
+                "match_level": "default_fallback",
+                "create_time_estimate": "2026-08-15T13:03:44.521132Z",
+                "briefing": {
+                  "team": "通用支持团队",
+                  "notification_channel": "飞书通用群",
+                  "ticket_id": "tkt_7455cf025295",
+                  "merchant_id": "M_BR",
+                  "problem_type": "结算延迟",
+                  "priority": "medium",
+                  "diagnosis_id": "",
+                  "problem_summary": "BR 站 Pix 周六凌晨怎么总是延迟不到账",
+                  "sla_hours": 24,
+                  "sla_due": "2026-08-15T13:03:44.521132Z"
+                },
+                "trace": {
+                  "rule_id": "rule_demo_default",
+                  "matched_priority": "medium",
+                  "matched_tier": "*",
+                  "persisted_via": "memory",
+                  "feishu_record_id": "fss_8993bd5210b2485e",
+                  "summary_chars": 22,
+                  "rules_loaded": 10
+                }
+              }
+            },
+            "triggered_by": "payment_diagnosis"
+          },
+          {
+            "step": 3,
+            "tool": "knowledge_evolution",
+            "result": {
+              "success": true,
+              "data": {
+                "intent": "search_faq",
+                "count": 3,
+                "faqs": [
+                  {
+                    "chroma_id": "faq_case_flywheel_demo_br_pix_v2_56ea43b0",
+                    "case_id": "case_flywheel_demo_br_pix_v2",
+                    "text_excerpt": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A",
+                    "country": "BR",
+                    "problem_type": "支付失败",
+                    "score_proxy": 0.95,
+                    "case_info": {
+                      "problem_desc": "BR Pix 周末 T+1 延迟 商户咨询",
+                      "resolution": "建议商户提前告知客户，避开 BR 周六 02:00-04:00",
+                      "country": "BR",
+                      "channel": "Pix",
+                      "error_code": null,
+                      "problem_type": "支付失败",
+                      "confidence": 0.95
+                    }
+                  },
+                  {
+                    "chroma_id": "faq_case_flywheel_demo_br_pix_v2_a2781a82",
+                    "case_id": "case_flywheel_demo_br_pix_v2",
+                    "text_excerpt": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A",
+                    "country": "BR",
+                    "problem_type": "支付失败",
+                    "score_proxy": 0.95,
+                    "case_info": {
+                      "problem_desc": "BR Pix 周末 T+1 延迟 商户咨询",
+                      "resolution": "建议商户提前告知客户，避开 BR 周六 02:00-04:00",
+                      "country": "BR",
+                      "channel": "Pix",
+                      "error_code": null,
+                      "problem_type": "支付失败",
+                      "confidence": 0.95
+                    }
+                  },
+                  {
+                    "chroma_id": "faq_case_flywheel_demo_br_pix_v2_c134bcd2",
+                    "case_id": "case_flywheel_demo_br_pix_v2",
+                    "text_excerpt": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A",
+                    "country": "BR",
+                    "problem_type": "支付失败",
+                    "score_proxy": 0.95,
+                    "case_info": {
+                      "problem_desc": "BR Pix 周末 T+1 延迟 商户咨询",
+                      "resolution": "建议商户提前告知客户，避开 BR 周六 02:00-04:00",
+                      "country": "BR",
+                      "channel": "Pix",
+                      "error_code": null,
+                      "problem_type": "支付失败",
+                      "confidence": 0.95
+                    }
+                  }
+                ],
+                "trace": {
+                  "query": "结算延迟 BR 站 Pix 周六凌晨怎么总是延迟不到账",
+                  "top_k": 3,
+                  "country_filter": "BR",
+                  "collection": "faq_vec",
+                  "rag_results": 3
+                }
+              }
+            },
+            "triggered_by": "ticket_routing"
+          }
+        ]
+      },
+      "expect": {
+        "intent": "payment_diagnosis"
+      }
+    },
+    {
+      "case": "case_07_faq_search",
+      "via": "api",
+      "elapsed_ms": 142,
+      "result": {
+        "intent": "knowledge_evolution",
+        "tool_name": "knowledge_evolution",
+        "tool_result": {
+          "success": true,
+          "data": {
+            "intent": "search_faq",
+            "count": 3,
+            "faqs": [
+              {
+                "chroma_id": "faq_case_flywheel_demo_br_pix_v2_56ea43b0",
+                "case_id": "case_flywheel_demo_br_pix_v2",
+                "text_excerpt": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A",
+                "country": "BR",
+                "problem_type": "支付失败",
+                "score_proxy": 0.95,
+                "case_info": {
+                  "problem_desc": "BR Pix 周末 T+1 延迟 商户咨询",
+                  "resolution": "建议商户提前告知客户，避开 BR 周六 02:00-04:00",
+                  "country": "BR",
+                  "channel": "Pix",
+                  "error_code": null,
+                  "problem_type": "支付失败",
+                  "confidence": 0.95
+                }
+              },
+              {
+                "chroma_id": "faq_case_flywheel_demo_br_pix_v2_a2781a82",
+                "case_id": "case_flywheel_demo_br_pix_v2",
+                "text_excerpt": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A",
+                "country": "BR",
+                "problem_type": "支付失败",
+                "score_proxy": 0.95,
+                "case_info": {
+                  "problem_desc": "BR Pix 周末 T+1 延迟 商户咨询",
+                  "resolution": "建议商户提前告知客户，避开 BR 周六 02:00-04:00",
+                  "country": "BR",
+                  "channel": "Pix",
+                  "error_code": null,
+                  "problem_type": "支付失败",
+                  "confidence": 0.95
+                }
+              },
+              {
+                "chroma_id": "faq_case_flywheel_demo_br_pix_v2_c134bcd2",
+                "case_id": "case_flywheel_demo_br_pix_v2",
+                "text_excerpt": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A",
+                "country": "BR",
+                "problem_type": "支付失败",
+                "score_proxy": 0.95,
+                "case_info": {
+                  "problem_desc": "BR Pix 周末 T+1 延迟 商户咨询",
+                  "resolution": "建议商户提前告知客户，避开 BR 周六 02:00-04:00",
+                  "country": "BR",
+                  "channel": "Pix",
+                  "error_code": null,
+                  "problem_type": "支付失败",
+                  "confidence": 0.95
+                }
+              }
+            ],
+            "trace": {
+              "query": "FAQ 里有没有 Pix 的教程？",
+              "top_k": 5,
+              "country_filter": null,
+              "collection": "faq_vec",
+              "rag_results": 3
+            }
+          }
+        },
+        "trace": {
+          "matched_keywords": [
+            "FAQ",
+            "教程"
+          ],
+          "sub_intent": "search_faq",
+          "search_intent_matched": [
+            "教程"
+          ],
+          "params": {
+            "intent": "search_faq",
+            "query": "FAQ 里有没有 Pix 的教程？",
+            "top_k": 5,
+            "min_confidence": 0.85,
+            "limit": 20
+          },
+          "llm_used": false
+        }
+      },
+      "expect": {
+        "intent": "knowledge_evolution",
+        "sub_intent": "search_faq"
+      }
+    },
+    {
+      "case": "case_07b_ticket_or_faq",
+      "via": "api",
+      "elapsed_ms": 4,
+      "result": {
+        "intent": "ticket_routing",
+        "tool_name": "ticket_routing",
+        "tool_result": {
+          "success": true,
+          "data": {
+            "intent": "query_status",
+            "ticket_id": "",
+            "status": "not_found",
+            "match_level": "queried",
+            "trace": {
+              "error": "ticket_id 必填"
+            }
+          }
+        },
+        "trace": {
+          "matched_keywords": [
+            "工单"
+          ],
+          "sub_intent": "query_status",
+          "query_intent_matched": [
+            "进度",
+            "查"
+          ],
+          "params": {
+            "intent": "query_status",
+            "priority": "medium",
+            "tier": "standard"
+          },
+          "llm_used": false
+        }
+      },
+      "expect": {
+        "intent": "ticket_routing",
+        "sub_intent": "query_status"
+      }
+    },
+    {
+      "case": "case_08_unknown",
+      "via": "api",
+      "elapsed_ms": 491,
+      "result": {
+        "intent": "unknown_fallback_to_msa",
+        "tool_name": "merchant_success",
+        "tool_result": {
+          "success": true,
+          "data": {
+            "intent": "collect_profile",
+            "response": "已记录您提供的信息（完整度 0%）。还差：country, industry, avg_amount, target_users",
+            "recommendations": [],
+            "follow_up_questions": [
+              {
+                "field": "country",
+                "question": "您想进入哪个国家的市场？（如 US / BR / CN）"
+              },
+              {
+                "field": "industry",
+                "question": "您的行业是什么？（如 fashion / electronics / digital）"
+              },
+              {
+                "field": "avg_amount",
+                "question": "您的客单价大约多少？（如 50 美元）"
+              },
+              {
+                "field": "target_users",
+                "question": "您的目标客户是 B2B 还是 B2C？"
+              }
+            ],
+            "profile_completeness": 0.0,
+            "trace": {
+              "missing_fields": [
+                "country",
+                "industry",
+                "avg_amount",
+                "target_users"
+              ]
+            }
+          }
+        },
+        "trace": {
+          "matched_keywords": [],
+          "fallback_reason": "no_keyword_match",
+          "llm_used": true,
+          "llm_intent": "unknown",
+          "llm_confidence": 0.95
+        }
+      },
+      "expect": {
+        "intent": "unknown_fallback_to_msa"
+      }
+    },
+    {
+      "case": "case_09_webhook_visa",
+      "via": "webhook",
+      "http_status": 200,
+      "elapsed_ms": 5494,
+      "result": {
+        "intent": "payment_diagnosis",
+        "tool_name": "payment_diagnosis",
+        "tool_result": {
+          "success": true,
+          "data": {
+            "problem_type": "拒付",
+            "root_causes": [
+              "拒付原因码 13.1「Merchandise/Services Not Received」（商品/服务未收到）",
+              "持卡人/发卡行发起拒付，理由码 13.1，商品/服务未收到"
+            ],
+            "evidence_chain": [
+              {
+                "type": "code_specific_rule",
+                "id": "cb_specific_13_1",
+                "source": "pda_internal_rule_table",
+                "description": "Visa 13.1 专属诊断：Merchandise/Services Not Received。对应业务场景：商品/服务未收到。差异化建议：准备物流签收记录、投递证明、买家沟通截图; 如数字商品：附登录日志、下载记录、激活时间"
+              },
+              {
+                "type": "risk_rule",
+                "id": "cb_demo_13_1",
+                "source": "reason_code_public_reference",
+                "description": "13.1: Merchandise/Services Not Received。建议处理：消费者争议。准备 CB 申诉材料（订单详情/物流/退款记录）；优先 RDR 拦截"
+              },
+              {
+                "type": "knowledge_base",
+                "id": "cb_demo_13_1#w0",
+                "source": "chroma:error_codes_vec",
+                "description": "13.1: Merchandise/Services Not Received。触发条件:持卡人/发卡行发起拒付,理由码 13.1。建议处理:消费者争议。准备 CB 申诉材料(订单详情/物流/退款记录);优先 RDR 拦截。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+              },
+              {
+                "type": "knowledge_base",
+                "id": "cb_demo_R13#w0",
+                "source": "chroma:error_codes_vec",
+                "description": "R13: No Reply。触发条件:持卡人/发卡行发起拒付,理由码 R13。建议处理:再请款争议(Representment)。提供二次清算证据。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+              },
+              {
+                "type": "knowledge_base",
+                "id": "cb_demo_13_5#w0",
+                "source": "chroma:error_codes_vec",
+                "description": "13.5: Misrepresentation。触发条件:持卡人/发卡行发起拒付,理由码 13.5。建议处理:消费者争议。准备 CB 申诉材料(订单详情/物流/退款记录);优先 RDR 拦截。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+              }
+            ],
+            "recommended_actions": [
+              "准备物流签收记录、投递证明、买家沟通截图",
+              "如数字商品：附登录日志、下载记录、激活时间",
+              "准备订单详情、物流信息、退款记录",
+              "开通 RDR 拦截减少后续争议"
+            ],
+            "confidence": 0.8,
+            "next_agent": "Ticket Routing Agent",
+            "error_image_path": "data/error_images/cb_demo_13_1.png",
+            "trace": {
+              "evidence_count": 4,
+              "llm_provider": "QwenProvider",
+              "evidence_types": [
+                "risk_rule",
+                "knowledge_base",
+                "knowledge_base",
+                "knowledge_base"
+              ],
+              "error_image_path": "data/error_images/cb_demo_13_1.png",
+              "code_specific_enriched": {
+                "channel": "Visa",
+                "error_code": "13.1",
+                "reason_name": "Merchandise/Services Not Received",
+                "category": "not_received",
+                "injected_actions_count": 2
+              }
+            }
+          }
+        },
+        "error_image_path": "data/error_images/cb_demo_13_1.png",
+        "trace": {
+          "matched_keywords": [
+            "拒付"
+          ],
+          "params": {
+            "merchant_id": "unknown",
+            "country": "US",
+            "channel": "Visa",
+            "error_code": "CB_13.1",
+            "query_text": "我美国站卖软件的，Visa 13.1 拒付好多，怎么办？",
+            "affected_orders": []
+          },
+          "extracted_from_query": {
+            "country": "US",
+            "channel": "Visa",
+            "error_code": "CB_13.1"
+          },
+          "query_type": "code_required",
+          "llm_used": false
+        },
+        "chain": [
+          {
+            "step": 2,
+            "tool": "ticket_routing",
+            "result": {
+              "success": false,
+              "error_code": "TOOL_PARAM_INVALID",
+              "error_message": "Tool 'ticket_routing' 参数校验失败: None is not of type 'string'"
+            },
+            "triggered_by": "payment_diagnosis"
+          }
+        ]
+      },
+      "expect": {
+        "intent": "payment_diagnosis",
+        "image_path": "data/error_images/cb_demo_13_1.png"
+      }
+    },
+    {
+      "case": "case_10_webhook_mc",
+      "via": "webhook",
+      "http_status": 200,
+      "elapsed_ms": 5731,
+      "result": {
+        "intent": "payment_diagnosis",
+        "tool_name": "payment_diagnosis",
+        "tool_result": {
+          "success": true,
+          "data": {
+            "problem_type": "拒付",
+            "root_causes": [
+              "拒付原因码 4837「No Cardholder Authorization」（未获得持卡人授权）",
+              "持卡人/发卡行发起拒付，理由码 4837：未获得持卡人授权",
+              "持卡人/发卡行发起拒付，理由码 4849：可疑商户行为"
+            ],
+            "evidence_chain": [
+              {
+                "type": "code_specific_rule",
+                "id": "cb_specific_4837",
+                "source": "pda_internal_rule_table",
+                "description": "Mastercard 4837 专属诊断：No Cardholder Authorization。对应业务场景：未获得持卡人授权。差异化建议：复核 3DS/SecureCode 验证记录（是否在交易中触发）; 排查 Card-on-File 存储与 CVV 校验配置"
+              },
+              {
+                "type": "risk_rule",
+                "id": "cb_demo_4837",
+                "source": "reason_code_public_reference",
+                "description": "4837: No Cardholder Authorization。建议处理：Mastercard 争议码。准备订单/物流/退款凭证；优先 RDR/Collaboration 拦截"
+              },
+              {
+                "type": "knowledge_base",
+                "id": "cb_demo_4837#w0",
+                "source": "chroma:error_codes_vec",
+                "description": "4837: No Cardholder Authorization。触发条件:持卡人/发卡行发起拒付,理由码 4837。建议处理:Mastercard 争议码。准备订单/物流/退款凭证;优先 RDR/Collaboration 拦截。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+              },
+              {
+                "type": "knowledge_base",
+                "id": "cb_demo_4849#w0",
+                "source": "chroma:error_codes_vec",
+                "description": "4849: Questionable Merchant Activity。触发条件:持卡人/发卡行发起拒付,理由码 4849。建议处理:Mastercard 争议码。准备订单/物流/退款凭证;优先 RDR/Collaboration 拦截。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+              }
+            ],
+            "recommended_actions": [
+              "复核 3DS/SecureCode 验证记录（是否在交易中触发）",
+              "排查 Card-on-File 存储与 CVV 校验配置",
+              "准备订单、物流、退款凭证",
+              "开通 RDR 或 Collaboration 拦截争议"
+            ],
+            "confidence": 0.85,
+            "next_agent": "Ticket Routing Agent",
+            "error_image_path": "data/error_images/cb_demo_4837.png",
+            "trace": {
+              "evidence_count": 3,
+              "llm_provider": "QwenProvider",
+              "evidence_types": [
+                "risk_rule",
+                "knowledge_base",
+                "knowledge_base"
+              ],
+              "error_image_path": "data/error_images/cb_demo_4837.png",
+              "code_specific_enriched": {
+                "channel": "Mastercard",
+                "error_code": "4837",
+                "reason_name": "No Cardholder Authorization",
+                "category": "not_authorized",
+                "injected_actions_count": 2
+              }
+            }
+          }
+        },
+        "error_image_path": "data/error_images/cb_demo_4837.png",
+        "trace": {
+          "matched_keywords": [
+            "拒付"
+          ],
+          "params": {
+            "merchant_id": "unknown",
+            "country": "US",
+            "channel": "Mastercard",
+            "error_code": "CB_4837",
+            "query_text": "美国 MC 4837 拒付越来越多",
+            "affected_orders": []
+          },
+          "extracted_from_query": {
+            "country": "US",
+            "channel": "Mastercard",
+            "error_code": "CB_4837"
+          },
+          "query_type": "code_required",
+          "llm_used": false
+        },
+        "chain": [
+          {
+            "step": 2,
+            "tool": "ticket_routing",
+            "result": {
+              "success": false,
+              "error_code": "TOOL_PARAM_INVALID",
+              "error_message": "Tool 'ticket_routing' 参数校验失败: None is not of type 'string'"
+            },
+            "triggered_by": "payment_diagnosis"
+          }
+        ]
+      },
+      "expect": {
+        "intent": "payment_diagnosis",
+        "image_path": "data/error_images/cb_demo_4837.png"
+      }
+    }
+  ]
+}

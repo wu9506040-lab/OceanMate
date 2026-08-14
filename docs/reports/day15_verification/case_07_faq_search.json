@@ -1,0 +1,98 @@
+{
+  "case": "case_07_faq_search",
+  "via": "api",
+  "elapsed_ms": 142,
+  "result": {
+    "intent": "knowledge_evolution",
+    "tool_name": "knowledge_evolution",
+    "tool_result": {
+      "success": true,
+      "data": {
+        "intent": "search_faq",
+        "count": 3,
+        "faqs": [
+          {
+            "chroma_id": "faq_case_flywheel_demo_br_pix_v2_56ea43b0",
+            "case_id": "case_flywheel_demo_br_pix_v2",
+            "text_excerpt": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A",
+            "country": "BR",
+            "problem_type": "支付失败",
+            "score_proxy": 0.95,
+            "case_info": {
+              "problem_desc": "BR Pix 周末 T+1 延迟 商户咨询",
+              "resolution": "建议商户提前告知客户，避开 BR 周六 02:00-04:00",
+              "country": "BR",
+              "channel": "Pix",
+              "error_code": null,
+              "problem_type": "支付失败",
+              "confidence": 0.95
+            }
+          },
+          {
+            "chroma_id": "faq_case_flywheel_demo_br_pix_v2_a2781a82",
+            "case_id": "case_flywheel_demo_br_pix_v2",
+            "text_excerpt": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A",
+            "country": "BR",
+            "problem_type": "支付失败",
+            "score_proxy": 0.95,
+            "case_info": {
+              "problem_desc": "BR Pix 周末 T+1 延迟 商户咨询",
+              "resolution": "建议商户提前告知客户，避开 BR 周六 02:00-04:00",
+              "country": "BR",
+              "channel": "Pix",
+              "error_code": null,
+              "problem_type": "支付失败",
+              "confidence": 0.95
+            }
+          },
+          {
+            "chroma_id": "faq_case_flywheel_demo_br_pix_v2_c134bcd2",
+            "case_id": "case_flywheel_demo_br_pix_v2",
+            "text_excerpt": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A",
+            "country": "BR",
+            "problem_type": "支付失败",
+            "score_proxy": 0.95,
+            "case_info": {
+              "problem_desc": "BR Pix 周末 T+1 延迟 商户咨询",
+              "resolution": "建议商户提前告知客户，避开 BR 周六 02:00-04:00",
+              "country": "BR",
+              "channel": "Pix",
+              "error_code": null,
+              "problem_type": "支付失败",
+              "confidence": 0.95
+            }
+          }
+        ],
+        "trace": {
+          "query": "FAQ 里有没有 Pix 的教程？",
+          "top_k": 5,
+          "country_filter": null,
+          "collection": "faq_vec",
+          "rag_results": 3
+        }
+      }
+    },
+    "trace": {
+      "matched_keywords": [
+        "FAQ",
+        "教程"
+      ],
+      "sub_intent": "search_faq",
+      "search_intent_matched": [
+        "教程"
+      ],
+      "params": {
+        "intent": "search_faq",
+        "query": "FAQ 里有没有 Pix 的教程？",
+        "top_k": 5,
+        "min_confidence": 0.85,
+        "limit": 20
+      },
+      "llm_used": false
+    }
+  },
+  "expect": {
+    "intent": "knowledge_evolution",
+    "sub_intent": "search_faq"
+  }
+}

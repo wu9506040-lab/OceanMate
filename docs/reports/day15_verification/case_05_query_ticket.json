@@ -1,0 +1,40 @@
+{
+  "case": "case_05_query_ticket",
+  "via": "api",
+  "elapsed_ms": 2,
+  "result": {
+    "intent": "ticket_routing",
+    "tool_name": "ticket_routing",
+    "tool_result": {
+      "success": true,
+      "data": {
+        "intent": "query_status",
+        "ticket_id": "",
+        "status": "not_found",
+        "match_level": "queried",
+        "trace": {
+          "error": "ticket_id 必填"
+        }
+      }
+    },
+    "trace": {
+      "matched_keywords": [
+        "工单",
+        "状态"
+      ],
+      "sub_intent": "query_status",
+      "query_intent_matched": [
+        "状态"
+      ],
+      "params": {
+        "intent": "query_status",
+        "priority": "medium",
+        "tier": "standard"
+      },
+      "llm_used": false
+    }
+  },
+  "expect": {
+    "intent": "ticket_routing"
+  }
+}

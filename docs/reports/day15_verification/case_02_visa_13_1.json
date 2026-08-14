@@ -1,0 +1,198 @@
+{
+  "case": "case_02_visa_13_1",
+  "via": "api",
+  "elapsed_ms": 1989,
+  "result": {
+    "intent": "payment_diagnosis",
+    "tool_name": "payment_diagnosis",
+    "tool_result": {
+      "success": true,
+      "data": {
+        "problem_type": "拒付",
+        "root_causes": [
+          "拒付原因码 13.1「Merchandise/Services Not Received」（商品/服务未收到）",
+          "持卡人/发卡行发起拒付，理由码 13.1，商品/服务未收到"
+        ],
+        "evidence_chain": [
+          {
+            "type": "code_specific_rule",
+            "id": "cb_specific_13_1",
+            "source": "pda_internal_rule_table",
+            "description": "Visa 13.1 专属诊断：Merchandise/Services Not Received。对应业务场景：商品/服务未收到。差异化建议：准备物流签收记录、投递证明、买家沟通截图; 如数字商品：附登录日志、下载记录、激活时间"
+          },
+          {
+            "type": "risk_rule",
+            "id": "cb_demo_13_1",
+            "source": "reason_code_public_reference",
+            "description": "13.1: Merchandise/Services Not Received。建议处理：消费者争议。准备 CB 申诉材料（订单详情/物流/退款记录）；优先 RDR 拦截"
+          },
+          {
+            "type": "knowledge_base",
+            "id": "cb_demo_13_1#w0",
+            "source": "chroma:error_codes_vec",
+            "description": "13.1: Merchandise/Services Not Received。触发条件:持卡人/发卡行发起拒付,理由码 13.1。建议处理:消费者争议。准备 CB 申诉材料(订单详情/物流/退款记录);优先 RDR 拦截。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+          },
+          {
+            "type": "knowledge_base",
+            "id": "cb_demo_R13#w0",
+            "source": "chroma:error_codes_vec",
+            "description": "R13: No Reply。触发条件:持卡人/发卡行发起拒付,理由码 R13。建议处理:再请款争议(Representment)。提供二次清算证据。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+          },
+          {
+            "type": "knowledge_base",
+            "id": "cb_demo_13_5#w0",
+            "source": "chroma:error_codes_vec",
+            "description": "13.5: Misrepresentation。触发条件:持卡人/发卡行发起拒付,理由码 13.5。建议处理:消费者争议。准备 CB 申诉材料(订单详情/物流/退款记录);优先 RDR 拦截。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+          }
+        ],
+        "recommended_actions": [
+          "准备物流签收记录、投递证明、买家沟通截图",
+          "如数字商品：附登录日志、下载记录、激活时间",
+          "准备订单详情、物流信息、退款记录",
+          "开通 RDR 拦截防止后续争议"
+        ],
+        "confidence": 0.8,
+        "next_agent": "Ticket Routing Agent",
+        "error_image_path": "data/error_images/cb_demo_13_1.png",
+        "trace": {
+          "evidence_count": 4,
+          "llm_provider": "QwenProvider",
+          "evidence_types": [
+            "risk_rule",
+            "knowledge_base",
+            "knowledge_base",
+            "knowledge_base"
+          ],
+          "error_image_path": "data/error_images/cb_demo_13_1.png",
+          "code_specific_enriched": {
+            "channel": "Visa",
+            "error_code": "13.1",
+            "reason_name": "Merchandise/Services Not Received",
+            "category": "not_received",
+            "injected_actions_count": 2
+          }
+        }
+      }
+    },
+    "error_image_path": "data/error_images/cb_demo_13_1.png",
+    "trace": {
+      "matched_keywords": [
+        "拒付"
+      ],
+      "params": {
+        "merchant_id": "M001",
+        "country": "US",
+        "channel": "Visa",
+        "error_code": "CB_13.1",
+        "query_text": "我美国站卖软件的，Visa 13.1 拒付好多，怎么办？",
+        "affected_orders": []
+      },
+      "extracted_from_query": {
+        "country": "US",
+        "channel": "Visa",
+        "error_code": "CB_13.1"
+      },
+      "query_type": "code_required",
+      "llm_used": false
+    },
+    "chain": [
+      {
+        "step": 2,
+        "tool": "ticket_routing",
+        "result": {
+          "success": true,
+          "data": {
+            "intent": "route_ticket",
+            "ticket_id": "tkt_055acaf2c086",
+            "problem_type": "拒付",
+            "priority": "medium",
+            "status": "pending",
+            "assignee": "财务团队-争议处理",
+            "source": "merchant_diagnosis",
+            "diagnosis_id": "",
+            "sla_hours": 12,
+            "notification_channel": "飞书财务群",
+            "rule_id": "rule_demo_chargeback_medium",
+            "match_level": "priority_wildcard",
+            "create_time_estimate": "2026-08-15T01:03:40.116801Z",
+            "briefing": {
+              "team": "财务团队-争议处理",
+              "notification_channel": "飞书财务群",
+              "ticket_id": "tkt_055acaf2c086",
+              "merchant_id": "M001",
+              "problem_type": "拒付",
+              "priority": "medium",
+              "diagnosis_id": "",
+              "problem_summary": "我美国站卖软件的，Visa 13.1 拒付好多，怎么办？",
+              "sla_hours": 12,
+              "sla_due": "2026-08-15T01:03:40.116801Z"
+            },
+            "trace": {
+              "rule_id": "rule_demo_chargeback_medium",
+              "matched_priority": "medium",
+              "matched_tier": "*",
+              "persisted_via": "memory",
+              "feishu_record_id": "fss_62523c0d85ed46ef",
+              "summary_chars": 28,
+              "rules_loaded": 10
+            }
+          }
+        },
+        "triggered_by": "payment_diagnosis"
+      },
+      {
+        "step": 3,
+        "tool": "knowledge_evolution",
+        "result": {
+          "success": true,
+          "data": {
+            "intent": "search_faq",
+            "count": 3,
+            "faqs": [
+              {
+                "chroma_id": "case_demo_005#w0",
+                "case_id": null,
+                "text_excerpt": "Visa reason code 13.1 (Merchandise/Services Not Received) 高发于数字商品电商。诊断:数字商品(软件/课程/会员)因即时交付特性,13.1(未收到货)拒付率显著高于实物。持卡人 dispute 时发卡行直接判商户败诉比例高。。处理建议:1) 启用 Visa Rapid Dispute Resolution (RDR) - 满足阈值(<$5K ",
+                "country": "GLOBAL",
+                "problem_type": "拒付",
+                "score_proxy": 0.92,
+                "case_info": null
+              },
+              {
+                "chroma_id": "case_demo_003#w0",
+                "case_id": null,
+                "text_excerpt": "US 区域商户 Visa 拒付 chargeback ERR_DEMO_CHARGEBACK_001。诊断:持卡人在发卡行侧发起 dispute,需走 RDR/CDRN 流程。处理建议:准备 CB 申诉材料(订单/物流/签收凭证);通过 Verifi/Mastercard RDR 提前拦截",
+                "country": "US",
+                "problem_type": "拒付",
+                "score_proxy": 0.78,
+                "case_info": null
+              },
+              {
+                "chroma_id": "case_demo_008#w0",
+                "case_id": null,
+                "text_excerpt": "US 订阅类商户 Visa 12.6.1 (Duplicate Processing) 高发。诊断:订阅扣款场景因用户首次失败重试 + 系统未做幂等,触发 12.6.1(重复处理)。Visa 12.6.1 持卡人可主张商户多扣款拒付。。处理建议:1) 商户系统强制 idempotency-key;2) 首次失败 N 秒内不重试同一卡号;3) webhook + 清算文件对账,重复记录自动退款;4)",
+                "country": "US",
+                "problem_type": "拒付",
+                "score_proxy": 0.87,
+                "case_info": null
+              }
+            ],
+            "trace": {
+              "query": "拒付 我美国站卖软件的，Visa 13.1 拒付好多，怎么办？",
+              "top_k": 3,
+              "country_filter": "US",
+              "collection": "cases_vec",
+              "rag_results": 3
+            }
+          }
+        },
+        "triggered_by": "ticket_routing"
+      }
+    ]
+  },
+  "expect": {
+    "intent": "payment_diagnosis",
+    "reason_name_contains": "Merchandise",
+    "image_path": "data/error_images/cb_demo_13_1.png"
+  }
+}

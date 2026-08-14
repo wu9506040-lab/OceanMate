@@ -1,0 +1,116 @@
+{
+  "case": "case_09_webhook_visa",
+  "via": "webhook",
+  "http_status": 200,
+  "elapsed_ms": 5494,
+  "result": {
+    "intent": "payment_diagnosis",
+    "tool_name": "payment_diagnosis",
+    "tool_result": {
+      "success": true,
+      "data": {
+        "problem_type": "拒付",
+        "root_causes": [
+          "拒付原因码 13.1「Merchandise/Services Not Received」（商品/服务未收到）",
+          "持卡人/发卡行发起拒付，理由码 13.1，商品/服务未收到"
+        ],
+        "evidence_chain": [
+          {
+            "type": "code_specific_rule",
+            "id": "cb_specific_13_1",
+            "source": "pda_internal_rule_table",
+            "description": "Visa 13.1 专属诊断：Merchandise/Services Not Received。对应业务场景：商品/服务未收到。差异化建议：准备物流签收记录、投递证明、买家沟通截图; 如数字商品：附登录日志、下载记录、激活时间"
+          },
+          {
+            "type": "risk_rule",
+            "id": "cb_demo_13_1",
+            "source": "reason_code_public_reference",
+            "description": "13.1: Merchandise/Services Not Received。建议处理：消费者争议。准备 CB 申诉材料（订单详情/物流/退款记录）；优先 RDR 拦截"
+          },
+          {
+            "type": "knowledge_base",
+            "id": "cb_demo_13_1#w0",
+            "source": "chroma:error_codes_vec",
+            "description": "13.1: Merchandise/Services Not Received。触发条件:持卡人/发卡行发起拒付,理由码 13.1。建议处理:消费者争议。准备 CB 申诉材料(订单详情/物流/退款记录);优先 RDR 拦截。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+          },
+          {
+            "type": "knowledge_base",
+            "id": "cb_demo_R13#w0",
+            "source": "chroma:error_codes_vec",
+            "description": "R13: No Reply。触发条件:持卡人/发卡行发起拒付,理由码 R13。建议处理:再请款争议(Representment)。提供二次清算证据。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+          },
+          {
+            "type": "knowledge_base",
+            "id": "cb_demo_13_5#w0",
+            "source": "chroma:error_codes_vec",
+            "description": "13.5: Misrepresentation。触发条件:持卡人/发卡行发起拒付,理由码 13.5。建议处理:消费者争议。准备 CB 申诉材料(订单详情/物流/退款记录);优先 RDR 拦截。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+          }
+        ],
+        "recommended_actions": [
+          "准备物流签收记录、投递证明、买家沟通截图",
+          "如数字商品：附登录日志、下载记录、激活时间",
+          "准备订单详情、物流信息、退款记录",
+          "开通 RDR 拦截减少后续争议"
+        ],
+        "confidence": 0.8,
+        "next_agent": "Ticket Routing Agent",
+        "error_image_path": "data/error_images/cb_demo_13_1.png",
+        "trace": {
+          "evidence_count": 4,
+          "llm_provider": "QwenProvider",
+          "evidence_types": [
+            "risk_rule",
+            "knowledge_base",
+            "knowledge_base",
+            "knowledge_base"
+          ],
+          "error_image_path": "data/error_images/cb_demo_13_1.png",
+          "code_specific_enriched": {
+            "channel": "Visa",
+            "error_code": "13.1",
+            "reason_name": "Merchandise/Services Not Received",
+            "category": "not_received",
+            "injected_actions_count": 2
+          }
+        }
+      }
+    },
+    "error_image_path": "data/error_images/cb_demo_13_1.png",
+    "trace": {
+      "matched_keywords": [
+        "拒付"
+      ],
+      "params": {
+        "merchant_id": "unknown",
+        "country": "US",
+        "channel": "Visa",
+        "error_code": "CB_13.1",
+        "query_text": "我美国站卖软件的，Visa 13.1 拒付好多，怎么办？",
+        "affected_orders": []
+      },
+      "extracted_from_query": {
+        "country": "US",
+        "channel": "Visa",
+        "error_code": "CB_13.1"
+      },
+      "query_type": "code_required",
+      "llm_used": false
+    },
+    "chain": [
+      {
+        "step": 2,
+        "tool": "ticket_routing",
+        "result": {
+          "success": false,
+          "error_code": "TOOL_PARAM_INVALID",
+          "error_message": "Tool 'ticket_routing' 参数校验失败: None is not of type 'string'"
+        },
+        "triggered_by": "payment_diagnosis"
+      }
+    ]
+  },
+  "expect": {
+    "intent": "payment_diagnosis",
+    "image_path": "data/error_images/cb_demo_13_1.png"
+  }
+}

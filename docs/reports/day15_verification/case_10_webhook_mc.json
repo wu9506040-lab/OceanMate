@@ -1,0 +1,110 @@
+{
+  "case": "case_10_webhook_mc",
+  "via": "webhook",
+  "http_status": 200,
+  "elapsed_ms": 5731,
+  "result": {
+    "intent": "payment_diagnosis",
+    "tool_name": "payment_diagnosis",
+    "tool_result": {
+      "success": true,
+      "data": {
+        "problem_type": "拒付",
+        "root_causes": [
+          "拒付原因码 4837「No Cardholder Authorization」（未获得持卡人授权）",
+          "持卡人/发卡行发起拒付，理由码 4837：未获得持卡人授权",
+          "持卡人/发卡行发起拒付，理由码 4849：可疑商户行为"
+        ],
+        "evidence_chain": [
+          {
+            "type": "code_specific_rule",
+            "id": "cb_specific_4837",
+            "source": "pda_internal_rule_table",
+            "description": "Mastercard 4837 专属诊断：No Cardholder Authorization。对应业务场景：未获得持卡人授权。差异化建议：复核 3DS/SecureCode 验证记录（是否在交易中触发）; 排查 Card-on-File 存储与 CVV 校验配置"
+          },
+          {
+            "type": "risk_rule",
+            "id": "cb_demo_4837",
+            "source": "reason_code_public_reference",
+            "description": "4837: No Cardholder Authorization。建议处理：Mastercard 争议码。准备订单/物流/退款凭证；优先 RDR/Collaboration 拦截"
+          },
+          {
+            "type": "knowledge_base",
+            "id": "cb_demo_4837#w0",
+            "source": "chroma:error_codes_vec",
+            "description": "4837: No Cardholder Authorization。触发条件:持卡人/发卡行发起拒付,理由码 4837。建议处理:Mastercard 争议码。准备订单/物流/退款凭证;优先 RDR/Collaboration 拦截。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+          },
+          {
+            "type": "knowledge_base",
+            "id": "cb_demo_4849#w0",
+            "source": "chroma:error_codes_vec",
+            "description": "4849: Questionable Merchant Activity。触发条件:持卡人/发卡行发起拒付,理由码 4849。建议处理:Mastercard 争议码。准备订单/物流/退款凭证;优先 RDR/Collaboration 拦截。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+          }
+        ],
+        "recommended_actions": [
+          "复核 3DS/SecureCode 验证记录（是否在交易中触发）",
+          "排查 Card-on-File 存储与 CVV 校验配置",
+          "准备订单、物流、退款凭证",
+          "开通 RDR 或 Collaboration 拦截争议"
+        ],
+        "confidence": 0.85,
+        "next_agent": "Ticket Routing Agent",
+        "error_image_path": "data/error_images/cb_demo_4837.png",
+        "trace": {
+          "evidence_count": 3,
+          "llm_provider": "QwenProvider",
+          "evidence_types": [
+            "risk_rule",
+            "knowledge_base",
+            "knowledge_base"
+          ],
+          "error_image_path": "data/error_images/cb_demo_4837.png",
+          "code_specific_enriched": {
+            "channel": "Mastercard",
+            "error_code": "4837",
+            "reason_name": "No Cardholder Authorization",
+            "category": "not_authorized",
+            "injected_actions_count": 2
+          }
+        }
+      }
+    },
+    "error_image_path": "data/error_images/cb_demo_4837.png",
+    "trace": {
+      "matched_keywords": [
+        "拒付"
+      ],
+      "params": {
+        "merchant_id": "unknown",
+        "country": "US",
+        "channel": "Mastercard",
+        "error_code": "CB_4837",
+        "query_text": "美国 MC 4837 拒付越来越多",
+        "affected_orders": []
+      },
+      "extracted_from_query": {
+        "country": "US",
+        "channel": "Mastercard",
+        "error_code": "CB_4837"
+      },
+      "query_type": "code_required",
+      "llm_used": false
+    },
+    "chain": [
+      {
+        "step": 2,
+        "tool": "ticket_routing",
+        "result": {
+          "success": false,
+          "error_code": "TOOL_PARAM_INVALID",
+          "error_message": "Tool 'ticket_routing' 参数校验失败: None is not of type 'string'"
+        },
+        "triggered_by": "payment_diagnosis"
+      }
+    ]
+  },
+  "expect": {
+    "intent": "payment_diagnosis",
+    "image_path": "data/error_images/cb_demo_4837.png"
+  }
+}

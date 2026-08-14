@@ -40,7 +40,175 @@ class PDATool(BaseTool):
         recommended_actions 推荐处理步骤
         confidence         置信度 0-1
         next_agent         下一跳 Agent（固定为 Ticket Routing Agent）
+
+    Day 15 Fix D：（channel × error_code）差异化诊断
+    - 之前：Visa 13.1 与 MC 4837 答案几乎一致（actions 模板相同，仅 image/name 不同）
+    - 现在：根据 (channel, error_code) 注入「reason name + 业务规则 + 差异化 actions」
+    - 例：13.1 → "商品/服务未收" → 物流/签收凭证 + Visa RDR
+    - 例：4837 → "未授权" → 风控/3DS + Mastercard Collaboration
     """
+
+    # === Day 15 Fix D：（channel × error_code）差异化规则表 ===
+    # 关键发现：Visa 13.1 vs MC 4837 在知识库文本里 "consumer dispute" / "RDR" 模板相同，
+    # 导致 LLM 输出的 actions 几乎一样；商户视角"答案一样"。修复：注入**业务语义维度**不同的 actions。
+    #
+    # 分类：
+    #   not_received: 13.1 / 13.3 / 15.x (Visa 商品/服务未收) → 强调 物流/签收/交付凭证
+    #   not_authorized: 4837 / 4863 / 10.4 (MC 未授权) → 强调 3DS/风控/CVM
+    #   fraud: 10.1 / 10.2 / 10.4 (Visa/MC 欺诈) → 强调 早拦截 + 风控收紧
+    #   recurring: 4841 / 4834 (MC 订阅/分期) → 强调 MDP/Cancellation 流程
+    #
+    # 模板只在 Mock 路径生效（Qwen 也有机会调这个表作为 Fallback Knowledge）。
+    _CODE_RULES = {
+        # Visa 13.1: 商品/服务未收
+        ("Visa", "13.1"): {
+            "reason_name": "Merchandise/Services Not Received",
+            "category": "not_received",
+            "specific_actions": [
+                "准备物流签收记录、投递证明、买家沟通截图",
+                "如数字商品：附登录日志、下载记录、激活时间",
+                "开通 Visa RDR 提前拦截同类争议",
+            ],
+        },
+        ("Visa", "13.3"): {
+            "reason_name": "Not As Described or Defective",
+            "category": "not_received",
+            "specific_actions": [
+                "准备商品详情页描述、退换货政策、产品对比图",
+                "附质检报告 / 故障视频",
+                "开通 Visa RDR 拦截",
+            ],
+        },
+        # MC 4837: 未授权
+        ("Mastercard", "4837"): {
+            "reason_name": "No Cardholder Authorization",
+            "category": "not_authorized",
+            "specific_actions": [
+                "复核 3DS/SecureCode 验证记录（是否在交易中触发）",
+                "排查 Card-on-File 存储与 CVV 校验配置",
+                "开通 Mastercard Collaboration 拦截（CFR 平台）",
+            ],
+        },
+        ("Mastercard", "4863"): {
+            "reason_name": "Cardholder Does Not Recognize Transaction",
+            "category": "not_authorized",
+            "specific_actions": [
+                "提供 BIN + 末四位 + 交易描述截图",
+                "排查商户名称是否清晰（避免显示为陌生名称）",
+                "开通 Mastercard Collaboration",
+            ],
+        },
+        # 欺诈类
+        ("Visa", "10.1"): {
+            "reason_name": "EMV Liability Shift Counterfeit Fraud",
+            "category": "fraud",
+            "specific_actions": [
+                "确认 3DS 覆盖率（按地区合规要求）",
+                "扩展 Verifi RDR / CDRN 拦截范围",
+                "收紧高风险国家 BIN 段交易限额",
+            ],
+        },
+        # MC 订阅/分期
+        ("Mastercard", "4841"): {
+            "reason_name": "Canceled Recurring or Digital Goods",
+            "category": "recurring",
+            "specific_actions": [
+                "提供订阅取消确认页 + 退款记录",
+                "核对 Mastercard Digital Goods 规则（需 pre-arbitration）",
+                "排查 Merchant Category Code (MCC) 是否准确",
+            ],
+        },
+    }
+
+    # Fallback: 只按 error_code 前缀匹配（channel 未知时）
+    _CODE_PATTERN_RULES = {
+        "13.1": "Visa",    # 商品/服务未收
+        "13.3": "Visa",
+        "13.5": "Visa",
+        "4837": "Mastercard",  # 未授权
+        "4863": "Mastercard",
+        "4841": "Mastercard",  # 订阅取消
+        "10.1": "Visa",     # 欺诈
+        "10.2": "Visa",
+        "10.4": "Mastercard",
+    }
+
+    @classmethod
+    def _enrich_with_code_specific_actions(cls, params: dict, result: dict) -> dict:
+        """Day 15 Fix D：注入 (channel, error_code) 差异化 actions。
+
+        解决「Visa 13.1 vs MC 4837 答案一样」问题。
+
+        步骤：
+        1. 从 params.channel / params.error_code 查 _CODE_RULES 找到具体规则
+        2. 找不到 → 按 code 前缀匹配 _CODE_PATTERN_RULES 拿 channel hint
+        3. 找到规则 → 在 result.recommended_actions 前置「specific_actions」前 2 条
+        4. 在 result.root_causes 前置「reason_name + 业务含义」1 条
+        5. 在 result.evidence_chain 头部插 1 条 code-specific 证据（让商户看到"我们认得这个码"）
+        6. 在 trace 标记 enriched 字段（评审可演示）
+        """
+        channel = (params.get("channel") or "").strip()
+        error_code = (params.get("error_code") or "").strip()
+        if not error_code or not error_code.upper().startswith("CB_"):
+            return result  # 仅针对拒付码增强
+        code_short = error_code[3:]  # 13.1 / 4837
+
+        # 1. 精确匹配 (channel, error_code)
+        rule = cls._CODE_RULES.get((channel, code_short))
+        if not rule:
+            # 2. 模糊匹配（按 error_code 联想到 channel）
+            hinted_channel = cls._CODE_PATTERN_RULES.get(code_short) or channel
+            rule = cls._CODE_RULES.get((hinted_channel, code_short))
+
+        if not rule:
+            return result  # 无规则 → 不增强
+
+        # 3. 前置差异化 actions（前 2 条，避免覆盖 LLM 已有的「订单详情/物流/退款」通用建议）
+        specific = rule.get("specific_actions", [])
+        existing_actions = list(result.get("recommended_actions") or [])
+        # 去重：只保留 LLM 没写的
+        new_actions = [a for a in specific if a not in existing_actions]
+        result["recommended_actions"] = new_actions[:2] + existing_actions
+
+        # 4. 前置 reason name 根因
+        reason_name = rule.get("reason_name", "")
+        category = rule.get("category", "")
+        if reason_name:
+            cat_label = {
+                "not_received": "商品/服务未收到",
+                "not_authorized": "未获得持卡人授权",
+                "fraud": "疑似欺诈",
+                "recurring": "订阅/分期问题",
+            }.get(category, "")
+            # 把英文 reason name 翻译成人话（避免商户看到 13.1 / 4837 数字对应不上）
+            new_root = f"拒付原因码 {code_short}「{reason_name}」（{cat_label}）"
+            existing_roots = list(result.get("root_causes") or [])
+            if new_root not in existing_roots:
+                result["root_causes"] = [new_root] + existing_roots[:2]
+
+        # 5. 前置 code-specific 证据（让 chain 质量提升）
+        if reason_name:
+            ev = {
+                "type": "code_specific_rule",
+                "id": f"cb_specific_{code_short.replace('.', '_')}",
+                "source": "pda_internal_rule_table",
+                "description": f"{channel} {code_short} 专属诊断：{reason_name}。"
+                              f"对应业务场景：{cat_label}。"
+                              f"差异化建议：{'; '.join(specific[:2])}",
+            }
+            existing_ev = list(result.get("evidence_chain") or [])
+            result["evidence_chain"] = [ev] + existing_ev
+
+        # 6. trace 标记
+        result.setdefault("trace", {})["code_specific_enriched"] = {
+            "channel": channel,
+            "error_code": code_short,
+            "reason_name": reason_name,
+            "category": category,
+            "injected_actions_count": len(new_actions[:2]),
+        }
+
+        return result
 
     name = "payment_diagnosis"
     description = (
@@ -200,7 +368,7 @@ class PDATool(BaseTool):
         resp = self.service.diagnose(req)
 
         d = resp.diagnosis
-        return {
+        result = {
             "problem_type": d.problem_type,
             "root_causes": d.root_causes,
             "evidence_chain": [e.model_dump() for e in d.evidence_chain],
@@ -210,3 +378,7 @@ class PDATool(BaseTool):
             "error_image_path": resp.trace.get("error_image_path", ""),  # Day 9 拒付码配图
             "trace": resp.trace,
         }
+        # Day 15 Fix D：(channel, error_code) 差异化诊断
+        # 解决 Visa 13.1 vs MC 4837 答案几乎一样的硬伤
+        result = self._enrich_with_code_specific_actions(params, result)
+        return result

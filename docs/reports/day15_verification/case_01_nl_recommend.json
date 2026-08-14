@@ -1,0 +1,76 @@
+{
+  "case": "case_01_nl_recommend",
+  "via": "api",
+  "elapsed_ms": 1939,
+  "result": {
+    "intent": "merchant_success",
+    "tool_name": "merchant_success",
+    "tool_result": {
+      "success": true,
+      "data": {
+        "intent": "recommend_payment_methods",
+        "response": "推荐 iDEAL 作为主要支付方式，因其在荷兰市场占有率高、银行直连且为标配；同时建议添加 Alipay+ 以覆盖全球华人用户，提升跨境销售能力。",
+        "recommendations": [
+          {
+            "method": "iDEAL",
+            "evidence_id": "pm_demo_ideal_nl_001",
+            "rationale": "iDEAL NL 支付方式。iDEAL 是 NL 国家支付系统（NPSP），电商支付市占率 70%+（NL 央行 2024 数据）。跨境收款必备通道。 理由：NL 强制标配；本地银行直连；无需卡 标签：NL, 银行直连, 高市占, 标配",
+            "fee_rate": "€0.29 per transaction",
+            "settlement": "T+1"
+          },
+          {
+            "method": "WeChat Pay",
+            "evidence_id": "pm_demo_wechat_cn_001",
+            "rationale": "WeChat Pay CN 支付方式。微信支付覆盖 CN 移动支付 80%+ 用户。跨境电商需支持 CN 消费者购买。 理由：CN 移动支付标配；小额高频 标签：CN, 移动支付, 高频",
+            "fee_rate": "1.0%",
+            "settlement": "T+1"
+          },
+          {
+            "method": "Boleto",
+            "evidence_id": "pm_demo_boleto_br_001",
+            "rationale": "Boleto BR 支付方式。Boleto 是 BR 现金/银行转账支付，覆盖无银行账户人群（约 30% 人口）。适合高客单或分期。 理由：BR 现金支付补充；覆盖无银行账户人群 标签：BR, 现金, 无银行账户, 补充",
+            "fee_rate": "1.5% to 3%",
+            "settlement": "T+1 to T+3"
+          },
+          {
+            "method": "Alipay+",
+            "evidence_id": "pm_demo_alipayplus_global_001",
+            "rationale": "Alipay+ GLOBAL 支付方式。Alipay+ 是蚂蚁集团跨境支付网关，覆盖全球 30+ 国家/地区电子钱包（Alipay HK / Touch'n Go / GCash / TrueMoney 等），合计 10 亿+ 用户。 理由",
+            "fee_rate": "1.2% to 2.0%",
+            "settlement": "T+1"
+          },
+          {
+            "method": "Visa",
+            "evidence_id": "pm_demo_visa_br_001",
+            "rationale": "Visa BR 支付方式。BR Visa 信用卡。注意：BR 区域 Visa 有 3DS 强制要求（按当地合规）。需配套 3DS 配置。 理由：BR 信用卡用户基础大；必须配套 3DS 标签：BR, 信用卡, 3DS",
+            "fee_rate": "3.5% + $0.30",
+            "settlement": "T+2"
+          }
+        ],
+        "follow_up_questions": [],
+        "profile_completeness": 1.0,
+        "trace": {
+          "rag_results": 5,
+          "llm_provider": "QwenGateway"
+        }
+      }
+    },
+    "trace": {
+      "matched_keywords": [
+        "客单价",
+        "B2C",
+        "想做"
+      ],
+      "sub_intent": "recommend_payment_methods",
+      "is_profile_complete": true,
+      "country": "NL",
+      "best_practice_filled": true,
+      "llm_used": false
+    }
+  },
+  "expect": {
+    "intent": "merchant_success",
+    "sub_intent": "recommend_payment_methods",
+    "best_practice_filled": true
+  }
+}
