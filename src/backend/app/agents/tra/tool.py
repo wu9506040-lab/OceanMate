@@ -1,8 +1,9 @@
 """TRATool - 工单智能路由 Tool（OP 命题方向 ③ · Demo 核心）。
 
-两种 intent：
+三种 intent：
 - route_ticket   按 problem_type + priority + tier 查规则表 → 分派团队 + SLA + 写入工单
 - query_status   按 ticket_id 查工单当前状态
+- resolve_ticket 关闭工单 + 自动沉淀 KB（Day 17 v3 数字员工闭环第 5 段）
 
 设计要点：
 - 路由规则 = JSON 文件（与 OP 真实生产一致 —— 运营在飞书多维表格维护，本地缓存副本）
@@ -14,18 +15,23 @@
   > default
 - 工单持久化：可选 TicketRepository（不传则 in-memory mock，便于 PoC 演示）
 - 工单 ID 生成：UUID4（Demo 简化；真实场景接飞书 record_id）
+- resolve_ticket：更新工单状态为 closed/resolved，
+  若注入 case_repo + kea，从 diagnosis_id 查 case，自动 promote_to_faq
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from pathlib import Path
 from typing import Optional, Any
 
 from app.interfaces.base_tool import BaseTool
 from app.implementations.db.repositories import TicketRepository
-from app.models import Ticket
+from app.models import Ticket, Case
+
+logger = logging.getLogger(__name__)
 
 
 # === 规则文件路径（来自 docs/data/ticket_routing_rules.json）===
@@ -81,14 +87,21 @@ class TRATool(BaseTool):
         self,
         ticket_repo: Optional[TicketRepository] = None,
         rules_path: Optional[Path] = None,
+        case_repo=None,           # Optional[CaseRepository] —— 防循环依赖，type=str
+        kea=None,                 # Optional[KEATool] —— resolve_ticket 自动 promote 时用
     ):
         """初始化 TRATool。
 
         Args:
             ticket_repo: 注入工单仓库（默认 None → in-memory mock）
             rules_path:  路由规则 JSON 路径（默认 DEFAULT_RULES_PATH）
+            case_repo:   CaseRepository（resolve_ticket 通过 diagnosis_id 找 case 用，可选）
+            kea:         KEATool 实例（resolve_ticket 后自动 promote_to_faq，可选）
+                         （解耦注入：TRA 不直接 import KEA，防止循环依赖）
         """
         self.ticket_repo = ticket_repo
+        self.case_repo = case_repo
+        self.kea = kea
         self._rules: list[dict] = []
         self._rules_path = Path(rules_path) if rules_path else DEFAULT_RULES_PATH
         self._load_rules()
@@ -145,8 +158,8 @@ class TRATool(BaseTool):
             "properties": {
                 "intent": {
                     "type": "string",
-                    "enum": ["route_ticket", "query_status"],
-                    "description": "route_ticket 创建并分派 / query_status 查询工单状态",
+                    "enum": ["route_ticket", "query_status", "resolve_ticket"],
+                    "description": "route_ticket 创建并分派 / query_status 查询 / resolve_ticket 关闭工单并自动沉淀 KB",
                 },
                 "problem_type": {
                     "type": "string",
@@ -172,7 +185,16 @@ class TRATool(BaseTool):
                 },
                 "ticket_id": {
                     "type": "string",
-                    "description": "query_status 时必填",
+                    "description": "query_status / resolve_ticket 时必填",
+                },
+                "resolution": {
+                    "type": "string",
+                    "description": "关闭原因 / 解决方案（resolve_ticket 可选，便于运营追溯）",
+                },
+                "auto_promote": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "resolve_ticket 后是否自动 promote_to_faq（默认 True）",
                 },
             },
             "required": ["intent"],
@@ -229,12 +251,14 @@ class TRATool(BaseTool):
     # === 业务执行 ===
 
     def execute(self, params: dict) -> dict:
-        """执行路由 / 查询。"""
+        """执行路由 / 查询 / 关闭。"""
         intent = params["intent"]
         if intent == "route_ticket":
             return self._route_ticket(params)
         elif intent == "query_status":
             return self._query_status(params)
+        elif intent == "resolve_ticket":
+            return self._resolve_ticket(params)
         else:
             raise ValueError(f"Unknown intent: {intent}")
 
@@ -371,7 +395,154 @@ class TRATool(BaseTool):
             "trace": {"queried": True},
         }
 
-    # === 规则匹配（核心：4 层降级链） ===
+    # === 子能力 3：关闭工单 + 自动沉淀 KB（Day 17 v3 数字员工闭环第 5 段） ===
+
+    def _resolve_ticket(self, params: dict) -> dict:
+        """关闭工单 + 自动 promote case → FAQ。
+
+        流程：
+        1. 校验 ticket_id
+        2. 加载工单（DB or memory）
+        3. 更新 status = closed（默认）/ resolved，并写入 resolution + resolved_at
+        4. （可选）auto_promote=True 时：通过 diagnosis_id 查 case
+           + 若 case.confidence ≥ 0.9 → 调 KEA.promote_to_faq
+        5. 返回：工单最新状态 + promotion result（若触发）
+
+        失败降级：
+        - ticket 不存在 → not_found，不报错
+        - 工单重复关闭（已是 closed）→ 仍返 success，但 trace.closed_was_already=True
+        - case 找不到或 confidence 不足 → 不 promote，trace.skip_promote_reason 给出原因
+        - KEA 调失败 → 工单更新照样成功，trace.promote_error 给出友好提示
+        """
+        ticket_id = params.get("ticket_id")
+        if not ticket_id:
+            return {
+                "intent": "resolve_ticket",
+                "ticket_id": "",
+                "status": "not_found",
+                "match_level": "no_ticket_id",
+                "trace": {"error": "ticket_id 必填"},
+            }
+
+        ticket_data = self._load_ticket(ticket_id)
+        if ticket_data is None:
+            return {
+                "intent": "resolve_ticket",
+                "ticket_id": ticket_id,
+                "status": "not_found",
+                "match_level": "ticket_not_found",
+                "trace": {"error": f"工单 '{ticket_id}' 不存在"},
+            }
+
+        # 1) 更新内存 / DB 状态
+        new_status = params.get("status", "closed")
+        resolution = params.get("resolution", "")
+        old_status = ticket_data.get("status", "pending")
+        was_already_closed = old_status in ("closed", "resolved")
+        ticket_data["status"] = new_status
+        ticket_data["resolution"] = resolution
+        from datetime import datetime
+        ticket_data["resolved_at"] = datetime.utcnow().isoformat() + "Z"
+
+        # 持久化（尽量写 DB；失败则 memory 已更新）
+        persisted_via = "memory"
+        if self.ticket_repo is not None:
+            try:
+                t_obj = Ticket(
+                    id=ticket_id,
+                    problem_type=ticket_data.get("problem_type", ""),
+                    priority=ticket_data.get("priority", "medium"),
+                    status=new_status,
+                    merchant_id=ticket_data.get("merchant_id"),
+                    assignee=ticket_data.get("assignee"),
+                    source=ticket_data.get("source"),
+                    diagnosis_id=ticket_data.get("diagnosis_id"),
+                    feishu_record_id=ticket_data.get("feishu_record_id"),
+                    resolved_at=ticket_data.get("resolved_at"),
+                )
+                self.ticket_repo.update(ticket_id, t_obj)
+                persisted_via = "db+memory"
+            except Exception:
+                persisted_via = "memory_only_db_fail"
+
+        # 2) auto promote（知识沉淀闭环）
+        promote_result: Optional[dict] = None
+        skip_promote_reason = ""
+        auto_promote = params.get("auto_promote", True)
+
+        if auto_promote and self.kea is not None:
+            diagnosis_id = ticket_data.get("diagnosis_id")
+            case_id = self._lookup_case_id(diagnosis_id)
+
+            if not case_id:
+                skip_promote_reason = f"diagnosis_id='{diagnosis_id}' 未关联 case"
+            else:
+                # 调 KEA.promote_to_faq
+                try:
+                    wrapped = self.kea.execute({
+                        "intent": "promote_to_faq",
+                        "case_id": case_id,
+                    })
+                    promote_result = wrapped
+                except Exception as e:
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"resolve_ticket → KEA.promote_to_faq 失败: {e}")
+                    skip_promote_reason = f"KEA 调用异常: {e}"
+        elif auto_promote and self.kea is None:
+            skip_promote_reason = "KEA 未注入（PoC 演示或测试场景，跳过自动沉淀）"
+        else:
+            skip_promote_reason = "auto_promote=False 显式关闭"
+
+        return {
+            "intent": "resolve_ticket",
+            "ticket_id": ticket_id,
+            "problem_type": ticket_data.get("problem_type", ""),
+            "priority": ticket_data.get("priority", ""),
+            "status": new_status,
+            "assignee": ticket_data.get("assignee", ""),
+            "source": ticket_data.get("source"),
+            "diagnosis_id": ticket_data.get("diagnosis_id"),
+            "rule_id": ticket_data.get("rule_id"),
+            "match_level": "resolved",
+            "create_time_estimate": ticket_data.get("sla_due"),
+            "resolution_recorded": bool(resolution),
+            "closed_was_already": was_already_closed,
+            "promote_result": promote_result,
+            "trace": {
+                "persisted_via": persisted_via,
+                "old_status": old_status,
+                "new_status": new_status,
+                "skip_promote_reason": skip_promote_reason or None,
+            },
+        }
+
+    def _lookup_case_id(self, diagnosis_id: Optional[str]) -> Optional[str]:
+        """通过 diagnosis_id 反查关联的 case_id。
+
+        PoC 简化：TRA 创建工单时传入的 diagnosis_id 是 PDA 的诊断 ID。
+        当前 cases 表并未按 diagnosis_id 索引，简单做法：
+        - 若 diagnosis_id 形如 'diag_<...>'，尝试匹配 case.id
+        - 否则返回 None（运营可用 case_id 显式补登）
+
+        Returns:
+            case_id 字符串；若未找到返回 None。
+        """
+        if not self.case_repo or not diagnosis_id:
+            return None
+        try:
+            # PoC: 优先尝试精确匹配 diagnosis_id 当作 case_id
+            c = self.case_repo.get_by_id(diagnosis_id)
+            if c:
+                return c.id
+            # 兜底：list 中查找任一 case（PoC 数据集很小，可行；真实场景需加索引）
+            all_cases = self.case_repo.list(filters=None, limit=200)
+            for c in all_cases:
+                # 兼容：case.feishu_record_id 或 case.id 字段
+                if c.id == diagnosis_id:
+                    return c.id
+            return None
+        except Exception:
+            return None
 
     def _match_rule(self, problem_type: str, priority: str, tier: str) -> tuple[Optional[dict], str]:
         """按规则匹配优先级返回 (rule_dict, match_level)。

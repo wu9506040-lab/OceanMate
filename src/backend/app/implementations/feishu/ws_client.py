@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import re
 import threading
 from collections import deque
 from typing import Optional
@@ -41,6 +43,62 @@ EVENT_P2_IM_MESSAGE_RECEIVE_V1 = "im.message.receive_v1"
 
 # 3 秒响应时限安全阈值（业务处理超过这个时间先发占位）
 PROCESSING_PLACEHOLDER = "🤔 正在为您处理，请稍候…"
+
+# === Day 17: 群聊 @ 机器人过滤 ===
+
+# 飞书群聊文本里会带 @_user_NNN 之类的标记，剥离避免污染业务 query
+_MENTION_TOKEN_RE = re.compile(r"@_\w+\s*")
+
+
+def _get_bot_open_id() -> str:
+    """获取机器人自己的 open_id（env FEISHU_BOT_OPEN_ID）。
+
+    用于群聊 @ 过滤：只有 @ 机器人的消息才响应。
+    真实环境配置：app 注册拿到 app_id 后，机器人本身的 open_id 可以通过 API 查询。
+    """
+    return os.getenv("FEISHU_BOT_OPEN_ID", "").strip()
+
+
+def _is_bot_mentioned(mentions_data, bot_open_id: str) -> bool:
+    """检查机器人是否在消息 mentions 列表里。
+
+    飞书 SDK message.mentions 是 list，每项可能是：
+    - lark_oapi SDK 对象：m.id.open_id
+    - dict 字典（webhook/Poller 路径）：{"id": {"open_id": "..."}} 或 {"open_id": "..."}
+
+    返回 True = 机器人被 @ 了；False = 没被 @。
+    """
+    if not bot_open_id or not mentions_data:
+        return False
+    try:
+        for m in mentions_data:
+            mid: Optional[str] = None
+            # 1) SDK 对象路径：m.id.open_id
+            id_obj = getattr(m, "id", None) if hasattr(m, "id") else (m.get("id") if isinstance(m, dict) else None)
+            if id_obj is not None:
+                if hasattr(id_obj, "open_id"):
+                    mid = getattr(id_obj, "open_id", None)
+                elif isinstance(id_obj, dict):
+                    mid = id_obj.get("open_id")
+            # 2) dict 直接有 open_id（飞书 Poller chat history 接口的简化结构）
+            if not mid and isinstance(m, dict):
+                mid = m.get("open_id")
+            if mid == bot_open_id:
+                return True
+    except Exception as e:
+        logger.warning(f"[WS] 解析 mentions 异常（不影响主流程）: {e}")
+    return False
+
+
+def _strip_mention_tokens(text: str) -> str:
+    """去掉飞书自动插入的 @_user_NNN 标记。
+
+    例："@_user_1 帮我看看拒付" → "帮我看看拒付"
+    """
+    if not text:
+        return text
+    return _MENTION_TOKEN_RE.sub("", text).strip()
+
 
 # === WS 调试态（供 /api/debug/ws_state 查询）===
 _ws_state = {
@@ -119,8 +177,27 @@ def _handle_p2_im_message(
             logger.warning(f"WS event 缺关键字段: user_id={user_id}, text={text[:50]}")
             return
 
+        # Day 17 v3: 群聊必须 @ 机器人才响应（飞书要求，避免被刷屏）
+        # p2p 单聊直接处理；group 检查 mentions 里是否有 bot_open_id
+        if chat_type == "group":
+            bot_open_id = _get_bot_open_id()
+            mentions = getattr(message, "mentions", None) or []
+            if not _is_bot_mentioned(mentions, bot_open_id):
+                logger.debug(
+                    f"[WS] 群聊未 @ 机器人，跳过: chat={chat_id[:12]}, "
+                    f"mentions={len(mentions)}, bot_open_id={'已配' if bot_open_id else '未配'}"
+                )
+                return
+            # 去掉 @_user_NNN 标记（飞书自动插入的），避免污染业务 query
+            text = _strip_mention_tokens(text)
+            if not text:
+                logger.debug(f"[WS] 群聊 @ 机器人但剥离 mention 后无文本，跳过")
+                return
+
         # 3. 路由 + 格式化 + 推送
-        logger.info(f"[WS] 收到消息: user={user_id}, chat_type={chat_type}, text={text[:80]}")
+        logger.info(
+            f"[WS] 收到消息: user={user_id}, chat_type={chat_type}, text={text[:80]}"
+        )
 
         result = orchestrator.route(
             user_query=text,
