@@ -91,8 +91,10 @@ def extract_pda_params(query: str) -> dict:
         if m:
             result["error_code"] = m.group(1)
     # 3c) "Visa 13.1" / "MC 4837" 模式 → CB_13.1 / CB_4837
+    # Day 15 P0-C 修复：中文 query 里 \b word boundary 不工作（如"美国Visa 13.1拒付..."）
+    # → 中文无 word boundary，正则不会匹配。改为非边界匹配 + 排除前后是数字。
     if not result["error_code"] and result["channel"]:
-        m = re.search(r"\b(\d{4}|\d+\.\d)\b", q)
+        m = re.search(r"(?<!\d)(\d{4}|\d+\.\d)(?!\d)", q)
         if m:
             num = m.group(1)
             # 关键：真实数据用 "." 不是 "_"（CB_13.1 / CB_4837）
@@ -332,6 +334,15 @@ _TRA_QUERY_KEYWORDS = [
     "tkt_", "工单号",
 ]
 
+# Day 15 P0-B：「创建工单」类 query（避免被 PDA 抢走路由）
+_TRA_CREATE_KEYWORDS = [
+    "创建工单", "新建工单", "建工单", "开工单",
+    "帮我开", "帮我建", "帮我创建", "帮我弄", "帮我搞", "帮我提",
+    "弄一个", "搞一个", "提一个", "下一个", "起一个",
+    "派单", "派个单",  # 「回复派单」也是显式触发
+    "创建", "新建",  # 单独出现也认
+]
+
 _KEA_SEARCH_KEYWORDS = [
     "怎么", "如何", "咋", "怎样", "什么样",
     "查", "搜", "检索", "搜索", "找", "找一下",
@@ -441,6 +452,10 @@ def route_msa(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
 
     Day 14 #4/#7 优化：先从 query 提取画像（country/industry/avg/target_users）填到 ctx，
     再判断画像完整性，避免「荷兰」「墨西哥」等 NL 场景下 ctx 全空导致机械反问采集。
+
+    Day 15 P0-A 优化：country 在 known list 时自动用 best-practice 默认值
+    （industry=retail, target_users=B2C）填 ctx，跳过 collect_profile，直接走 recommend。
+    解决「荷兰站刚上线，用什么支付方式比较好」被反问 3 个字段的问题。
     """
     if "merchant_success" not in registry:
         return tool_not_available("merchant_success")
@@ -448,9 +463,23 @@ def route_msa(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
     # 路由阶段先做 slot 提取（ctx 优先 → query 提取补充）
     ctx = enrich_msa_ctx(ctx, query)
 
+    # Day 15 P0-A：country 在 known list → 用 best-practice 默认值补齐画像
+    _BEST_PRACTICE_COUNTRIES = {
+        "NL", "BR", "DE", "JP", "MX", "GB", "US", "FR", "ES", "IT", "AU",
+    }
+    best_practice_filled = ctx.get("country") in _BEST_PRACTICE_COUNTRIES
+    if best_practice_filled:
+        if not ctx.get("industry"):
+            ctx["industry"] = "retail"
+        if not ctx.get("target_users"):
+            ctx["target_users"] = "B2C"
+        # avg_amount：跨境零售默认 50 USD（避免反问；用户可后续 refine）
+        if not ctx.get("avg_amount"):
+            ctx["avg_amount"] = 50.0
+
     # 根据画像完整度决定 MSA 子意图
     required = ("country", "industry", "avg_amount", "target_users")
-    is_complete = all(ctx.get(f) for f in required)
+    is_complete = all(ctx.get(f) is not None and ctx.get(f) != "" for f in required)
     sub_intent = (
         "recommend_payment_methods" if is_complete else "collect_profile"
     )
@@ -469,6 +498,8 @@ def route_msa(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
             "matched_keywords": matched,
             "sub_intent": sub_intent,
             "is_profile_complete": is_complete,
+            "country": ctx.get("country"),
+            "best_practice_filled": best_practice_filled,
         },
     }
 

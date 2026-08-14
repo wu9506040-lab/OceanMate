@@ -100,14 +100,32 @@ class TestIntentClassification:
         assert result["trace"]["is_profile_complete"] is True
 
     def test_msa_route_with_incomplete_profile_chooses_collect(self, orch):
-        """MSA 不完整画像 → sub_intent = collect_profile。"""
+        """MSA 不完整画像 → sub_intent = collect_profile。
+
+        Day 15 P0-A 修复后：用「非 best-practice 国家」（如 AT/CH）做反例，
+        best-practice 国家（NL/BR/DE/JP/MX/GB/US/FR/ES/IT/AU）会自动补齐走 recommend。
+        """
         result = orch.route(
             "推荐支付方式",
-            merchant_context={"country": "US"},  # 只填 1 个
+            merchant_context={"country": "AT"},  # 非 best-practice 国家（只填 1 个）
         )
         assert result["intent"] == "merchant_success"
         assert result["trace"]["sub_intent"] == "collect_profile"
         assert result["trace"]["is_profile_complete"] is False
+        assert result["trace"]["best_practice_filled"] is False
+
+    def test_msa_route_with_best_practice_country_autofills(self, orch):
+        """Day 15 P0-A：best-practice 国家 (NL/BR/DE/JP/MX/...) 自动补齐 retail+B2C+50 USD，
+        即使只填 country 也走 recommend_payment_methods。
+        """
+        result = orch.route(
+            "荷兰站刚上线，用什么支付方式比较好",
+            merchant_context={"country": "NL"},
+        )
+        assert result["intent"] == "merchant_success"
+        assert result["trace"]["best_practice_filled"] is True
+        assert result["trace"]["sub_intent"] == "recommend_payment_methods"
+        assert result["trace"]["is_profile_complete"] is True
 
 
 class TestFallbackMechanism:

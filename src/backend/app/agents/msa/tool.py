@@ -446,13 +446,17 @@ class MSATool(BaseTool):
 
         评分：4 个核心字段（country / industry / avg_amount / target_users）
         每填一个 = 0.25，满分 1.0。
+
+        Day 15 P0-A 修复：`not ctx.get(f)` 在 avg_amount=0 时误判为「缺失」
+        （因为 `not 0 == True`）。改为严格 None/空串判断。
         """
-        filled = sum(
-            1 for f in REQUIRED_PROFILE_FIELDS
-            if ctx.get(f) is not None and ctx.get(f) != ""
-        )
+        def _is_filled(v) -> bool:
+            """值是否算「已填」——非 None 且非空串。
+            注意：0 / 0.0 / False 都是有效值，不算缺失。"""
+            return v is not None and v != ""
+        filled = sum(1 for f in REQUIRED_PROFILE_FIELDS if _is_filled(ctx.get(f)))
         completeness = filled / len(REQUIRED_PROFILE_FIELDS)
-        missing = tuple(f for f in REQUIRED_PROFILE_FIELDS if not ctx.get(f))
+        missing = tuple(f for f in REQUIRED_PROFILE_FIELDS if not _is_filled(ctx.get(f)))
         return completeness, missing
 
     def _generate_summary(self, ctx: dict, recommendations: list[dict], query: str) -> str:

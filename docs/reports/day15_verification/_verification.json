@@ -1,0 +1,205 @@
+{
+  "total": 11,
+  "passed": 11,
+  "failed": 0,
+  "cases": [
+    {
+      "case": "case_01_nl_recommend",
+      "passed": true,
+      "checks": [
+        {
+          "name": "intent == 'merchant_success'",
+          "expect": "merchant_success",
+          "actual": "merchant_success",
+          "pass": true
+        },
+        {
+          "name": "sub_intent == 'recommend_payment_methods'",
+          "expect": "recommend_payment_methods",
+          "actual": "recommend_payment_methods",
+          "pass": true
+        },
+        {
+          "name": "best_practice_filled == True",
+          "expect": true,
+          "actual": true,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "case": "case_02_visa_13_1",
+      "passed": true,
+      "checks": [
+        {
+          "name": "intent == 'payment_diagnosis'",
+          "expect": "payment_diagnosis",
+          "actual": "payment_diagnosis",
+          "pass": true
+        },
+        {
+          "name": "error_image_path == 'data/error_images/cb_demo_13_1.png'",
+          "expect": "data/error_images/cb_demo_13_1.png",
+          "actual": "data/error_images/cb_demo_13_1.png",
+          "pass": true
+        },
+        {
+          "name": "reason_name contains 'Merchandise'",
+          "expect": "Merchandise",
+          "actual": "Merchandise/Services Not Received",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "case": "case_03_mc_4837",
+      "passed": true,
+      "checks": [
+        {
+          "name": "intent == 'payment_diagnosis'",
+          "expect": "payment_diagnosis",
+          "actual": "payment_diagnosis",
+          "pass": true
+        },
+        {
+          "name": "error_image_path == 'data/error_images/cb_demo_4837.png'",
+          "expect": "data/error_images/cb_demo_4837.png",
+          "actual": "data/error_images/cb_demo_4837.png",
+          "pass": true
+        },
+        {
+          "name": "reason_name contains 'Cardholder Authorization'",
+          "expect": "Cardholder Authorization",
+          "actual": "No Cardholder Authorization",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "case": "case_04_create_ticket",
+      "passed": true,
+      "checks": [
+        {
+          "name": "intent == 'ticket_routing'",
+          "expect": "ticket_routing",
+          "actual": "ticket_routing",
+          "pass": true
+        },
+        {
+          "name": "sub_intent == 'route_ticket'",
+          "expect": "route_ticket",
+          "actual": "route_ticket",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "case": "case_05_query_ticket",
+      "passed": true,
+      "checks": [
+        {
+          "name": "intent == 'ticket_routing'",
+          "expect": "ticket_routing",
+          "actual": "ticket_routing",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "case": "case_06_br_pix_weekend",
+      "passed": true,
+      "checks": [
+        {
+          "name": "intent == 'payment_diagnosis'",
+          "expect": "payment_diagnosis",
+          "actual": "payment_diagnosis",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "case": "case_07_faq_search",
+      "passed": true,
+      "checks": [
+        {
+          "name": "intent == 'knowledge_evolution'",
+          "expect": "knowledge_evolution",
+          "actual": "knowledge_evolution",
+          "pass": true
+        },
+        {
+          "name": "sub_intent == 'search_faq'",
+          "expect": "search_faq",
+          "actual": "search_faq",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "case": "case_07b_ticket_or_faq",
+      "passed": true,
+      "checks": [
+        {
+          "name": "intent == 'ticket_routing'",
+          "expect": "ticket_routing",
+          "actual": "ticket_routing",
+          "pass": true
+        },
+        {
+          "name": "sub_intent == 'query_status'",
+          "expect": "query_status",
+          "actual": "query_status",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "case": "case_08_unknown",
+      "passed": true,
+      "checks": [
+        {
+          "name": "intent == 'unknown_fallback_to_msa'",
+          "expect": "unknown_fallback_to_msa",
+          "actual": "unknown_fallback_to_msa",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "case": "case_09_webhook_visa",
+      "passed": true,
+      "checks": [
+        {
+          "name": "intent == 'payment_diagnosis'",
+          "expect": "payment_diagnosis",
+          "actual": "payment_diagnosis",
+          "pass": true
+        },
+        {
+          "name": "error_image_path == 'data/error_images/cb_demo_13_1.png'",
+          "expect": "data/error_images/cb_demo_13_1.png",
+          "actual": "data/error_images/cb_demo_13_1.png",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "case": "case_10_webhook_mc",
+      "passed": true,
+      "checks": [
+        {
+          "name": "intent == 'payment_diagnosis'",
+          "expect": "payment_diagnosis",
+          "actual": "payment_diagnosis",
+          "pass": true
+        },
+        {
+          "name": "error_image_path == 'data/error_images/cb_demo_4837.png'",
+          "expect": "data/error_images/cb_demo_4837.png",
+          "actual": "data/error_images/cb_demo_4837.png",
+          "pass": true
+        }
+      ]
+    }
+  ]
+}

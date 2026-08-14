@@ -1,0 +1,54 @@
+{
+  "case": "case_08_unknown",
+  "via": "api",
+  "elapsed_ms": 491,
+  "result": {
+    "intent": "unknown_fallback_to_msa",
+    "tool_name": "merchant_success",
+    "tool_result": {
+      "success": true,
+      "data": {
+        "intent": "collect_profile",
+        "response": "已记录您提供的信息（完整度 0%）。还差：country, industry, avg_amount, target_users",
+        "recommendations": [],
+        "follow_up_questions": [
+          {
+            "field": "country",
+            "question": "您想进入哪个国家的市场？（如 US / BR / CN）"
+          },
+          {
+            "field": "industry",
+            "question": "您的行业是什么？（如 fashion / electronics / digital）"
+          },
+          {
+            "field": "avg_amount",
+            "question": "您的客单价大约多少？（如 50 美元）"
+          },
+          {
+            "field": "target_users",
+            "question": "您的目标客户是 B2B 还是 B2C？"
+          }
+        ],
+        "profile_completeness": 0.0,
+        "trace": {
+          "missing_fields": [
+            "country",
+            "industry",
+            "avg_amount",
+            "target_users"
+          ]
+        }
+      }
+    },
+    "trace": {
+      "matched_keywords": [],
+      "fallback_reason": "no_keyword_match",
+      "llm_used": true,
+      "llm_intent": "unknown",
+      "llm_confidence": 0.95
+    }
+  },
+  "expect": {
+    "intent": "unknown_fallback_to_msa"
+  }
+}
