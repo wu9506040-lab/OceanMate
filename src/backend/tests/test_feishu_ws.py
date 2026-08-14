@@ -164,6 +164,191 @@ class TestHandleP2ImMessage:
         _handle_p2_im_message(data, mock_orchestrator, mock_front)
 
 
+# === Day 17 v3: 群聊 @ 机器人过滤测试 ===
+
+def _make_group_event(text: str, mentions: list = None, chat_id: str = "oc_group_test") -> MagicMock:
+    """构造 mock 群聊事件（含 mentions）。"""
+    data = _make_p2_event(text)
+    data.event.message.chat_type = "group"
+    data.event.message.chat_id = chat_id
+    if mentions is not None:
+        data.event.message.mentions = mentions
+    else:
+        data.event.message.mentions = []
+    return data
+
+
+def _bot_mention(bot_open_id: str = "ou_bot_xxx") -> MagicMock:
+    """构造一个 mention 对象（机器人 @）。"""
+    m = MagicMock()
+    m.id.open_id = bot_open_id
+    m.id.user_id = None
+    m.id.union_id = None
+    return m
+
+
+def _user_mention(user_open_id: str = "ou_other_user") -> MagicMock:
+    """构造一个 mention 对象（普通用户 @）。"""
+    m = MagicMock()
+    m.id.open_id = user_open_id
+    return m
+
+
+class TestGroupChatAtMentionFilter:
+    """群聊消息必须 @ 机器人才响应（飞书规则，避免机器人刷屏）。"""
+
+    def test_p2p_skips_mention_check(self, mock_orchestrator, mock_frontend, monkeypatch):
+        """p2p 单聊直接处理，不管 mentions。"""
+        monkeypatch.setenv("FEISHU_BOT_OPEN_ID", "ou_bot_xxx")
+        data = _make_p2_event("订单问题")  # chat_type=p2p by default
+
+        _handle_p2_im_message(data, mock_orchestrator, mock_frontend)
+
+        mock_orchestrator.route.assert_called_once()
+        call_args = mock_orchestrator.route.call_args
+        assert call_args.kwargs["user_query"] == "订单问题"
+
+    def test_group_with_bot_mention_processed(
+        self, mock_orchestrator, mock_frontend, monkeypatch
+    ):
+        """群聊 + @ 机器人 → 处理。"""
+        monkeypatch.setenv("FEISHU_BOT_OPEN_ID", "ou_bot_xxx")
+        data = _make_group_event(
+            "@_user_1 帮我看看拒付",
+            mentions=[_bot_mention("ou_bot_xxx")],
+        )
+
+        _handle_p2_im_message(data, mock_orchestrator, mock_frontend)
+
+        mock_orchestrator.route.assert_called_once()
+
+    def test_group_without_mention_skipped(
+        self, mock_orchestrator, mock_frontend, monkeypatch
+    ):
+        """群聊 + 没 @ 机器人 → 跳过（不调 orchestrator）。"""
+        monkeypatch.setenv("FEISHU_BOT_OPEN_ID", "ou_bot_xxx")
+        data = _make_group_event(
+            "拒付好多啊",
+            mentions=[_user_mention("ou_other_user")],  # @ 别人不 @ 机器人
+        )
+
+        _handle_p2_im_message(data, mock_orchestrator, mock_frontend)
+
+        mock_orchestrator.route.assert_not_called()
+        events = mock_frontend.read_log()
+        assert not any(e["event"] == "send_message" for e in events)
+
+    def test_group_no_mentions_skipped(
+        self, mock_orchestrator, mock_frontend, monkeypatch
+    ):
+        """群聊 + mentions 为空（没 @ 任何人）→ 跳过。"""
+        monkeypatch.setenv("FEISHU_BOT_OPEN_ID", "ou_bot_xxx")
+        data = _make_group_event("随便聊聊", mentions=[])
+
+        _handle_p2_im_message(data, mock_orchestrator, mock_frontend)
+
+        mock_orchestrator.route.assert_not_called()
+
+    def test_group_bot_open_id_not_configured_skipped(
+        self, mock_orchestrator, mock_frontend, monkeypatch
+    ):
+        """未配 FEISHU_BOT_OPEN_ID → 群聊一律不响应（fail-safe）。"""
+        monkeypatch.delenv("FEISHU_BOT_OPEN_ID", raising=False)
+        data = _make_group_event(
+            "@_user_1 帮我看",
+            mentions=[_bot_mention("ou_bot_xxx")],
+        )
+
+        _handle_p2_im_message(data, mock_orchestrator, mock_frontend)
+
+        # bot_open_id 未配 → 保守不响应（避免错误响应刷屏）
+        mock_orchestrator.route.assert_not_called()
+
+    def test_mention_tokens_stripped_from_text(
+        self, mock_orchestrator, mock_frontend, monkeypatch
+    ):
+        """群聊文本里的 @_user_NNN 标记被剥离，不污染业务 query。"""
+        monkeypatch.setenv("FEISHU_BOT_OPEN_ID", "ou_bot_xxx")
+        data = _make_group_event(
+            "@_user_1 @_user_2 帮我看拒付订单",
+            mentions=[_bot_mention("ou_bot_xxx")],
+        )
+
+        _handle_p2_im_message(data, mock_orchestrator, mock_frontend)
+
+        if mock_orchestrator.route.called:
+            call_args = mock_orchestrator.route.call_args
+            assert call_args.kwargs["user_query"] == "帮我看拒付订单"
+            assert "@_user_1" not in call_args.kwargs["user_query"]
+            assert "@_user_2" not in call_args.kwargs["user_query"]
+
+    def test_mention_only_no_text_skipped(
+        self, mock_orchestrator, mock_frontend, monkeypatch
+    ):
+        """群聊只发 '@_user_1'（没实际内容）→ 剥离后空 → 跳过。"""
+        monkeypatch.setenv("FEISHU_BOT_OPEN_ID", "ou_bot_xxx")
+        data = _make_group_event(
+            "@_user_1 ",
+            mentions=[_bot_mention("ou_bot_xxx")],
+        )
+
+        _handle_p2_im_message(data, mock_orchestrator, mock_frontend)
+
+        mock_orchestrator.route.assert_not_called()
+
+    def test_mention_dict_format_supported(
+        self, mock_orchestrator, mock_frontend, monkeypatch
+    ):
+        """mentions 是 dict 列表（Poller/Polling 路径兼容）→ 也支持。"""
+        monkeypatch.setenv("FEISHU_BOT_OPEN_ID", "ou_bot_xxx")
+        data = _make_group_event(
+            "汇率问题",
+            mentions=[{"id": {"open_id": "ou_bot_xxx"}, "key": "@_user_1"}],
+        )
+
+        _handle_p2_im_message(data, mock_orchestrator, mock_frontend)
+
+        mock_orchestrator.route.assert_called_once()
+
+
+class TestBotMentionHelpers:
+    """_is_bot_mentioned / _strip_mention_tokens 单元测试。"""
+
+    def test_is_bot_mentioned_sdk_objects(self):
+        """SDK 对象 mentions → 匹配 bot open_id。"""
+        from app.implementations.feishu.ws_client import _is_bot_mentioned
+
+        m1 = MagicMock()
+        m1.id.open_id = "ou_other"
+        m2 = MagicMock()
+        m2.id.open_id = "ou_bot"
+        assert _is_bot_mentioned([m1, m2], "ou_bot") is True
+
+    def test_is_bot_mentioned_dict_nested(self):
+        """dict mentions（id.open_id 嵌套）→ 匹配。"""
+        from app.implementations.feishu.ws_client import _is_bot_mentioned
+
+        mentions = [{"id": {"open_id": "ou_bot_xxx"}}]
+        assert _is_bot_mentioned(mentions, "ou_bot_xxx") is True
+
+    def test_is_bot_mentioned_empty_returns_false(self):
+        """mentions 空 / bot_open_id 空 → False。"""
+        from app.implementations.feishu.ws_client import _is_bot_mentioned
+
+        assert _is_bot_mentioned([], "ou_bot") is False
+        assert _is_bot_mentioned(None, "") is False
+        assert _is_bot_mentioned(None, "ou_bot") is False
+
+    def test_strip_mention_tokens(self):
+        """_strip_mention_tokens 去掉 @_user_NNN。"""
+        from app.implementations.feishu.ws_client import _strip_mention_tokens
+
+        assert _strip_mention_tokens("@_user_1 帮我看") == "帮我看"
+        assert _strip_mention_tokens("@_user_1 @_user_2 双 @") == "双 @"
+        assert _strip_mention_tokens("普通文本") == "普通文本"
+        assert _strip_mention_tokens("") == ""
+
+
 # === start_feishu_ws_in_background 测试 ===
 
 class TestStartFeishuWsInBackground:

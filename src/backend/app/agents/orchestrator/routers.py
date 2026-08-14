@@ -334,6 +334,13 @@ _TRA_QUERY_KEYWORDS = [
     "tkt_", "工单号",
 ]
 
+# Day 17 v3：工单关闭关键词（数字员工闭环第 5 段 — 关闭 + 自动沉淀 KB）
+_TRA_RESOLVE_KEYWORDS = [
+    "已解决", "已关闭", "解决了", "关闭了", "结单", "关闭工单",
+    "工单关闭", "工单已解决", "工单已关闭", "完成工单",
+    "tkt_close",  # 命令式
+]
+
 # Day 15 P0-B：「创建工单」类 query（避免被 PDA 抢走路由）
 _TRA_CREATE_KEYWORDS = [
     "创建工单", "新建工单", "建工单", "开工单",
@@ -342,6 +349,9 @@ _TRA_CREATE_KEYWORDS = [
     "派单", "派个单",  # 「回复派单」也是显式触发
     "创建", "新建",  # 单独出现也认
 ]
+
+# Day 17 v3：用于从 query 里提 ticket_id 的正则
+_TRA_TICKET_ID_RE = re.compile(r"(tkt_[a-zA-Z0-9]{4,20})")
 
 _KEA_SEARCH_KEYWORDS = [
     "怎么", "如何", "咋", "怎样", "什么样",
@@ -522,12 +532,15 @@ def route_tra(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
     """路由到 TRATool。
 
     自动选 intent（优先级从高到低）：
-    1. ctx 含 ticket_id → query_status（商户问现有工单状态）
-    2. query 命中 query 关键词（"进度"/"状态"/"查询"等）→ query_status
-    3. ctx 含 problem_type → route_ticket（典型 PDA → TRA 链）
-    4. 都没有 → 默认 route_ticket（让 TRA 自己反问）
+    1. ctx 含 ticket_id + 关闭关键词 → resolve_ticket（数字员工闭环第 5 段：关闭 + 自动沉淀 KB）
+    2. query 中提到 ticket_id + 关闭关键词 → resolve_ticket（运营或客服主动关单）
+    3. ctx 含 ticket_id → query_status（商户问现有工单状态）
+    4. query 命中 query 关键词（"进度"/"状态"/"查询"等）→ query_status
+    5. ctx 含 problem_type → route_ticket（典型 PDA → TRA 链）
+    6. 都没有 → 默认 route_ticket（让 TRA 自己反问）
 
     Day 14 #9 修复：「工单进度怎么查」「查一下工单状态」等查询类 query 不再被错误地创建空工单。
+    Day 17 v3 新增：resolve_ticket 子意图（关闭工单 + 自动沉淀 KB）。
     """
     if "ticket_routing" not in registry:
         return tool_not_available(
@@ -535,7 +548,20 @@ def route_tra(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
             hint="TRA Tool 未注册。如需立即处理，请联系人工客服。",
         )
 
-    if ctx.get("ticket_id"):
+    # === Day 17 v3：resolve_ticket 触发（优先级最高） ===
+    resolve_matched = [k for k in _TRA_RESOLVE_KEYWORDS if k in query]
+    if resolve_matched:
+        # 从 query/ctx 提取 ticket_id
+        ticket_id = ctx.get("ticket_id") or _extract_ticket_id_from_query(query)
+        if ticket_id:
+            sub_intent = "resolve_ticket"
+            query_matched = resolve_matched
+        else:
+            # 没有 ticket_id → 降级为 query_status（让 TRA 友好提示）
+            sub_intent = "query_status"
+            query_matched = resolve_matched + ["no_ticket_id"]
+            ticket_id = None
+    elif ctx.get("ticket_id"):
         # 优先：商户明确提供 ticket_id（链式查询）
         sub_intent = "query_status"
         query_matched = []
@@ -558,8 +584,12 @@ def route_tra(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
         "tier": ctx.get("tier", "standard"),
         "merchant_id": ctx.get("merchant_id"),
         "diagnosis_id": ctx.get("diagnosis_id"),
-        "ticket_id": ctx.get("ticket_id"),
+        "ticket_id": ctx.get("ticket_id") or (ticket_id if sub_intent == "resolve_ticket" else None),
     }
+    # resolve_ticket 显式开 auto_promote
+    if sub_intent == "resolve_ticket":
+        params["auto_promote"] = True
+
     # 清理 None，让 Tool 自己的 schema 处理缺省
     params = {k: v for k, v in params.items() if v is not None}
     result = registry.safe_execute("ticket_routing", params)
@@ -574,6 +604,17 @@ def route_tra(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
             "params": params,
         },
     }
+
+
+def _extract_ticket_id_from_query(query: str) -> Optional[str]:
+    """从 query 文本里用正则提取 tkt_xxx 形式的 ticket_id。
+
+    Day 17 v3：「tkt_abc123 已解决」「关闭 tkt_abc123」之类的输入都能识别。
+    """
+    if not query:
+        return None
+    m = _TRA_TICKET_ID_RE.search(query)
+    return m.group(1) if m else None
 
 
 def route_kea(query: str, ctx: dict, matched: list[str], registry: ToolRegistry) -> dict:

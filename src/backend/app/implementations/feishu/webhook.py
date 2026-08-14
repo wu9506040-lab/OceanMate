@@ -175,12 +175,20 @@ def _translate_reason_name(name: str) -> str:
 
 
 def _confidence_label(conf: float) -> str:
-    """置信度 → 中文标签（商户看不懂 80%）。"""
-    if conf >= 0.85:
+    """置信度 → 中文标签（商户看不懂 80%）。
+
+    Day 17 v3 健壮性：None / 非数字 / 异常 → 返"较低"（友好降级，不抛异常）
+    避免 briefing 渲染整个被炸。
+    """
+    try:
+        c = float(conf)
+    except (TypeError, ValueError):
+        return "较低"
+    if c >= 0.85:
         return "很高"
-    if conf >= 0.65:
+    if c >= 0.65:
         return "较高"
-    if conf >= 0.45:
+    if c >= 0.45:
         return "中等"
     return "较低"
 
@@ -793,9 +801,79 @@ class FeishuWebhookHandler:
                 f"  类型：{problem_type}\n"
                 f"  负责人：{assignee}"
             )
+        if sub == "resolve_ticket":
+            # Day 17 v3：工单关闭 + 自动沉淀 KB 的反馈（数字员工闭环第 5 段）
+            ticket_id = data.get("ticket_id", "")
+            new_status = data.get("status", "closed")
+            assign_text = "已关闭" if new_status == "closed" else f"状态更新为 {new_status}"
+            promote_result = data.get("promote_result") or {}
+            promoted = bool(promote_result.get("promoted"))
+            pending_review = bool(promote_result.get("pending_review"))
+            rejected = bool(promote_result.get("rejected"))
+            already = bool(promote_result.get("already"))
+
+            if not ticket_id or data.get("status") == "not_found":
+                return (
+                    "🤔 关闭工单失败：未提供工单 ID 或工单不存在。\n\n"
+                    "💡 工单 ID 格式：tkt_a1b2c3d4e5f6\n"
+                    "📌 回复「我的工单」可查最近 7 天的工单。"
+                )
+
+            # 知识沉淀状态分支
+            if promoted:
+                kb_msg = (
+                    f"📚 **知识已沉淀**：案例 `{promote_result.get('case_id', '?')}` "
+                    f"已升级为 FAQ，下次再遇到可直接给出方案。"
+                )
+            elif pending_review:
+                kb_msg = (
+                    "📚 **知识待审核**：置信度处于中等区间，"
+                    "已加入候选池，运营审核后会进入 FAQ。"
+                )
+            elif rejected:
+                reason = (promote_result.get("trace") or {}).get("reason", "置信度不足")
+                kb_msg = f"📚 **知识未沉淀**（{reason}），后续如解决可手动加入 FAQ。"
+            elif already:
+                chroma_id = promote_result.get("existing_chroma_id", "")
+                kb_msg = f"📚 **知识已沉淀**（之前已升级，chroma_id={chroma_id[:16]}…）。"
+            else:
+                # 没触发 promotion（无 KEA / 无 case / 关闭未关联）
+                skip_reason = (data.get("trace") or {}).get("skip_promote_reason", "")
+                if skip_reason:
+                    kb_msg = f"📚 知识沉淀跳过：{skip_reason}"
+                else:
+                    kb_msg = "📚 工单已结案，知识沉淀未触发。"
+
+            already_note = "（重复关闭）" if data.get("closed_was_already") else ""
+            return (
+                f"✅ 工单 **{ticket_id}** {assign_text}{already_note}\n\n"
+                f"{kb_msg}\n\n"
+                "💡 如需查看本工单的诊断/对话记录，回复「工单进度」即可。"
+            )
+
         ticket_id = data.get("ticket_id", "")
         assignee = data.get("assignee", "运营团队")
         sla = data.get("sla_hours", 0)
+        # Day 17 v3：低置信度/缺证据的工单 → 商户看到"转专家跟进"的人话
+        # 高置信度已派单的工单 → 仍走简洁的「✅ 工单已创建」
+        # AI 诊断上下文可能在 data.briefing 里（链式触发时 _extract_briefing 注入）
+        briefing = data.get("briefing") or {}
+        ai_root_causes = data.get("ai_root_causes") or briefing.get("ai_root_causes") or []
+        ai_confidence = data.get("ai_confidence")
+        if ai_confidence is None:
+            ai_confidence = briefing.get("ai_confidence")
+        is_low_conf_handoff = (
+            not ai_root_causes
+            or (ai_confidence or 0) < 0.7
+        )
+        if is_low_conf_handoff:
+            return (
+                f"🤝 为了给您更专业的服务，我帮您转接 **{assignee}** 专家跟进。\n\n"
+                f"📨 **工单号**：`{ticket_id}`\n"
+                f"⏱️ 预计 {sla}h 内回复您。\n\n"
+                f"💡 如有新信息（订单号 / 错误码 / 已开的 3DS 等），"
+                f"请直接回复给我，我会更新到工单里。"
+            )
         return f"✅ 工单已创建（ID {ticket_id}），分派至 {assignee}，SLA {sla}h"
 
     @staticmethod
@@ -894,13 +972,17 @@ class FeishuWebhookHandler:
         from datetime import datetime
         diagnosis_id = f"diag_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{user_id[-6:]}"
 
-        # 触发判断
+        # Day 17 v3 触发逻辑：3 个条件任一即交接
         keyword_hit = any(k in user_query for k in self._URGENT_HINTS)
         problem_hit = problem_type in self._PDA_CHAIN_PROBLEM_TYPES
-        if not (keyword_hit or problem_hit):
-            return None
-        # confidence 太低不自动派单（让商户先补信息）
-        if confidence < 0.5 and not keyword_hit:
+        # 缺关键证据（错误码/订单号）→ 也触发交接
+        pda_data_for_trigger = pda_data or {}
+        missing_evidence = (
+            not pda_data_for_trigger.get("error_code")
+            or (pda_data_for_trigger.get("confidence", 0) or 0) < 0.5
+            or not pda_data_for_trigger.get("root_causes")
+        )
+        if not (keyword_hit or problem_hit or missing_evidence):
             return None
 
         # 优先级：商户说"紧急" → high；否则按 problem_type 默认
@@ -929,6 +1011,28 @@ class FeishuWebhookHandler:
 
         # 把 PDA 信息塞到 TRA result 的 trace.upstream_diagnosis，方便 briefing 渲染
         tra_data = tra_wrapped.get("data") or {}
+        # Day 17 v3 交接简报补全：补 channel + error_code + reason_name + 缺失字段
+        pda_trace = pda_result.get("trace") or {}
+        code_specific = pda_trace.get("code_specific_enriched") or {}
+        # 缺什么信息：PDA 缺 evidence 时提示「还差具体错误码/订单号」
+        missing_fields = pda_data.get("missing_fields", [])
+        if not missing_fields and pda_data.get("low_confidence_reason"):
+            missing_fields = [pda_data["low_confidence_reason"]]
+        # 渠道+错误码中文标识
+        error_code = (
+            code_specific.get("error_code")
+            or pda_data.get("error_code")
+            or ""
+        )
+        channel = (
+            code_specific.get("channel")
+            or pda_data.get("channel")
+            or ""
+        )
+        reason_name_cn = _translate_reason_name(
+            code_specific.get("reason_name", "")
+        ) or pda_data.get("problem_summary_cn", "")
+
         # combined result：以 TRA 为顶，附 PDA 上下文
         return {
             "intent": "ticket_routing",  # 主意图切到 TRA
@@ -936,17 +1040,26 @@ class FeishuWebhookHandler:
             "tool_result": tra_wrapped,
             "error_image_path": pda_result.get("error_image_path", ""),  # 保留配图
             "trace": {
-                "matched_keywords": pda_result.get("trace", {}).get("matched_keywords", []),
+                "matched_keywords": pda_trace.get("matched_keywords", []),
                 "chain": "pda_to_tra",
                 "priority": priority,
                 "tier": tier,
                 "diagnosis_id": diagnosis_id,
+                "user_query": user_query,  # Day 17 v3：原话给 briefing 用
+                "code_specific_enriched": code_specific,  # Day 17 v3
+                "merchant_context": (pda_trace.get("params") or {}).get("merchant_context")
+                or (pda_trace.get("merchant_context") or {}),
                 "upstream_diagnosis": {
                     "problem_type": problem_type,
                     "root_causes": pda_data.get("root_causes", []),
                     "confidence": confidence,
+                    "confidence_label": _confidence_label(confidence),
                     "recommended_actions": pda_data.get("recommended_actions", []),
                     "evidence_chain": pda_data.get("evidence_chain", []),
+                    "channel": channel,
+                    "error_code": error_code,
+                    "reason_name_cn": reason_name_cn,
+                    "missing_fields": missing_fields,
                 },
             },
         }
@@ -1000,7 +1113,16 @@ class FeishuWebhookHandler:
         if upstream:
             briefing["ai_root_causes"] = upstream.get("root_causes", [])[:3]
             briefing["ai_confidence"] = upstream.get("confidence")
+            briefing["ai_confidence_label"] = upstream.get("confidence_label")
             briefing["ai_recommended_actions"] = upstream.get("recommended_actions", [])[:3]
+            # Day 17 v3 简报补全：渠道/错误码/中文根因/缺什么
+            briefing["ai_channel"] = upstream.get("channel")
+            briefing["ai_error_code"] = upstream.get("error_code")
+            briefing["ai_reason_name_cn"] = upstream.get("reason_name_cn")
+            briefing["ai_missing_fields"] = upstream.get("missing_fields", [])
+            # 商户画像 + 原话
+            briefing["merchant_context"] = trace.get("merchant_context") or {}
+            briefing["user_query"] = trace.get("user_query") or briefing.get("problem_summary", "")
         return briefing
 
     def _send_briefing_to_team(self, briefing: dict, *, chat_id: str, merchant_user_id: str) -> bool:
@@ -1125,36 +1247,106 @@ class FeishuWebhookHandler:
 
     @staticmethod
     def _format_briefing_text(briefing: dict, *, chat_id: str, merchant_user_id: str) -> str:
-        """拼装交接简报（富文本 markdown）。
+        """拼装交接简报（富文本 markdown · 仅人工可见）。
 
-        包含：商户信息 / 问题摘要 / AI 已分析 / SLA / 触发来源。
+        Day 17 v3 设计（5 个必备块）：
+        - 👤 商户：画像（国家/行业/客单价）
+        - ❓ 问题原文：商户原话 + problem_type
+        - 🤖 AI 已诊断：渠道 + 错误码 + 中文根因 + 置信度（标签）
+        - 📋 已尝试方案：AI 给过的建议
+        - ⚠️ 还缺什么：缺的信息 / 置信度不足的原因
+        - 🎯 建议下一步：第一条推荐操作 + 工单元数据
+
+        ⚠️ 注意：本简报通过 send_private 发给团队 lead，商户看不到。
         """
+        merchant_ctx = briefing.get("merchant_context") or {}
+        # 👤 商户画像
+        merchant_lines = []
+        merchant_id = briefing.get("merchant_id") or "?"
+        country = merchant_ctx.get("country") or merchant_ctx.get("country_code")
+        industry = merchant_ctx.get("industry")
+        avg_amount = merchant_ctx.get("avg_amount")
+        target_users = merchant_ctx.get("target_users")
+
+        profile_parts = [f"ID `{merchant_id}`"]
+        if country:
+            profile_parts.append(f"国家 **{country}**")
+        if industry:
+            profile_parts.append(f"行业 **{industry}**")
+        if avg_amount is not None:
+            profile_parts.append(f"客单 **${avg_amount}**")
+        if target_users:
+            profile_parts.append(f"客户 **{target_users}**")
+        merchant_line = " · ".join(profile_parts)
+
+        # ❓ 问题原文 + 类型
+        problem_type = briefing.get("problem_type", "?")
+        user_query = briefing.get("user_query") or briefing.get("problem_summary") or ""
+
+        # 🤖 AI 已诊断
+        channel = briefing.get("ai_channel") or ""
+        error_code = briefing.get("ai_error_code") or ""
+        reason_cn = briefing.get("ai_reason_name_cn") or ""
+        conf = briefing.get("ai_confidence")
+        conf_label = briefing.get("ai_confidence_label") or ""
+        if conf is not None and isinstance(conf, (int, float)):
+            conf_pct = f"{conf:.0%}"
+        else:
+            conf_pct = "—"
+
+        diagnosis_parts = []
+        if channel or error_code:
+            diag_id = f"{channel} {error_code}".strip() or "未识别错误码"
+            diagnosis_parts.append(f"- 渠道+错误码：**{diag_id}**")
+        if reason_cn:
+            diagnosis_parts.append(f"- 根因：**{reason_cn}**")
+        diagnosis_parts.append(f"- 置信度：**{conf_label or '—'}**（{conf_pct}）")
+
+        # 📋 已尝试方案（去重 + 限制 3 条）
+        attempted = briefing.get("ai_recommended_actions") or []
+        attempted = list(dict.fromkeys(attempted))[:3]  # 保序去重
+
+        # ⚠️ 还缺什么
+        missing = briefing.get("ai_missing_fields") or []
+        if not missing and conf is not None and isinstance(conf, (int, float)) and conf < 0.7:
+            missing = ["AI 置信度偏低，建议人工核实"]
+
+        # 🎯 建议下一步（第一条 AI 推荐 + 元数据）
+        next_step = attempted[0] if attempted else "请人工核实问题并联系商户"
+
         lines = [
-            "📨 **新工单交接简报**",
+            "🤖 **【AI 交接简报 · 仅客服可见】**",
+            "━━━━━━━━━━━━━━━━━━━━",
+            f"👤 **商户**：{merchant_line}",
             "",
-            f"**工单 ID**：`{briefing.get('ticket_id', '')}`",
-            f"**商户 ID**：`{briefing.get('merchant_id', '?')}`",
-            f"**对话来源**：chat_id=`{(chat_id or '?')[:20]}`, user_open_id=`{(merchant_user_id or '?')[:20]}`",
-            "",
-            f"**问题类型**：{briefing.get('problem_type', '?')}",
-            f"**优先级**：{briefing.get('priority', '?')}",
-            f"**SLA**：{briefing.get('sla_hours', '?')} 小时（截止 {briefing.get('sla_due', '?')}）",
-            f"**通知渠道**：{briefing.get('notification_channel', '?')}",
+            f"❓ **问题类型**：{problem_type}",
         ]
-        if briefing.get("problem_summary"):
-            lines += ["", "**问题摘要**：", briefing["problem_summary"]]
-        # AI 已分析部分（PDA → TRA 联动时填充）
-        if briefing.get("ai_root_causes"):
-            lines += ["", "**🤖 AI 根因分析**："]
-            for c in briefing["ai_root_causes"]:
-                lines.append(f"- {c}")
-            conf = briefing.get("ai_confidence")
-            if conf is not None:
-                lines.append(f"\n（置信度 {conf:.0%}）")
-        if briefing.get("ai_recommended_actions"):
-            lines += ["", "**💡 AI 建议处理**："]
-            for a in briefing["ai_recommended_actions"]:
-                lines.append(f"- {a}")
+        if user_query:
+            lines.append(f"❓ **问题原文**：{user_query[:300]}")
+        lines.append("")
+        lines.append("🤖 **AI 已诊断**：")
+        lines.extend(diagnosis_parts)
+        if attempted:
+            lines.append("")
+            lines.append("📋 **已尝试方案**：")
+            for i, a in enumerate(attempted, 1):
+                lines.append(f"  {i}. {a}")
+        if missing:
+            lines.append("")
+            lines.append(f"⚠️ **还缺什么**：{'; '.join(missing) if isinstance(missing, list) else missing}")
+        lines.append("")
+        lines.append(f"🎯 **建议下一步**：{next_step}")
+        lines.append("━━━━━━━━━━━━━━━━━━━━")
+        lines.append(
+            f"📨 **工单**：`{briefing.get('ticket_id', '?')}` "
+            f"| 优先级 **{briefing.get('priority', '?')}** "
+            f"| SLA **{briefing.get('sla_hours', '?')}h** "
+            f"（截止 {briefing.get('sla_due', '?')}）"
+        )
         if briefing.get("diagnosis_id"):
-            lines += ["", f"**关联诊断 ID**：`{briefing['diagnosis_id']}`"]
+            lines.append(f"🔗 **关联诊断**：`{briefing['diagnosis_id']}`")
+        lines.append(
+            f"💬 **对话来源**：chat_id=`{(chat_id or '?')[:24]}` · "
+            f"open_id=`{(merchant_user_id or '?')[:24]}`"
+        )
         return "\n".join(lines)
