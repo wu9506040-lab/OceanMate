@@ -166,10 +166,23 @@ class TestMSACollectProfile:
     """SOP-MSA-002 进阶：collect_profile 显式采集。"""
 
     def test_collect_profile_empty(self, msa):
+        # Day 14 #4/#7 优化：query「我想做美国站」自动填充 country=US，
+        # 所以 profile_completeness=0.25（只补 country），不再机械反问采集全部 4 项
         result = msa.execute({
             "intent": "collect_profile",
             "merchant_context": {},
             "user_query": "我想做美国站",
+        })
+        assert result["intent"] == "collect_profile"
+        assert result["profile_completeness"] == 0.25  # country 已自动提取
+        assert len(result["follow_up_questions"]) == 3  # 剩 3 个待补充
+
+    def test_collect_profile_no_query_hints(self, msa):
+        """空 query / 完全无 hint 的情况 → completeness 真的 0，反问全部 4 项"""
+        result = msa.execute({
+            "intent": "collect_profile",
+            "merchant_context": {},
+            "user_query": "",
         })
         assert result["intent"] == "collect_profile"
         assert result["profile_completeness"] == 0.0

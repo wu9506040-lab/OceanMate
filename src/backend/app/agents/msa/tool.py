@@ -31,6 +31,56 @@ REVERSE_QUESTIONS = {
     "target_users": "您的目标客户是 B2B 还是 B2C？",
 }
 
+# === Day 14 #4/#7 优化：ISO 国家码中文词典 ===
+# 「荷兰」「墨西哥」等中文国家名 → ISO 3166-1 alpha-2 码
+# Orchestrator 已能在 PDA 场景下识别（DAY 14 P0-2），MSA 之前没复用，导致
+# "荷兰用什么支付方式" 进入 MSA 后 ctx.country 仍为空 → 触发反问采集，体验差。
+_COUNTRY_NAME_TO_ISO = {
+    # 常用国家（OP 服务覆盖范围内）
+    "美国": "US", "美站": "US", "美国站": "US",
+    "日本": "JP", "日本站": "JP",
+    "英国": "GB", "英国站": "GB", "英站": "GB",
+    "德国": "DE", "德国站": "DE", "德站": "DE",
+    "法国": "FR", "法国站": "FR", "法站": "FR",
+    "西班牙": "ES", "西班牙站": "ES",
+    "意大利": "IT", "意大利站": "IT",
+    "荷兰": "NL", "荷兰站": "NL",  # Day 14 #4
+    "比利时": "BE", "比利时站": "BE",
+    "瑞士": "CH", "奥地利": "AT", "瑞典": "SE", "挪威": "NO", "丹麦": "DK",
+    "波兰": "PL", "捷克": "CZ", "葡萄牙": "PT", "希腊": "GR",
+    "巴西": "BR", "巴西站": "BR",  # 主力市场
+    "墨西哥": "MX", "墨西哥站": "MX",  # Day 14 #7
+    "阿根廷": "AR", "智利": "CL", "哥伦比亚": "CO", "秘鲁": "PE",
+    "加拿大": "CA", "加拿大站": "CA",
+    "澳洲": "AU", "澳大利亚": "AU", "新西兰": "NZ",
+    "中国": "CN", "国内": "CN", "中国站": "CN",
+    "香港": "HK", "台湾": "TW", "澳门": "MO",
+    "新加坡": "SG", "马来西亚": "MY", "泰国": "TH", "越南": "VN",
+    "印尼": "ID", "印度尼西亚": "ID", "菲律宾": "PH", "印度": "IN",
+    "韩国": "KR", "韩国站": "KR",
+    "俄罗斯": "RU", "土耳其": "TR", "阿联酋": "AE", "迪拜": "AE",
+    "南非": "ZA", "埃及": "EG",
+}
+
+# 行业关键词（中文 → MSA 内部 industry 标识）
+_INDUSTRY_KEYWORDS = {
+    "fashion": ["时尚", "服装", "鞋包", "服饰", "fashion"],
+    "electronics": ["电子", "数码", "硬件", "3C", "electronics"],
+    "digital": ["软件", "数字商品", "游戏", "虚拟", "SaaS", "digital"],
+    "travel": ["旅游", "机票", "酒店", "航空", "travel"],
+    "education": ["教育", "培训", "课程", "education"],
+    "food": ["食品", "餐饮", "food"],
+    "beauty": ["美妆", "化妆品", "beauty"],
+    "sports": ["运动", "体育", "户外", "sports"],
+    "b2b": ["B2B", "b2b", "批发"],
+}
+
+# 客户群体关键词
+_TARGET_USERS_KEYWORDS = {
+    "B2B": ["B2B", "b2b", "批发", "企业", "公司客户", "对公"],
+    "B2C": ["B2C", "b2c", "零售", "个人", "消费者", "终端"],
+}
+
 
 class MSATool(BaseTool):
     """MSA Tool — 商户成功助手（命题方向 ① + ④ · 含 PWR 子能力）。
@@ -178,12 +228,101 @@ class MSATool(BaseTool):
         ctx = params.get("merchant_context") or {}
         query = params["user_query"]
 
+        # Day 14 #4/#7：从 query 自动提取画像填充 ctx（不影响 ctx 已显式传入的字段）
+        ctx = self._auto_fill_ctx(ctx, query)
+
         if intent == "recommend_payment_methods":
             return self._recommend_payment_methods(ctx, query)
         elif intent == "collect_profile":
             return self._collect_profile(ctx, query)
         else:
             raise ValueError(f"Unknown intent: {intent}")
+
+    # === Day 14 #4/#7 优化：从 query 自动提取画像（country / industry / avg_amount / target_users）===
+
+    def _extract_slots_from_query(self, query: str) -> dict:
+        """从自然语言 query 中提取画像字段。
+
+        提取策略（无 LLM，纯关键词 + 正则）：
+        - country: 中文国家名 → ISO 2 位（"荷兰" → "NL"）
+        - industry: 中文行业关键词 → MSA industry 标识
+        - avg_amount: 数字 + "美元/欧/块/元" → 数值
+        - target_users: B2B/B2C 关键词
+
+        Returns:
+            dict，只包含**确实提取到**的字段（缺失字段不出现在结果里）
+        """
+        import re
+
+        slots: dict = {}
+        q = (query or "").strip()
+        if not q:
+            return slots
+
+        # 1. country：先中文词典，再 ISO 2 位直接命中
+        for kw, iso in _COUNTRY_NAME_TO_ISO.items():
+            if kw in q:
+                slots["country"] = iso
+                break
+        if "country" not in slots:
+            m = re.search(r"\b([A-Z]{2})\b", q)
+            if m:
+                slots["country"] = m.group(1)
+
+        # 2. industry：第一个命中的行业标识
+        for industry, kws in _INDUSTRY_KEYWORDS.items():
+            if any(kw in q for kw in kws):
+                slots["industry"] = industry
+                break
+
+        # 3. target_users：B2B vs B2C
+        for tu, kws in _TARGET_USERS_KEYWORDS.items():
+            if any(kw in q for kw in kws):
+                slots["target_users"] = tu
+                break
+
+        # 4. avg_amount：「50 美元」「€80」「¥100」「100块」等
+        if not slots.get("avg_amount"):
+            m = re.search(r"(\d+(?:\.\d+)?)\s*(美元|美金|USD|usd|刀|元|RMB|rmb|欧|欧元|EUR|eur|€|¥|块)", q)
+            if m:
+                try:
+                    slots["avg_amount"] = float(m.group(1))
+                except ValueError:
+                    pass
+            else:
+                # 纯数字 + 「客单价」
+                m2 = re.search(r"客单价\s*(\d+(?:\.\d+)?)", q)
+                if m2:
+                    try:
+                        slots["avg_amount"] = float(m2.group(1))
+                    except ValueError:
+                        pass
+                else:
+                    # 「客单价 €80」「客单价80 欧」格式
+                    m3 = re.search(r"(\d+(?:\.\d+)?)\s*(?:欧|美元|元|美金)", q)
+                    if m3:
+                        try:
+                            slots["avg_amount"] = float(m3.group(1))
+                        except ValueError:
+                            pass
+
+        return slots
+
+    def _auto_fill_ctx(self, ctx: dict, query: str) -> dict:
+        """从 query 自动填充 ctx 缺失字段，返回新 ctx（不修改原对象）。
+
+        Day 14 #4/#7：「荷兰用什么支付方式比较好」能从 query 抽出 NL 自动填 ctx.country，
+        不再机械反问采集，体验好得多。
+        """
+        extracted = self._extract_slots_from_query(query)
+        if not extracted:
+            return ctx
+        # ctx 已有字段优先（避免覆盖显式传入）
+        merged = dict(ctx)
+        for k, v in extracted.items():
+            if not merged.get(k):
+                merged[k] = v
+        return merged
 
     # === 子能力 1：PWR（支付方式推荐） ===
 
