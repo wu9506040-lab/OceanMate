@@ -1,7 +1,9 @@
 """KEATool - 知识进化助手（OP 命题方向 ⑤ · 案例→FAQ 自进化闭环）。
 
-3 个 intent：
+4 个 intent：
 - promote_to_faq       把 cases 表中已结案的案例升格为 FAQ（写 Chroma faq_vec + embedding_meta）
+- approve_case         运营审核通过 → 强制写入 Chroma（Day 17 v3 半自动闭环人工侧）
+- reject_case          运营审核拒绝 → 记录拒绝原因，不写 Chroma
 - search_faq           按 query 检索 FAQ（Chroma retrieve → join cases 表返回富信息）
 - list_candidates      列高置信度 + 未沉淀的候选（供运营审阅 / 自动 promote）
 
@@ -13,6 +15,9 @@
   1. promote_to_faq：先 cases.update（标记）→ 再 chroma.add → 再 embedding_meta.insert
   2. 任意一步失败 → 全回滚 / 友好降级
 - 失败必须用户友好降级，不抛 raw exception
+- Day 17 v3 半自动闭环：confidence 0.7-0.9 → pending_review → 人工 approve/reject
+  - approve_case: 强制 force_promote 写 Chroma（绕开三段审核）
+  - reject_case: 记录到 SQLite review_decisions 表，不写 Chroma
 """
 
 from __future__ import annotations
@@ -119,8 +124,8 @@ class KEATool(BaseTool):
             "properties": {
                 "intent": {
                     "type": "string",
-                    "enum": ["promote_to_faq", "search_faq", "list_candidates"],
-                    "description": "意图：promote_to_faq / search_faq / list_candidates",
+                    "enum": ["promote_to_faq", "search_faq", "list_candidates", "approve_case", "reject_case"],
+                    "description": "意图：promote_to_faq / search_faq / list_candidates / approve_case / reject_case（Day 17 v3 人工审核）",
                 },
                 "case_id": {
                     "type": "string",
@@ -195,6 +200,10 @@ class KEATool(BaseTool):
             return self._search_faq(params)
         elif intent == "list_candidates":
             return self._list_candidates(params)
+        elif intent == "approve_case":
+            return self._approve_case(params)
+        elif intent == "reject_case":
+            return self._reject_case(params)
         else:
             raise ValueError(f"Unknown intent: {intent}")
 
@@ -508,6 +517,235 @@ class KEATool(BaseTool):
             },
         }
 
+    # === 子能力 4：人工审核通过（Day 17 v3 半自动闭环） ===
+
+    def _approve_case(self, params: dict) -> dict:
+        """运营审核通过 → 强制写入 Chroma + embedding_meta（绕开三段审核）。
+
+        Day 17 v3 半自动知识沉淀人工侧：
+        - 前置：cases 表存在 + confidence 处于 [0.7, 0.9)（pending_review 状态）
+        - 动作：force_promote 写 Chroma faq_vec（不重新走三段审核，信任人工判断）
+        - 副作用：写入 embedding_meta 防重复 + review_decisions 表留痕
+        - 幂等：已审核（chroma_id 已存在）→ 返 already_approved
+
+        Args:
+            params: {
+                "intent": "approve_case",
+                "case_id": "case_xxx",
+                "reviewer": "ou_xxx" (运营 open_id),
+                "note": "运营备注（可选）",
+            }
+        """
+        case_id = params.get("case_id")
+        if not case_id:
+            return self._error_result(
+                "approve_case",
+                error="case_id 必填",
+                hint="回复「审核 case_xxx 通过」或「✅ case_xxx」即可触发。",
+            )
+
+        if self.case_repo is None:
+            return self._error_result(
+                "approve_case",
+                error="CaseRepository 未注入",
+                hint="PoC / 测试场景请注入 case_repo=CaseRepository(db)。",
+            )
+
+        case = self.case_repo.get_by_id(case_id)
+        if case is None:
+            return self._error_result(
+                "approve_case",
+                error=f"案例 '{case_id}' 不存在",
+                hint="先调 list_candidates 看可用 case_id。",
+            )
+
+        # 1) 幂等检查：已审核过 → 直接返
+        existing_meta = self._get_embedding_meta(source_table="cases", source_id=case_id)
+        if existing_meta is not None:
+            return {
+                "intent": "approve_case",
+                "count": 0,
+                "approved": False,
+                "already_approved": True,
+                "case_id": case_id,
+                "existing_chroma_id": existing_meta,
+                "trace": {"message": f"案例 '{case_id}' 已审核通过，无需重复操作"},
+            }
+
+        # 2) 强制写 Chroma（绕开三段审核，信任人工判断）
+        confidence = case.confidence or 0.0
+        chroma_id = f"faq_{case_id}_{uuid.uuid4().hex[:8]}"
+        rag_text = self._case_to_rag_text(case)
+        metadata = self._case_to_metadata(case)
+        metadata["confidence"] = confidence
+        metadata["auto_promoted"] = False  # 标记人工审核
+        metadata["approved_by"] = params.get("reviewer", "unknown")
+        rag = self._ensure_rag()
+        try:
+            rag.add_document(
+                Document(id=chroma_id, text=rag_text, metadata=metadata),
+                collection_name=COLLECTION_FAQ,
+            )
+        except Exception as e:
+            return self._error_result(
+                "approve_case",
+                error=f"Chroma 写入失败: {e}",
+                hint="检查 Chroma 服务状态。",
+                rag_error=str(e),
+            )
+
+        # 3) 写 embedding_meta（与 cases 表外键一致性追踪）
+        if self._db is not None:
+            try:
+                self._db.execute(
+                    """INSERT INTO embedding_meta
+                    (source_table, source_id, chroma_id, collection_name)
+                    VALUES (:st, :sid, :cid, :cn)""",
+                    {
+                        "st": "cases",
+                        "sid": case_id,
+                        "cid": chroma_id,
+                        "cn": COLLECTION_FAQ,
+                    },
+                )
+            except Exception as e:
+                return self._error_result(
+                    "approve_case",
+                    error=f"embedding_meta 写入失败: {e}",
+                    hint="Chroma 已写但 meta 未记录。",
+                    chroma_id=chroma_id,
+                    rag_written=True,
+                )
+
+        # 4) 记录审核留痕（review_decisions 表）
+        self._record_review_decision(
+            case_id=case_id,
+            decision="approved",
+            reviewer=params.get("reviewer", "unknown"),
+            note=params.get("note", ""),
+            chroma_id=chroma_id,
+            confidence=confidence,
+        )
+
+        # 5) 统计当前 faq_vec 总数（运营反馈「已加入知识库，共 N 条」）
+        faq_vec_count = 0
+        try:
+            stats = rag.get_collection_stats()
+            faq_vec_count = stats.get(COLLECTION_FAQ, 0) if isinstance(stats, dict) else 0
+        except Exception:
+            pass
+
+        return {
+            "intent": "approve_case",
+            "count": 1,
+            "approved": True,
+            "case_id": case_id,
+            "chroma_id": chroma_id,
+            "confidence": confidence,
+            "faq_vec_count": faq_vec_count,
+            "reviewer": params.get("reviewer", "unknown"),
+            "trace": {
+                "decision": "approved_by_human",
+                "chroma_id": chroma_id,
+                "collection": COLLECTION_FAQ,
+                "reviewer": params.get("reviewer", "unknown"),
+            },
+        }
+
+    # === 子能力 5：人工审核拒绝 ===
+
+    def _reject_case(self, params: dict) -> dict:
+        """运营审核拒绝 → 记录到 review_decisions 表，不写 Chroma。
+
+        Args:
+            params: {
+                "intent": "reject_case",
+                "case_id": "case_xxx",
+                "reviewer": "ou_xxx",
+                "reason": "拒绝原因（如「证据不足」「答案不准」）",
+            }
+        """
+        case_id = params.get("case_id")
+        if not case_id:
+            return self._error_result(
+                "reject_case",
+                error="case_id 必填",
+                hint="回复「审核 case_xxx 拒绝」或「❌ case_xxx」即可触发。",
+            )
+
+        # 即使 case 不存在也要记录拒绝（防重复审）
+        self._record_review_decision(
+            case_id=case_id,
+            decision="rejected",
+            reviewer=params.get("reviewer", "unknown"),
+            note=params.get("reason", params.get("note", "")),
+            chroma_id="",
+            confidence=0.0,
+        )
+
+        return {
+            "intent": "reject_case",
+            "count": 0,
+            "rejected": True,
+            "case_id": case_id,
+            "reason": params.get("reason", ""),
+            "reviewer": params.get("reviewer", "unknown"),
+            "trace": {
+                "decision": "rejected_by_human",
+                "reviewer": params.get("reviewer", "unknown"),
+                "written_to_chroma": False,
+            },
+        }
+
+    # === 辅助：审核决策留痕 ===
+
+    def _record_review_decision(
+        self,
+        case_id: str,
+        decision: str,
+        reviewer: str,
+        note: str,
+        chroma_id: str,
+        confidence: float,
+    ) -> bool:
+        """记录审核决策到 SQLite review_decisions 表（运营可审计）。
+
+        Returns:
+            True if recorded, False if DB 未注入或失败（不抛异常，避免阻断主流程）。
+        """
+        if self._db is None:
+            return False
+        try:
+            # 表可能不存在（PoC 阶段 schema 未建），自动 CREATE IF NOT EXISTS
+            self._db.execute(
+                """CREATE TABLE IF NOT EXISTS review_decisions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    case_id TEXT NOT NULL,
+                    decision TEXT NOT NULL,
+                    reviewer TEXT,
+                    note TEXT,
+                    chroma_id TEXT,
+                    confidence REAL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )"""
+            )
+            self._db.execute(
+                """INSERT INTO review_decisions
+                (case_id, decision, reviewer, note, chroma_id, confidence)
+                VALUES (:cid, :d, :r, :n, :chroma, :conf)""",
+                {
+                    "cid": case_id,
+                    "d": decision,
+                    "r": reviewer,
+                    "n": note,
+                    "chroma": chroma_id,
+                    "conf": confidence,
+                },
+            )
+            return True
+        except Exception:
+            return False
+
     # === 辅助：cases 表行 → RAG text/metadata ===
 
     @staticmethod
@@ -561,6 +799,10 @@ class KEATool(BaseTool):
             "intent": intent,
             "count": 0,
             "promoted": False,
+            # Day 17 v3：人工审核错误路径也明确标 approved/rejected=False
+            # webhook _fmt_kea_approve / _fmt_kea_reject 依赖这些标志判断成功/失败
+            "approved": False,
+            "rejected": False,
             "trace": {"error": error, "hint": hint, **extras},
         }
         if "faqs" not in extras:
