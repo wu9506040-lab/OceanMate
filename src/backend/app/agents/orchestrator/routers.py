@@ -360,6 +360,14 @@ _KEA_SEARCH_KEYWORDS = [
     "教程", "文档", "FAQ", "faq", "知识",
 ]
 
+# Day 17 v3：知识审核关键词（数字员工闭环第 5 段 — 运营人工审核命令）
+# 设计原则：审核命令要简单，能在飞书对话里直接打出来
+_KEA_REVIEW_KEYWORDS = ["审核", "审一下", "审批", "approve", "reject", "✅", "❌"]
+# case_id 正则：case_ 后跟 1~30 字母数字（涵盖 case_001 短格式 + case_demo_high_001 长格式）
+_KEA_CASE_ID_RE = re.compile(r"(case_[a-zA-Z0-9]{1,30})")
+_KEA_APPROVE_VERBS = ["通过", "同意", "approve", "✅", "ok", "OK", "好的", "可以", "行", "是"]
+_KEA_REJECT_VERBS = ["拒绝", "驳回", "reject", "❌", "不通过", "no", "NO", "不行", "别", "否"]
+
 
 # === Tool 未注册 helper ===
 
@@ -621,6 +629,7 @@ def route_kea(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
     """路由到 KEATool。
 
     自动选 intent（优先级从高到低）：
+    0. 命中审核关键词 + case_id → approve_case / reject_case（Day 17 v3 数字员工闭环第 5 段）
     1. ctx.case_id             → promote_to_faq （"这个案例能进FAQ吗"）
     2. ctx.query 显式传入      → search_faq     （商户直接搜 FAQ）
     3. query 命中 search 关键词 → search_faq    （"知识库怎么检索..."）
@@ -631,6 +640,31 @@ def route_kea(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
             "knowledge_evolution",
             hint="KEA Tool 未注册。如需立即处理，请联系人工客服。",
         )
+
+    # === Day 17 v3：人工审核命令识别（优先级最高，覆盖所有其他意图）===
+    # 命令格式示例：
+    #   "审核 case_001 通过" / "审核 case_001 拒绝"
+    #   "✅ case_001"        / "❌ case_001"
+    #   "approve case_001"   / "reject case_001"
+    review_sub_intent, review_case_id = _detect_review_command(query)
+    if review_sub_intent:
+        params = {
+            "intent": review_sub_intent,
+            "case_id": review_case_id,
+            "reviewer": ctx.get("reviewer") or ctx.get("merchant_id") or "operator",
+        }
+        result = registry.safe_execute("knowledge_evolution", params)
+        return {
+            "intent": "knowledge_evolution",
+            "tool_name": "knowledge_evolution",
+            "tool_result": result,
+            "trace": {
+                "matched_keywords": matched,
+                "sub_intent": review_sub_intent,
+                "case_id": review_case_id,
+                "review_command": True,
+            },
+        }
 
     if ctx.get("case_id"):
         sub_intent = "promote_to_faq"
@@ -675,6 +709,40 @@ def route_kea(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
             "params": params,
         },
     }
+
+
+def _detect_review_command(query: str) -> tuple[Optional[str], Optional[str]]:
+    """检测人工审核命令，返回 (sub_intent, case_id)。
+
+    支持的命令格式：
+    - "审核 case_001 通过" / "审核 case_001 拒绝"
+    - "审一下 case_001 通过" / "审批 case_001 不通过"
+    - "✅ case_001"            / "❌ case_001"
+    - "approve case_001"       / "reject case_001"
+
+    Returns:
+        ("approve_case", "case_001") / ("reject_case", "case_001") / (None, None)
+    """
+    if not query:
+        return None, None
+    q = query.strip()
+    # 先看是否含 case_id
+    m = _KEA_CASE_ID_RE.search(q)
+    if not m:
+        return None, None
+    case_id = m.group(1)
+    # 必须含审核关键词才算审核命令（避免 "case_001 是什么" 被误判）
+    has_review_keyword = any(kw in q for kw in _KEA_REVIEW_KEYWORDS)
+    if not has_review_keyword:
+        return None, None
+    # 判断 approve / reject
+    if any(v in q for v in _KEA_APPROVE_VERBS):
+        return "approve_case", case_id
+    if any(v in q for v in _KEA_REJECT_VERBS):
+        return "reject_case", case_id
+    # 含审核关键词 + case_id 但没有明确 accept/reject 动词 → 不当作审核命令
+    # 避免误操作（落到 list_candidates 而不是误审核）
+    return None, None
 
 
 def unknown_response(query: str, matched: list[str], registry: ToolRegistry) -> dict:

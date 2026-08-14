@@ -879,6 +879,11 @@ class FeishuWebhookHandler:
     @staticmethod
     def _fmt_kea(data: dict, trace: dict) -> str:
         sub = trace.get("sub_intent")
+        # Day 17 v3：人工审核命令反馈（数字员工闭环第 5 段）
+        if sub == "approve_case":
+            return FeishuWebhookHandler._fmt_kea_approve(data)
+        if sub == "reject_case":
+            return FeishuWebhookHandler._fmt_kea_reject(data)
         if sub == "promote_to_faq":
             if data.get("promoted"):
                 return f"✅ 案例 {data.get('case_id')} 已升级为 FAQ。"
@@ -896,6 +901,43 @@ class FeishuWebhookHandler:
         # list_candidates
         count = data.get("count", 0)
         return f"📚 找到 {count} 个高置信度候选待升级。"
+
+    @staticmethod
+    def _fmt_kea_approve(data: dict) -> str:
+        """审核通过反馈。
+
+        反馈原则（用户原文）：
+        "✅ case_001 已通过审核，已加入知识库，当前 faq_vec 共 3 条"
+        """
+        if not data.get("approved"):
+            err = data.get("trace", {}).get("error") or data.get("error", "审核失败")
+            return f"⚠️ 审核未通过：{err}"
+        case_id = data.get("case_id", "未知")
+        faq_count = data.get("faq_vec_count", "?")
+        reviewer = data.get("reviewer", "运营")
+        return (
+            f"✅ {case_id} 已通过审核，已加入知识库，"
+            f"当前 faq_vec 共 {faq_count} 条（审核人：{reviewer}）。\n\n"
+            "下次商户问同样问题，AI 就能直接复用这条知识。"
+        )
+
+    @staticmethod
+    def _fmt_kea_reject(data: dict) -> str:
+        """审核拒绝反馈。
+
+        拒绝时也要明确反馈运营「已经记录，不会入库」。
+        """
+        if not data.get("rejected"):
+            err = data.get("trace", {}).get("error") or data.get("error", "审核操作失败")
+            return f"⚠️ 审核未完成：{err}"
+        case_id = data.get("case_id", "未知")
+        reviewer = data.get("reviewer", "运营")
+        reason = data.get("reason", "")
+        suffix = f"\n理由：{reason}" if reason else ""
+        return (
+            f"❌ {case_id} 已拒绝{suffix}（记录人：{reviewer}）。\n"
+            "该案例不会进入知识库，避免污染检索结果。"
+        )
 
     @staticmethod
     def _fmt_unknown_fallback(data: dict, trace: dict) -> str:
