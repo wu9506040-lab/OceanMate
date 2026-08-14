@@ -158,6 +158,23 @@ def start_feishu_poller_in_background(
                     )
 
                     try:
+                        # Day 17 Fix：与 WS / webhook 共享 _mark_message_seen 状态
+                        # 防止 WS + Poller 同时收到同 message_id 的事件而推 2 条相同 reply
+                        from app.implementations.feishu.webhook import _mark_message_seen
+                        if msg_id and not _mark_message_seen(msg_id):
+                            logger.info(
+                                f"[Poller][dedup] message_id 已被 WS/webhook 处理，跳过: "
+                                f"message_id={msg_id[:24]}"
+                            )
+                            _recent_processed.append({
+                                "ts": _now_iso(),
+                                "user_id": user_id[:12] + "...",
+                                "text": text[:60],
+                                "ok": True,
+                                "dedup": True,
+                            })
+                            continue
+
                         result = orchestrator.route(
                             user_query=text,
                             merchant_context={"user_id": user_id, "chat_id": chat_id},
