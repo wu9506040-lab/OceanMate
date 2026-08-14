@@ -89,7 +89,7 @@ class TestHandleP2ImMessage:
         send_events = [e for e in events if e["event"] == "send_message"]
         assert len(send_events) == 1
         assert send_events[0]["user_id"] == "ou_test_user"
-        assert "诊断" in send_events[0]["message"]  # PDA reply template
+        assert "第一步" in send_events[0]["message"]  # Day 17 v2 解决方案式输出
 
     def test_fallback_to_user_id_when_no_open_id(self, mock_orchestrator, mock_frontend):
         """无 open_id 时用 user_id（兼容）。"""

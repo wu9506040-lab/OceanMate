@@ -88,6 +88,240 @@ def _sanitize(text: str) -> str:
     return cleaned.strip()
 
 
+# === Day 17 像真人客服 helpers ===
+
+def _dedup_by_prefix(items: list[str], prefix_len: int = 8) -> list[str]:
+    """按前缀去重（解决"问题分析两条说同样内容"问题）。"""
+    seen = set()
+    out = []
+    for it in items:
+        prefix = it[:prefix_len].strip()
+        if not prefix or prefix in seen:
+            continue
+        seen.add(prefix)
+        out.append(it)
+    return out
+
+
+# 同理心短句：按 (problem_type, category) 选
+_EMPATHY_OPENERS: dict = {
+    ("拒付", "not_received"): "看到您遇到不少拒付，确实让人头疼，我来帮您分析。",
+    ("拒付", "not_authorized"): "未授权类拒付容易反复触发，我来帮您梳理根因。",
+    ("拒付", "fraud"): "欺诈类拒付需要尽快处理，我来帮您看看。",
+    ("拒付", "recurring"): "订阅类拒付通常涉及买家误解，我来帮您排查。",
+    ("拒付", None): "拒付对商户现金流影响很大，我来帮您分析。",
+    ("支付失败", None): "支付失败直接影响成交，我来帮您看看怎么处理。",
+    ("Webhook 回调失败", None): "回调失败会导致订单状态不一致，我来帮您排查。",
+}
+
+
+def _get_empathy_opener(problem_type: str, category: str) -> str:
+    if (problem_type, category) in _EMPATHY_OPENERS:
+        return _EMPATHY_OPENERS[(problem_type, category)]
+    return _EMPATHY_OPENERS.get((problem_type, None), "")
+
+
+# reason_name 中文化（不再直接甩英文给中小商户）
+_REASON_NAME_CN: dict = {
+    "Merchandise/Services Not Received": "商品/服务未收到",
+    "Not As Described or Defective": "商品与描述不符或质量缺陷",
+    "No Cardholder Authorization": "未获得持卡人授权",
+    "Cardholder Does Not Recognize Transaction": "持卡人不认这笔交易",
+    "EMV Liability Shift Counterfeit Fraud": "EMV 伪卡欺诈",
+    "Canceled Recurring or Digital Goods": "订阅/数字商品被取消",
+}
+
+
+def _translate_reason_name(name: str) -> str:
+    """英文 reason_name → 中文（找不到原文则保留原值）。"""
+    if not name:
+        return ""
+    return _REASON_NAME_CN.get(name, name)
+
+
+def _confidence_label(conf: float) -> str:
+    """置信度 → 中文标签（商户看不懂 80%）。"""
+    if conf >= 0.85:
+        return "很高"
+    if conf >= 0.65:
+        return "较高"
+    if conf >= 0.45:
+        return "中等"
+    return "较低"
+
+
+# 主动下一步：按 (problem_type, category) 给具体后续话术
+_NEXT_STEPS: dict = {
+    ("拒付", "not_received"): "需要我帮您生成一份 13.1 拒付申诉材料模板吗？",
+    ("拒付", "not_authorized"): "需要我帮您检查 3DS 配置是否在交易中触发吗？",
+    ("拒付", "fraud"): "需要我帮您配置 RDR/CFR 风控拦截吗？",
+    ("拒付", "recurring"): "需要我帮您分析订阅类交易的取消流程吗？",
+    ("拒付", None): "需要我帮您列出近期拒付订单方便申诉吗？",
+    ("支付失败", None): "需要我帮您排查支付链路配置吗？",
+    ("Webhook 回调失败", None): "需要我帮您检查回调日志吗？",
+}
+
+
+def _suggest_next_step(problem_type: str, category: str, conf: float) -> str:
+    if conf < 0.45:
+        return "建议先补充信息或转人工协助。"
+    if (problem_type, category) in _NEXT_STEPS:
+        return _NEXT_STEPS[(problem_type, category)]
+    if (problem_type, None) in _NEXT_STEPS:
+        return _NEXT_STEPS[(problem_type, None)]
+    return "需要我帮您深入分析吗？"
+
+
+# === Day 17 v2：分步方案模板（解决方案式输出） ===
+
+def _br_pix_template() -> dict:
+    """BR Pix 周末延迟场景模板（每次调用返回新 dict，避免共享引用）。"""
+    return {
+        "title": "BR Pix 周末凌晨延迟到账",
+        "empathy": "BR Pix 周末凌晨延迟是巴西央行系统维护导致的常见问题。",
+        "steps": [
+            {
+                "title": "第一步：确认是否在维护窗口",
+                "content": [
+                    "巴西央行 Pix 系统维护时间：周六、周日凌晨 2:00–6:00（巴西时间）",
+                    "如果在窗口内：等维护结束会自动到账（通常 ≤ 30 分钟）",
+                ],
+            },
+            {
+                "title": "第二步：检查订单状态",
+                "content": [
+                    "在 OP 商户后台 → 交易明细 查订单号",
+                    "状态『已扣款』但买家未收到：买家侧银行问题",
+                    "状态『处理中』：耐心等待或催收",
+                ],
+            },
+            {
+                "title": "第三步：超 30 分钟未到账",
+                "content": [
+                    "主动联系买家，请其查银行 App",
+                    "回复『派单』我帮您创建工单让 BR 团队跟进",
+                ],
+            },
+        ],
+        "cta": "需要我帮你创建工单让 BR 团队跟进吗？",
+    }
+
+
+# 模板按 (problem_type, category, channel) 三层 fallback 选
+_PDA_TEMPLATES: dict = {
+    # === Visa 13.1 — 拒付：商品/服务未收到 ===
+    ("拒付", "not_received", "Visa"): {
+        "title": "Visa 13.1 拒付（买家说没收到货）",
+        "empathy": "看到您遇到不少拒付，确实让人头疼。",
+        "steps": [
+            {
+                "title": "第一步：准备申诉材料",
+                "content": [
+                    "实物商品：物流单号 + 签收记录",
+                    "数字商品：下载记录 + 登录日志 + 激活时间",
+                    "都要附上和买家的沟通截图",
+                ],
+            },
+            {
+                "title": "第二步：开通 RDR 自动拦截",
+                "content": [
+                    "在 OP 商户后台 → 风控管理里开启 Visa RDR",
+                    "以后这类拒付会自动拦截，不用每次申诉",
+                ],
+            },
+            {
+                "title": "第三步：降低以后的拒付",
+                "content": [
+                    "发货后主动给买家发物流信息",
+                    "减少『以为没发货』的误会",
+                ],
+            },
+        ],
+        "cta": "需要我帮你创建工单让财务团队跟进吗？",
+    },
+    # === MC 4837 — 拒付：未获得持卡人授权 ===
+    ("拒付", "not_authorized", "Mastercard"): {
+        "title": "MC 4837 拒付（持卡人不认这笔交易）",
+        "empathy": "未授权类拒付容易反复触发。",
+        "steps": [
+            {
+                "title": "第一步：检查 3DS 验证记录",
+                "content": [
+                    "在 OP 商户后台 → 风控管理 → 3DS 配置",
+                    "看这笔交易是否触发 3DS 验证",
+                    "如果没触发，下次同样会被拒",
+                ],
+            },
+            {
+                "title": "第二步：检查 Card-on-File 配置",
+                "content": [
+                    "CVV 校验是否开启",
+                    "存储的卡信息是否加密（PCI DSS）",
+                ],
+            },
+            {
+                "title": "第三步：开通 Collaboration 拦截",
+                "content": [
+                    "在 OP 商户后台 → 风控管理 → Collaboration",
+                    "可在拒付发生前主动拦截",
+                ],
+            },
+        ],
+        "cta": "需要我帮你创建工单让财务团队跟进吗？",
+    },
+    # === BR Pix 周末延迟（场景类 · 多 key 适配） ===
+    ("支付失败", "pix_weekend", None): _br_pix_template(),
+    ("结算延迟", "pix_weekend", None): _br_pix_template(),
+    ("结算延迟", None, None): _br_pix_template(),
+}
+
+
+# 默认模板（兜底）
+_PDA_DEFAULT_TEMPLATE: dict = {
+    "title": "{problem_type}",
+    "empathy": "{problem_type}对商户影响较大，我来帮你处理。",
+    "steps": [
+        {
+            "title": "第一步：收集证据",
+            "content": [
+                "订单号 / 错误码 / 发生时间",
+                "买家侧的报错截图",
+            ],
+        },
+        {
+            "title": "第二步：自查配置",
+            "content": [
+                "在 OP 商户后台 → 交易明细 查订单状态",
+                "检查风控 / 3DS / Webhook 相关配置",
+            ],
+        },
+        {
+            "title": "第三步：让团队协助",
+            "content": [
+                "把证据整理成一条消息发给我",
+                "回复『派单』我帮你创建工单让对应团队跟进",
+            ],
+        },
+    ],
+    "cta": "需要我帮你创建工单让团队跟进吗？",
+}
+
+
+def _get_pda_template(problem_type: str, category: str, channel: str) -> dict:
+    """三层 fallback 选模板：(problem_type, category, channel) → (problem_type, category) → (problem_type) → default。"""
+    if (problem_type, category, channel) in _PDA_TEMPLATES:
+        return _PDA_TEMPLATES[(problem_type, category, channel)]
+    if (problem_type, category, None) in _PDA_TEMPLATES:
+        return _PDA_TEMPLATES[(problem_type, category, None)]
+    if (problem_type, None, None) in _PDA_TEMPLATES:
+        return _PDA_TEMPLATES[(problem_type, None, None)]
+    # 默认模板（用 problem_type 替换 {problem_type}）
+    tmpl = dict(_PDA_DEFAULT_TEMPLATE)
+    tmpl["title"] = tmpl["title"].replace("{problem_type}", problem_type)
+    tmpl["empathy"] = tmpl["empathy"].replace("{problem_type}", problem_type)
+    return tmpl
+
+
 # === 飞书事件类型常量 ===
 
 EVENT_URL_VERIFICATION = "url_verification"
@@ -435,57 +669,65 @@ class FeishuWebhookHandler:
 
     @staticmethod
     def _fmt_pda(data: dict, trace: dict) -> str:
-        """格式化 PDA 诊断结果（Day 14 P0 飞书友好版）。
+        """格式化 PDA 诊断结果（Day 17 v2 解决方案式）。
 
-        设计原则：
-        1. 飞书 IM 私聊不渲染 Markdown 星号，用 emoji + 换行 + 编号
-        2. 过滤测试数据（example.com / placeholder / Demo 占位）
-        3. confidence 低（≤0.5）时显示"建议转人工"
+        设计原则（用户反馈"不要念诊断报告，要给方案"）：
+        1. 不再有"诊断结果""置信度""问题分析"等标题
+        2. 英文术语大白话化（13.1 → "买家说没收到货"）
+        3. 建议用"第一步/第二步/第三步"分步
+        4. 每步说明在哪里操作（OP 商户后台→xxx）
+        5. CTA 直接问"需要我帮您创建工单吗？"
+        6. 同理心开头一句话就够
         """
         problem_type = data.get("problem_type", "未知")
-        causes = data.get("root_causes", [])
-        actions = data.get("recommended_actions", [])
-        conf = data.get("confidence", 0)
+        try:
+            conf = float(data.get("confidence", 0) or 0)
+        except (TypeError, ValueError):
+            conf = 0.0
+        enriched = (trace.get("code_specific_enriched") or {}) if trace else {}
+        category = enriched.get("category") or ""
+        channel = enriched.get("channel") or ""
 
-        # 过滤测试数据 + 截断
-        causes_clean = [_sanitize(c) for c in causes[:3] if c]
-        actions_clean = [_sanitize(a) for a in actions[:4] if a]
+        # 低置信度 → 退化（避免给错误方案）
+        if conf < 0.45:
+            return (
+                "🤔 当前证据不够充分，我先不给你具体方案，避免误导。\n\n"
+                "建议你：\n"
+                "1. 提供具体错误码 / 订单号 / 国家 + 渠道\n"
+                "2. 告诉我『派单』，我帮你创建工单让团队跟进"
+            )
 
-        lines = [
-            f"🔍 诊断结果：{problem_type}",
-            f"置信度：{conf:.0%}",
-            "",
-        ]
+        # 选模板（按 problem_type + category + channel 三层 fallback）
+        template = _get_pda_template(problem_type, category, channel)
 
-        # 低置信度 → 提示转人工
-        if conf <= 0.5:
-            lines.append("⚠️ 当前证据不足，建议转人工协助：")
-            lines.append("  1. 提供具体错误码 / 订单号 / 国家 + 渠道")
-            lines.append("  2. 我帮您创建工单，2h 内跟进")
-            if causes_clean:
-                lines.append("")
-                lines.append("📋 初步分析：")
-                for i, c in enumerate(causes_clean, 1):
-                    lines.append(f"  {i}. {c}")
-            return "\n".join(lines)
+        lines = []
 
-        if causes_clean:
-            lines.append("📋 问题分析：")
-            for i, c in enumerate(causes_clean, 1):
-                lines.append(f"  {i}. {c}")
+        # 1. 同理心开头（一句话）
+        if template.get("empathy"):
+            lines.append(template["empathy"])
             lines.append("")
 
-        if actions_clean:
-            lines.append("✅ 建议操作：")
-            for i, a in enumerate(actions_clean, 1):
-                lines.append(f"  {i}. {a}")
+        # 2. 标题（一句话说明问题 + "这样处理"）
+        title = template["title"]
+        lines.append(f"{title}，这样处理：")
+        lines.append("")
 
-        # 末尾加 ticket 引导（如果有 next_agent）
-        if data.get("next_agent"):
+        # 3. 分步方案
+        for step in template["steps"]:
+            lines.append(f"**{step['title']}**")
+            content = step["content"]
+            if isinstance(content, list):
+                for item in content:
+                    lines.append(f"- {item}")
+            else:
+                lines.append(content)
             lines.append("")
-            lines.append("💡 提示：回复\"派单\"，我帮您创建工单跟进")
 
-        return "\n".join(lines)
+        # 4. CTA（明确的下一步）
+        if template.get("cta"):
+            lines.append(template["cta"])
+
+        return "\n".join(lines).rstrip()
 
     @staticmethod
     def _fmt_tra(data: dict, trace: dict) -> str:

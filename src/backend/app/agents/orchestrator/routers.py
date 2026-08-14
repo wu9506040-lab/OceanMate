@@ -439,6 +439,12 @@ def route_pda(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
     wrapped = registry.safe_execute("payment_diagnosis", params)
     data = wrapped.get("data", {}) if wrapped.get("success") else {}
     error_image_path = data.get("error_image_path", "") if isinstance(data, dict) else ""
+
+    # Day 17 v2：把 PDA Tool 内层 trace.code_specific_enriched 提到顶层，
+    # 让 webhook._fmt_pda 能直接读到 channel/error_code/category 用于模板选择。
+    inner_trace = data.get("trace", {}) if isinstance(data, dict) else {}
+    code_specific = inner_trace.get("code_specific_enriched", {}) if isinstance(inner_trace, dict) else {}
+
     return {
         "intent": "payment_diagnosis",
         "tool_name": "payment_diagnosis",
@@ -450,6 +456,7 @@ def route_pda(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
             "extracted_from_query": extracted,
             "query_type": query_type,
             "is_rebuttal": bool(ctx.get("is_rebuttal")),
+            "code_specific_enriched": code_specific,
         },
     }
 
