@@ -67,3 +67,7 @@ src/backend/data/chroma_test/
 src/backend/data/audit_*.db
 src/backend/data/audit_*/
 src/backend/.feishu_mock_log.json
+
+# Day 16 polishing 层 SQLite（自动创建，每次 init 重生）
+src/data/*.db
+src/data/
