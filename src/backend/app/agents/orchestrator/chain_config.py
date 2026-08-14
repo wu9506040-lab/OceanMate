@@ -24,6 +24,18 @@ from typing import Callable, Optional
 logger = logging.getLogger(__name__)
 
 
+def _safe_float(v, default: float = 0.0) -> float:
+    """Day 15 P0-3：把任意值安全转 float（防字符串 "0.85" 触发 TypeError）。"""
+    if v is None:
+        return default
+    try:
+        result = float(v)
+        # 截断到 [0.0, 1.0]
+        return max(0.0, min(1.0, result))
+    except (TypeError, ValueError):
+        return default
+
+
 # === 链路规则定义 ===
 
 # 链路 1：PDA → TRA
@@ -33,7 +45,7 @@ logger = logging.getLogger(__name__)
 PDA_TO_TRA_CHAIN = {
     "next_tool": "ticket_routing",
     "trigger": lambda prev_data: (
-        prev_data.get("confidence", 0.0) >= 0.7
+        _safe_float(prev_data.get("confidence"), 0.0) >= 0.7
         and bool(prev_data.get("problem_type"))
         # next_agent 是 LLM 输出，可能是 "Ticket Routing Agent" / "ticket_routing" 等
         # 用关键词宽松匹配

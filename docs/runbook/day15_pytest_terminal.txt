@@ -1,0 +1,37 @@
+........................................................................ [ 25%]
+........................................................................ [ 50%]
+........................................................................ [ 75%]
+......................................................................   [100%]
+============================== warnings summary ===============================
+tests/test_business_rules.py: 52 warnings
+tests/test_cross_lingual_rag.py: 18 warnings
+tests/test_feishu_sop.py: 52 warnings
+tests/test_kea_sop.py: 182 warnings
+tests/test_msa_sop.py: 30 warnings
+tests/test_orchestrator_sop.py: 68 warnings
+tests/test_pda_sop.py: 64 warnings
+tests/test_rag_extended.py: 373 warnings
+tests/test_rag_sop.py: 293 warnings
+  C:\Users\zw\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\chromadb\types.py:99: PydanticDeprecatedSince211: Accessing the 'model_fields' attribute on the instance is deprecated. Instead, you should access this attribute from the model class. Deprecated in Pydantic V2.11 to be removed in V3.0.
+    if key in self.model_fields:
+
+tests/test_kea_sop.py: 7 warnings
+tests/test_rag_extended.py: 9 warnings
+tests/test_rag_sop.py: 6 warnings
+  C:\Users\zw\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\chromadb\types.py:109: PydanticDeprecatedSince211: Accessing the 'model_fields' attribute on the instance is deprecated. Instead, you should access this attribute from the model class. Deprecated in Pydantic V2.11 to be removed in V3.0.
+    if key in self.model_fields:
+
+tests/test_kea_sop.py::TestKEAEnd2End::test_orchestrator_kea_with_full_setup
+  C:\Users\zw\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\_pytest\stash.py:108: RuntimeWarning: coroutine 'Client._disconnect' was never awaited
+    del self._storage[key]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_kea_sop.py::TestKEAEnd2End::test_orchestrator_kea_with_full_setup
+  C:\Users\zw\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\_pytest\stash.py:108: RuntimeWarning: coroutine 'Client._connect' was never awaited
+    del self._storage[key]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+286 passed, 1156 warnings in 52.60s

@@ -12,7 +12,7 @@
 | 类型 | 来源 |
 |------|------|
 | OP 业务覆盖（500+ 支付产品 / 200+ 国家地区 / 5+ 行业）| [oceanpayment.com 官网](https://oceanpayment.com) |
-| 54% / 77% 消费者支付偏好 | Airwallex 跨境电商研究 |
+| 77% 消费者因结账无可用本地支付方式放弃购物车 | [Airwallex 2024 全球跨境支付报告](https://www.airwallex.com/insights/reports/global-payments-report-2024) |
 | 「退款问题」投诉 TOP 1，占比 20.00%；「任意仅退款」占 13.60% | [网经社《2024 年度中国出口跨境电商消费投诉数据与典型案例报告》](https://www.100ec.cn/zt/24ckkj/) |
 | 中国跨境数字支付 7.5 万亿 → 9.4 万亿 | [中商产业研究院《2024-2029 全球及中国支付即服务行业发展现状调研及投资前景分析报告》](https://www.askci.com) |
 | CIPS 2024 业务量 175.49 万亿元（+42.60% YoY）| [中国金融新闻网《人民币跨境支付系统 CIPS》](https://www.financialnews.com.cn) |
@@ -204,7 +204,7 @@ Demo 阶段所有具体百分比不做承诺，待 OP 真实口径测算。
 | 3 | [中商产业研究院《2024-2029 全球及中国支付即服务行业发展现状调研及投资前景分析报告》](https://www.askci.com) | 中国跨境数字支付 2024 年 7.5 万亿元 → 2025E 突破 9.4 万亿元（+25% YoY）|
 | 4 | [中国金融新闻网《人民币跨境支付系统 CIPS》](https://www.financialnews.com.cn) | 2024 年 CIPS 业务金额 175.49 万亿元（+42.60% YoY）、业务笔数 821.69 万笔（+24.25%）|
 | 5 | [连连数字 2024 年报](https://global.lianlianpay.com) | 行业头部增速：总收入 13.15 亿元（+27.9% YoY）、全球支付 TPV 2815 亿元（+63.1% YoY）、服务客户 590 万家 |
-| 6 | [Airwallex 跨境电商研究](https://www.airwallex.com) | 54% 消费者预计增加跨境购物 / 77% 因缺偏好支付方式放弃 |
+| 6 | [Airwallex 2024 全球跨境支付报告](https://www.airwallex.com/insights/reports/global-payments-report-2024) | 77% 消费者因结账时无可用本地支付方式放弃购物车（BR 86% / AR 84% / MX 82% / ID+PH 80% / JP 76% / DE 71% / GB 65%）|
 | 7 | [Stripe Radar 公开资料](https://stripe.com/radar) | 头部企业 AI 仍聚焦交易风控，对商户接入/诊断/协同等服务流程仍依赖人工 |
 | 8 | [搜狐 2025 行业报告汇编](https://www.sohu.com/a/864540913_122029436) | 中国跨境数字支付行业增长趋势交叉验证 |
 | 9 | [亿欧智库 2025 全球市场洞察](https://www.sohu.com/a/882923965_121955005) | B2B/B2C/C2C 占比、B2B 65% |

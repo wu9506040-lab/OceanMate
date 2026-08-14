@@ -19,7 +19,7 @@
 | **3.0（2025+）** | **商户服务能力** | **选型 / 接入 / 诊断 / 协同 / 知识全链路** |
 
 **关键证据**：
-- Airwallex 跨境消费研究显示，**54%** 消费者预计增加跨境购物、**77%** 因缺偏好支付方式放弃 [2]
+- [Airwallex《2024 全球跨境支付报告》](https://www.airwallex.com/insights/reports/global-payments-report-2024) 显示，**77%** 消费者因结账时无可用本地支付方式放弃购物车（巴西 86% / 阿根廷 84% / 墨西哥 82% 等新兴市场更高）[2]
 - 中国跨境数字支付 2024 年 7.5 万亿元 → 2025E 突破 9.4 万亿元（+25% YoY）[3]
 - 头部企业 Stripe Radar 等仍聚焦交易风控，**商户接入 / 异常定位 / 跨团队协作等服务流程仍高度依赖人工经验** [4]
 
@@ -167,7 +167,7 @@ OP（Oceanpayment）业务覆盖 **500+ 支付方式 / 200+ 国家地区 / 5+ �
 | 编号 | 来源 | 用于 |
 |------|------|------|
 | [1] | [Stripe Radar 公开资料](https://stripe.com/radar) | 头部企业 AI 仍聚焦交易风控 |
-| [2] | [Airwallex 跨境电商研究](https://www.airwallex.com) | 54% 跨境购物意愿 / 77% 因支付放弃 |
+| [2] | [Airwallex 2024 全球跨境支付报告](https://www.airwallex.com/insights/reports/global-payments-report-2024) | 77% 因结账无可用本地支付方式放弃购物车（BR 86% / AR 84% / MX 82%）|
 | [3] | [中商产业研究院《2024-2029 全球及中国支付即服务行业报告》](https://www.askci.com) | 中国跨境数字支付 7.5→9.4 万亿 |
 | [4] | [Stripe Radar 公开资料](https://stripe.com/radar) | 头部企业服务流程仍依赖人工 |
 | [5] | [oceanpayment.com 官网](https://oceanpayment.com) | OP 业务覆盖（500+ 支付方式 / 200+ 国家 / 5+ 行业）|
