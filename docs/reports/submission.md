@@ -15,7 +15,7 @@
 |------|------|
 | 一句话定义 | **OP 商户成功团队的"数字员工体系"——4 类业务 Agent + 商户成功 AI 中枢，覆盖商户选型 / 接入 / 诊断 / 工单 / 知识沉淀 / 协同 6 个环节全生命周期** |
 | 业务价值 | 把 OP 内部"拉群 + 截图 + 翻文档"的协同模式，升级为"飞书智能伙伴一句话召唤 AI 中枢 → 多 Agent 自动诊断 → 飞书多维表自动派单 → 案例自动沉淀" |
-| 技术亮点 | 6 Agent 协作 + AtoA 协议 + 数据飞轮（自进化）+ 飞书生态全栈打通 |
+| 技术亮点 | 4 核心 Tool + Orchestrator 中枢 + OPA 脚本协同（MSA/PDA/TRA/KEA）+ AtoA 协议 + 数据飞轮（自进化）+ 飞书生态全栈打通 |
 | 真实落地 | **203 条真实数据**（117 条知识条目 = 107 条真实拒付码 + 6 条 demo 案例 + 4 条配置模板 · 详见 §6.1 拆解）+ 16 支付方式 + 60 工单 + 10 路由规则 + 飞书 WS 真实接收 + send_private briefing + 真实 Open API 调用 |
 | 6 个核心场景 Demo | 6 个核心场景固定参数验证通过（Visa 13.1 / MC 4837 / BR Pix / NL 推荐 / 高优工单 / BR Pix FAQ 召回）；真实自然语言对话持续优化中 |
 
@@ -79,7 +79,7 @@
 
 ---
 
-## 2. 6 Agent 架构图与各模块说明
+## 2. 4 核心 Tool + Orchestrator 架构图与各模块说明
 
 ### 2.1 整体架构（5 层分层）
 
@@ -203,7 +203,7 @@
 
 ### 2.3 AtoA 协议（Agent-to-Agent）
 
-**为什么需要 AtoA**：6 Agent 不能直接调用彼此内部函数（违反 Module Isolation 原则）。
+**为什么需要 AtoA**：4 个 Tool + Orchestrator 不能直接调用彼此内部函数（违反 Module Isolation 原则）。
 
 **AtoA 协议规范**：
 
@@ -239,12 +239,12 @@
 
 ### 3.2 挑战 2：AtoA 协议（Agent 之间如何协作？）
 
-**问题**：6 Agent 强隔离原则下，如何让它们协同完成"商户咨询 → 诊断 → 派单 → 沉淀"全流程？
+**问题**：4 核心 Tool 强隔离原则下，如何让它们通过 Orchestrator + AtoA 协同完成"商户咨询 → 诊断 → 派单 → 沉淀"全流程？
 
 **解决方案**：
 
 1. **统一接口契约**：所有 Agent 实现 `BaseTool`（MCP tool_spec 标准）：`name / description / input_schema / output_schema / capabilities`
-2. **AtoA 协议**：sender/receiver/intent/payload/context_ref/timestamp 6 字段（已在 6 个 Agent 全部实现）
+2. **AtoA 协议**：sender/receiver/intent/payload/context_ref/timestamp 6 字段（已在 4 个核心 Tool 全部实现）
 3. **Orchestrator 中枢调度**（PoC 单步路由 · 已落地）：意图分流 + 上下文传递 + **当前单 query 单 Tool**
 4. **数据飞轮闭环**：TRA 结案 → KEA promote → Chroma 索引 → 下次自动召回
 
@@ -580,7 +580,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | # | 原则 | 含义 | 落地 |
 |---|------|------|------|
 | 1 | **Interface First** | 先 Protocol 再写实现 | 6 接口（BaseTool/LLM/RAG/DB/Frontend/Repository）|
-| 2 | **Module Isolation** | 6 Agent 强隔离 | AtoA 协议 + Orchestrator 中枢 |
+| 2 | **Module Isolation** | 4 核心 Tool 强隔离 | AtoA 协议 + Orchestrator 中枢 |
 | 3 | **Dependency Inversion** | 依赖方向单向 | FastAPI Depends + 工厂函数 |
 
 ### 8.3 代码分层（自顶向下）
@@ -599,7 +599,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 |------|------|
 | 最小修改 | KEA FK 修复只改了 1 个 SQL（cases DROP + CREATE），未动其他表 |
 | 真实凭证不提交 | `.env` 加入 `.gitignore` · `.env.example` 是占位模板 |
-| 测试覆盖 | 4 Tool 全部 ≥ 13 用例（17+13+25+22+22=99 用例 + 59 RAG 扩展 + 14 跨语言 + 20 业务规则回归 = 268 用例）|
+| 测试覆盖 | 4 Tool 全部 ≥ 13 用例（**PDA 13 / MSA 18 / TRA 25 / KEA 22，合计 78 用例** + RAG 17 + RAG 扩展 14 + 跨语言 5 + 业务规则 20 + Day 15 P0 17 + Orchestrator 22 + Feishu 20 + Repo 17 + LLM 14 + Embedder 11 + Data Cleaning 17 + Chunking 17 + WS 17 = 286 用例全过）|
 | 录屏必真实 | 不允许 mock pass 算完成（feedback_no_shortcut）|
 
 ---
@@ -610,7 +610,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 |---|--------|------|------|
 | 1 | 项目方案终稿 | `docs/reports/submission.md`（本文件）| ✅ |
 | 2 | 架构设计 | `docs/architecture/oceanmate_v2.md` + `agent_architecture.md` + `business_flow.md` + `solution_overview.md` | ✅ |
-| 3 | 6 Agent 详解 | `docs/agents/{merchant_success,payment_diagnosis,ticket_routing,knowledge_evolution}_agent.md` | ✅ |
+| 3 | 4 核心 Tool 详解 | `docs/agents/{merchant_success,payment_diagnosis,ticket_routing,knowledge_evolution}_agent.md` | ✅ |
 | 4 | 依赖关系图 | 架构图（Mermaid）· `docs/architecture/agent_architecture.md` | ✅ |
 | 5 | 调用流程图 | 业务流（Mermaid sequence）· `docs/architecture/business_flow.md` | ✅ |
 | 6 | 真实数据 | 203 条多维表 + 107 张配图 + 268 测试用例 | ✅ |
@@ -623,7 +623,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 
 > **写作背景**：真实飞书回放暴露了 Demo 固定参数验证通过的 case 之外的若干真实 NL 边界问题，本节如实记录。
 
-### 10.1 已修复（2026-08-14 · 9 项 P0/P1 修复）
+### 10.1 已修复（2026-08-14 · 9 项 P0/P1 修复 + 2026-08-15 · 5 项 Day 15 P0/P1）
 
 | # | 问题 | 根因 | 修复 | 验证 |
 |---|------|------|------|------|
@@ -636,6 +636,11 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | P1-6 | KEA promote 写到 `cases_vec` 而非 `faq_vec` | `kept_old_target` 误写 | `KEA._promote_to_faq` 改为 `collection_name=COLLECTION_FAQ`；`KEA._search_faq` 优先 `faq_vec` | faq_vec count = 2（≥1）|
 | P1-7 | 跨语言检索未真实验证 | 仅有 offline 0.5253 指标 | `tests/test_cross_lingual_rag.py` 5 用例，中文 query 召回英文 reason code | 5/5 通过 |
 | P1-9 | 10 问端到端验收缺失 | 手工回放易遗漏 | `scripts/verify_10_questions.py` 自动审核 `example.com` / `placeholder` / `<demo_` / `ERR_UNKNOWN` / `**` 5 类禁止字样 | 10/10 PASS |
+| **Day 15 P0-1** | 超长输入无截断（潜在 Qwen token 报错） | `Orchestrator.route()` 直接送 LLM，无长度上限 | `MAX_QUERY_LENGTH = 500`；超长 query → `QUERY_TOO_LONG` 错误 + 友好提示 | `tests/test_p0_day15.py::TestP0_1LongInputTruncation` 3/3 |
+| **Day 15 P0-2** | 无并发控制（潜在 instance state 串台）| `route()` 内部状态全局部化但仍缺防御性锁 | `threading.RLock` 包裹 `_route_locked()`；5 并发测试不串台 | `tests/test_p0_day15.py::TestP0_2Concurrency` 3/3 |
+| **Day 15 P0-3** | LLM 返回字符串 `confidence="0.85"` → `>= 0.7` TypeError | Qwen chat_structured 偶尔返回字符串 | `_coerce_float` (Orchestrator) + `_safe_float` (chain_config) 强转 + 截断 [0,1] | `tests/test_p0_day15.py::TestP0_3LLMStrictValidation` 6/6 |
+| **Day 15 P0-4** | 飞书 webhook 无签名校验（伪造风险）| 之前 Day 14 P1 删了签名校验（明文 hash） | 重写 `FeishuWebhookHandler.verify_signature`：SHA256(ts+nonce+key+body) + `hmac.compare_digest` 常量时间比较；env `FEISHU_ENABLE_SIGNATURE_CHECK=1` 开启 | `tests/test_p0_day15.py::TestP0_4WebhookSignature` 5/5 |
+| **Day 15 P1-6** | Orchestrator 988 行违反 §3.3「单 Agent < 600 行」| 4 个 `_route_*` 函数 + 大量 slot 字典挤在一个类 | 拆 `app/agents/orchestrator/routers.py`（625 行）；Orchestrator 降到 **395 行**；4 个路由函数 + 3 个 slot 提取器 + 2 个 helper 全部模块化 | `wc -l orchestrator.py` = 395 ≤ 600；286 测试全过 |
 
 ### 10.2 已知边界（未完全修复 · 如实记录）
 
@@ -646,6 +651,8 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | 3 | 「知识库怎么检索 BR Pix 相关问题」走 KEA | KEA 路由到 `list_candidates`，未触发 `search_faq` | 需在 KEA 意图识别加「怎么/如何」问 → 搜索意图分支 |
 | 4 | 真实 NL 查询 → 槽位填充稳定率 | 当前约 60%（受 LLM 随机性 + 自然语言多样性影响）| 需更多正例训练 + Few-shot 调优 |
 | 5 | 跨语言 embedding 0.5253 | Embedding 相似度指标，跨语言检索效果待大规模验证 | 收集多语种真实 query 验证集 |
+| 6 | **多轮对话上下文**（P2-9，未实现）| 当前 `Orchestrator.route()` 单 query 单意图，无 conversation_id 关联 | 商户追问"那 iDEAL 怎么接入"时丢失上下文；需引入 `ConversationStore` 持久化 + ctx 注入 |
+| 7 | **OCR / 图片理解**（P2-10，未实现）| 商户发拒付截图 / 银行流水图时，当前仅文字匹配 | 需接入 Qwen-VL / GPT-4V，把图像内容转文本走 PDA |
 
 ### 10.3 数据诚实声明
 
@@ -695,7 +702,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | 时间 | 看什么 | 在哪里 |
 |------|--------|--------|
 | 0:00-0:05 | 项目定位（数字员工体系）| §1.3 |
-| 0:05-0:10 | 6 Agent 架构图 | §2.1 |
+| 0:05-0:10 | 4 核心 Tool + Orchestrator 架构图 | §2.1 |
 | 0:10-0:15 | 三大挑战解决方案 | §3 |
 | 0:15-0:20 | 5 大能力真实演示（PWR/PDA/TRA/KEA/OPA）| §4 + `scripts/run_all_real.py` |
 | 0:20-0:25 | 核心亮点（智能交接简报 + 配图 + 数据飞轮 + 飞书闭环）| §5 |

@@ -100,7 +100,9 @@ async def lifespan(app: FastAPI):
         orchestrator=_orchestrator,
         frontend=_frontend,
         verification_token=os.getenv("FEISHU_VERIFICATION_TOKEN"),
-        enable_signature_check=False,  # Day 9: 已移除签名实现，长连接主路径无需
+        # Day 15 P0-4：签名校验（默认关闭，env 设为 1 才开启；生产模式必开）
+        enable_signature_check=os.getenv("FEISHU_ENABLE_SIGNATURE_CHECK", "0") == "1",
+        encrypt_key=os.getenv("FEISHU_ENCRYPT_KEY"),
     )
 
     # 直接 API 客户端（poller 用 list_messages）

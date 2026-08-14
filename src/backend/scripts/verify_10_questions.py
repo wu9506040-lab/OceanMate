@@ -11,6 +11,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+# Windows 中文/emoji 输出兼容（CLAUDE.md 已知约束）
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except (AttributeError, OSError):
+    pass
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.agents.kea.tool import KEATool

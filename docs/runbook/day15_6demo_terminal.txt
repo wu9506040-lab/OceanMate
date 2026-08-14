@@ -1,0 +1,60 @@
+[OK] ���� .env: E:\ai-pioneer\.env
+[1/2] Starting app via TestClient (triggers lifespan, 初始化 orchestrator)...
+[OK] OceanMate AI 启动完成
+  - 4 Tool: merchant_success, payment_diagnosis, ticket_routing, knowledge_evolution
+  - Frontend: MockFrontend
+  - 长连接: 未启用（缺凭证或 FEISHU_FORCE_MOCK=1）
+  - Poller: 未启用（缺 FEISHU_POLL_CHAT_ID 或 FEISHU_FORCE_MOCK=1）
+[2/2] app started, calling /api/demo/run_all...
+======================================================================
+OceanMate Real run_all · total=6
+======================================================================
+
+[demo_01_visa_chargeback] Visa 13.1 数字商品拒付诊断
+  Tool: payment_diagnosis
+  Query: 我美国站卖软件的，Visa 13.1 拒付好多，怎么办？
+  ✅ PASSED
+  problem_type: 拒付
+  confidence: 0.8
+  image: data/error_images/cb_demo_13_1.png
+
+[demo_02_mc_4837] Mastercard 4837 拒付诊断
+  Tool: payment_diagnosis
+  Query: Mastercard 4837 拒付越来越多，是不是要开 3DS 2.0？
+  ✅ PASSED
+  problem_type: 拒付
+  confidence: 0.8
+  image: data/error_images/cb_demo_4837.png
+
+[demo_03_br_pix_delay] BR Pix 通道延迟诊断
+  Tool: payment_diagnosis
+  Query: BR 站 Pix 周六凌晨怎么支付总是失败？
+  ✅ PASSED
+  problem_type: 支付失败
+  confidence: 0.8
+
+[demo_04_nl_payment_recommend] NL 支付方式推荐
+  Tool: merchant_success
+  Query: 我想做 NL 站，时尚 B2C 电商，客单价 €80，用什么支付方式？
+  ✅ PASSED
+  response: 推荐 iDEAL，因其在荷兰市场占据70%以上电商支付份额，是本地强制标配的银行直连支付方式，适合B2C场景。同时可考虑 Alipay+ 以覆盖全球10亿+用户
+  recommendations: 5 条
+
+[demo_05_ticket_routing] 高优先级拒付工单自动分派（财务团队）
+  Tool: ticket_routing
+  Query: 商户反馈拒付问题紧急，需要快速响应。
+  ✅ PASSED
+  problem_type: 拒付
+  sla_hours: 4
+  assignee: 财务团队-争议处理
+
+[demo_06_faq_search] BR Pix FAQ 智能检索
+  Tool: knowledge_evolution
+  Query: BR Pix 周末延迟有办法避免吗？
+  ✅ PASSED
+  faqs: 2 条
+
+======================================================================
+汇总: total=6, passed=6, partial=0, failed=0
+======================================================================
+[BYE] OceanMate AI shutdown

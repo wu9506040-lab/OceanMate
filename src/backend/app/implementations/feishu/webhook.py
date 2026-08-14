@@ -26,10 +26,14 @@ Day 9 决策：长连接（ws_client.py）为主路径，本 webhook 路由保�
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import logging
 import re
 from typing import Any, Optional
+
+from fastapi import HTTPException
 
 from app.interfaces.base_frontend import BaseFrontend
 from app.agents.orchestrator.orchestrator import Orchestrator
@@ -109,11 +113,45 @@ class FeishuWebhookHandler:
         frontend: BaseFrontend,
         verification_token: Optional[str] = None,
         enable_signature_check: bool = False,
+        encrypt_key: Optional[str] = None,
     ):
         self.orchestrator = orchestrator
         self.frontend = frontend
         self.verification_token = verification_token
         self.enable_signature_check = enable_signature_check
+        # Day 15 P0-4：用于签名校验的 Encrypt Key
+        # （飞书 Webhook 签名算法：SHA256(timestamp + nonce + encrypt_key + body_str).hexdigest()）
+        self.encrypt_key = encrypt_key
+
+    @staticmethod
+    def verify_signature(
+        timestamp: str,
+        nonce: str,
+        encrypt_key: str,
+        body_str: str,
+        signature: str,
+    ) -> bool:
+        """Day 15 P0-4：飞书 Webhook 签名校验（正确算法）。
+
+        算法：SHA256(timestamp + nonce + encrypt_key + body_str).hexdigest()
+        参考：https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/event-subscription-guide/event-subscriptions
+
+        Args:
+            timestamp: 请求头 X-Lark-Request-Timestamp
+            nonce: 请求头 X-Lark-Request-Nonce
+            encrypt_key: .env FEISHU_ENCRYPT_KEY
+            body_str: 原始 body 字符串（必须与飞书发送的字节一致）
+            signature: 请求头 X-Lark-Signature
+
+        Returns:
+            True = 校验通过；False = 失败
+        """
+        if not all([timestamp, nonce, encrypt_key, body_str, signature]):
+            return False
+        content = timestamp + nonce + encrypt_key + body_str
+        expected = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        # 防止长度泄露，恒定时比较（Python 3.9+ compare_digest 在 hmac 模块）
+        return hmac.compare_digest(expected, signature)
 
     def handle_event(
         self,
@@ -144,14 +182,28 @@ class FeishuWebhookHandler:
             if payload.get("type") == EVENT_URL_VERIFICATION or "challenge" in payload:
                 return self._handle_url_verification(payload)
 
-            # 2. 验签（真实模式）— Day 9 移除：原 HMAC 实现与飞书官方 SHA256 算法不一致
-            #    详见 https://open.feishu.cn/document/.../signature-verification
-            #    当前 webhook 仅作 Mock 演示 / fallback，生产环境用 ws_client.py 长连接
+            # 2. 验签（Day 15 P0-4 重写）— SHA256(timestamp+nonce+encrypt_key+body_str)
+            #    必须 4 个 header/字段齐全 + body_str 传入；Demo 模式 enable_signature_check=False 跳过
             if self.enable_signature_check:
-                logger.warning(
-                    "FEISHU_ENABLE_SIGNATURE_CHECK=true 但签名校验已移除（Day 9 决策），"
-                    "请改用 ws_client.py 长连接模式。"
+                if not (timestamp and nonce and signature):
+                    logger.warning("签名校验开启但缺少 timestamp/nonce/signature header")
+                    return {"code": 401, "msg": "missing signature headers"}
+                if body_str is None:
+                    logger.warning("签名校验开启但 body_str 未传入")
+                    return {"code": 400, "msg": "missing body_str for verification"}
+                if not self.encrypt_key:
+                    logger.error("签名校验开启但 encrypt_key 未配置")
+                    return {"code": 500, "msg": "encrypt_key not configured"}
+                ok = self.verify_signature(
+                    timestamp=timestamp,
+                    nonce=nonce,
+                    encrypt_key=self.encrypt_key,
+                    body_str=body_str,
+                    signature=signature,
                 )
+                if not ok:
+                    logger.warning(f"签名校验失败: ts={timestamp}, nonce={nonce}")
+                    return {"code": 401, "msg": "signature verification failed"}
 
             # 3. 解析事件
             event_type = payload.get("header", {}).get("event_type")
