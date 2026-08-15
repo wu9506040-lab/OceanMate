@@ -84,18 +84,19 @@ class FeishuOpenAPI:
 
     # === 核心 5 端点 ===
 
-    def send_message(self, user_id: str, text: str, msg_type: str = "text") -> dict:
+    def send_message(self, user_id: str, text: str, msg_type: str = "text", receive_id_type: str = "open_id") -> dict:
         """发消息（im/v1/messages）。
 
         Args:
-            user_id: 接收者 ID（open_id）
+            user_id: 接收者 ID（open_id 或 chat_id）
             text: 消息内容
             msg_type: "text" | "interactive"（卡片）
+            receive_id_type: "open_id"（私聊） | "chat_id"（群）
 
         Returns:
             {"message_id": "..."}
         """
-        url = f"{self.base_url}/im/v1/messages?receive_id_type=open_id"
+        url = f"{self.base_url}/im/v1/messages?receive_id_type={receive_id_type}"
         body = {
             "receive_id": user_id,
             "msg_type": msg_type,

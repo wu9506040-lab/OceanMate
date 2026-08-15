@@ -50,12 +50,13 @@ _CHANNEL_KEYWORDS = {
 
 
 def extract_pda_params(query: str) -> dict:
-    """从用户自然语言中提取 country / channel / error_code。
+    """从用户自然语言中提取 country / channel / error_code / order_id。
 
     Returns:
-        {"country": "US" | None, "channel": "Visa" | None, "error_code": "CB_13.1" | None}
+        {"country": "US" | None, "channel": "Visa" | None,
+         "error_code": "CB_13.1" | None, "order_id": "ORD-12345" | None}
     """
-    result = {"country": None, "channel": None, "error_code": None}
+    result = {"country": None, "channel": None, "error_code": None, "order_id": None}
     q = query or ""
 
     # 1. country 提取（中英文都支持）
@@ -80,7 +81,7 @@ def extract_pda_params(query: str) -> dict:
         if result["channel"]:
             break
 
-    # 3. error_code 提取（CB_xx / ERR_xx / 数字模式）
+    # 3. error_code 提取（CB_xx / ERR_xx / 数字模式 / 「错误码是 XX」句式）
     # 3a) CB_xxx 模式（如 CB_13.1）
     m = re.search(r"(CB_[A-Za-z0-9._]+)", q)
     if m:
@@ -90,15 +91,37 @@ def extract_pda_params(query: str) -> dict:
         m = re.search(r"(ERR_[A-Z0-9_]+)", q)
         if m:
             result["error_code"] = m.group(1)
-    # 3c) "Visa 13.1" / "MC 4837" 模式 → CB_13.1 / CB_4837
-    # Day 15 P0-C 修复：中文 query 里 \b word boundary 不工作（如"美国Visa 13.1拒付..."）
-    # → 中文无 word boundary，正则不会匹配。改为非边界匹配 + 排除前后是数字。
+    # 3c) Day 18 P2-final：「错误码是 XX」「错误码XX」「err_code XX」句式
+    #     不需要 channel 关键词先行（修复前必须 channel 才有 error_code → 多轮断崖）
+    if not result["error_code"]:
+        m = re.search(
+            r"(?:错误码|err(?:or)?[ _-]?code|error[ _-]?code|error)\s*[:是为=]?\s*([A-Za-z]*[._-]?\d+(?:[._-]\d+)*)",
+            q,
+            re.IGNORECASE,
+        )
+        if m:
+            num = m.group(1).strip("._-")
+            if num:
+                result["error_code"] = f"CB_{num}"
+    # 3d) "Visa 13.1" / "MC 4837" 模式（需要 channel 关键词先行）→ CB_13.1 / CB_4837
     if not result["error_code"] and result["channel"]:
         m = re.search(r"(?<!\d)(\d{4}|\d+\.\d)(?!\d)", q)
         if m:
             num = m.group(1)
             # 关键：真实数据用 "." 不是 "_"（CB_13.1 / CB_4837）
             result["error_code"] = f"CB_{num}"
+
+    # 4. order_id 提取（Day 18 P2-final：新加）
+    # 4a) 「订单号 ORD-12345」「订单号: XXX」句式
+    if not result["order_id"]:
+        m = re.search(r"订单号\s*[:是为=]?\s*([A-Za-z]*[-_]?\d+[-\w]*)", q)
+        if m:
+            result["order_id"] = m.group(1).strip()
+    # 4b) ORD-xxxxx / order_id: xxxx 直接命中
+    if not result["order_id"]:
+        m = re.search(r"\b(ORD[-\w]+|\d{6,})\b", q, re.IGNORECASE)
+        if m:
+            result["order_id"] = m.group(1)
 
     return result
 
@@ -330,7 +353,7 @@ def enrich_msa_ctx(ctx: dict, query: str) -> dict:
 
 _TRA_QUERY_KEYWORDS = [
     "进度", "状态", "查询", "查", "看看", "查一下", "进度如何",
-    "进展", "处理到哪", "处理到", "跟进", "在哪儿", "在哪",
+    "进展", "处理到哪", "处理到", "在哪儿", "在哪",
     "tkt_", "工单号",
 ]
 
@@ -342,12 +365,17 @@ _TRA_RESOLVE_KEYWORDS = [
 ]
 
 # Day 15 P0-B：「创建工单」类 query（避免被 PDA 抢走路由）
+# Day 18 P1-final：加"跟进"/"介入"等运营介入关键词（自然语言派单）
 _TRA_CREATE_KEYWORDS = [
     "创建工单", "新建工单", "建工单", "开工单",
     "帮我开", "帮我建", "帮我创建", "帮我弄", "帮我搞", "帮我提",
     "弄一个", "搞一个", "提一个", "下一个", "起一个",
     "派单", "派个单",  # 「回复派单」也是显式触发
     "创建", "新建",  # 单独出现也认
+    # 自然语言运营介入/跟进（让「帮我跟进」直接派单而不是走 query_status）
+    "跟进", "介入", "帮我跟进", "帮我介入", "帮我处理",
+    "需要跟进", "需要介入", "需要处理",
+    "运营跟进", "运营介入", "运营处理",
 ]
 
 # Day 17 v3：用于从 query 里提 ticket_id 的正则
@@ -579,11 +607,18 @@ def route_tra(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
         query_matched = []
     else:
         # 从 query 文本里查 query 关键词（不依赖 ctx）
-        query_matched = [k for k in _TRA_QUERY_KEYWORDS if k in query]
-        if query_matched:
-            sub_intent = "query_status"
-        else:
+        # Day 18 P1：CREATE 关键词优先于 QUERY 关键词（「帮我创建工单跟进这件事」
+        # 同时含「帮我创建」和「跟进」，应走 route_ticket 不是 query_status）
+        create_matched = [k for k in _TRA_CREATE_KEYWORDS if k in query]
+        if create_matched:
             sub_intent = "route_ticket"
+            query_matched = create_matched
+        else:
+            query_matched = [k for k in _TRA_QUERY_KEYWORDS if k in query]
+            if query_matched:
+                sub_intent = "query_status"
+            else:
+                sub_intent = "route_ticket"
 
     params = {
         "intent": sub_intent,

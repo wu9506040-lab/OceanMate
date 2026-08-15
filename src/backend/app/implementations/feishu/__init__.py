@@ -107,6 +107,12 @@ def __getattr__(name):
     if name == "get_ws_debug_state":
         from app.implementations.feishu.ws_client import get_ws_debug_state
         return get_ws_debug_state
+    if name == "get_briefings_debug_state":
+        from app.implementations.feishu.ws_client import get_briefings_debug_state
+        return get_briefings_debug_state
+    if name == "get_human_mode_debug_state":
+        from app.implementations.feishu.ws_client import get_human_mode_debug_state
+        return get_human_mode_debug_state
     if name == "start_feishu_poller_in_background":
         from app.implementations.feishu.poller import start_feishu_poller_in_background
         return start_feishu_poller_in_background

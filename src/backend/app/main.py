@@ -67,6 +67,8 @@ from app.implementations.feishu import (
     start_feishu_poller_in_background,
     should_start_poller,
     get_poller_debug_state,
+    get_briefings_debug_state,
+    get_human_mode_debug_state,
 )
 from app.implementations.feishu.api import FeishuOpenAPI
 from app.implementations.demo_scenarios import DEMO_SCENARIOS
@@ -179,6 +181,13 @@ import logging
 import traceback
 from fastapi.responses import JSONResponse
 
+# Day 18 P1 修复：显式设置 root logger level，否则 uvicorn 默认 WARNING
+# 会把 ws_client.py / webhook.py 里的 logger.info / logger.debug 全过滤掉，
+# 业务处理成功但日志看不到，调试 root cause 极其困难。
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 
@@ -301,6 +310,22 @@ def debug_ws_state():
 def debug_poller_state():
     """Poller 轮询调试态：轮询次数 + 已处理消息 + 最近 20 条流水。"""
     return get_poller_debug_state()
+
+
+@app.get("/api/debug/briefings")
+def debug_briefings():
+    """简报历史（单账号演示：send_private 拦截后存的简报）。
+
+    单账号演示下 lead_open_id == merchant_user_id，send_private 会污染商户 DM，
+    所以改为存到 _briefing_history。演示者从此端点看完整简报（含跳转链接）。
+    """
+    return get_briefings_debug_state()
+
+
+@app.get("/api/debug/human_mode")
+def debug_human_mode():
+    """当前在人工模式的用户列表（演示用：实时看 lead 是否在「人工接管」状态）。"""
+    return get_human_mode_debug_state()
 
 
 # === Day 10 黄金用例（评审 / 录屏用）===

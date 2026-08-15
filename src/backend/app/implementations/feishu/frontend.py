@@ -59,13 +59,17 @@ class FeishuFrontend(BaseFrontend):
 
     # === 5 方法实现 ===
 
-    def send_message(self, user_id: str, message: str) -> bool:
+    def send_message(self, user_id: str, message: str, receive_id_type: str = "open_id") -> bool:
         """发消息给商户（im/v1/messages）。
+
+        Args:
+            user_id: open_id（私聊） | chat_id（群）
+            receive_id_type: "open_id" | "chat_id"（Day 18 P1：群消息回复）
 
         异常处理：网络/Auth/JSON 错 → 返回 False + log（不抛 raw exception）。
         """
         try:
-            self.api.send_message(user_id=user_id, text=message)
+            self.api.send_message(user_id=user_id, text=message, receive_id_type=receive_id_type)
             return True
         except FeishuAPIError as e:
             logger.warning(f"Feishu send_message failed: {e}")
