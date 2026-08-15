@@ -56,7 +56,7 @@ PDA_TO_TRA_CHAIN = {
         "problem_type": prev_data.get("problem_type"),
         "priority": ctx.get("priority") or prev_data.get("priority") or "medium",
         "tier": ctx.get("tier", "standard"),
-        "merchant_id": ctx.get("merchant_id"),
+        "merchant_id": ctx.get("merchant_id") or "unknown_demo_merchant",
         "diagnosis_id": prev_data.get("diagnosis_id") or "",  # None → ""（TRA schema 要求 string）
         "problem_summary": ctx.get("user_query", "")[:200],
         # 注意：TRA schema 不接受 source 字段（不在 input_schema 中），省略
@@ -76,7 +76,7 @@ TRA_TO_KEA_CHAIN = {
         "intent": "search_faq",
         "query": (prev_data.get("problem_type", "") or "") + " " + (ctx.get("user_query", "") or ""),
         "top_k": 3,
-        "country": ctx.get("country"),
+        "country": ctx.get("country") or "GLOBAL",
     },
 }
 

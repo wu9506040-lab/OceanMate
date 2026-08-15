@@ -81,6 +81,10 @@ INTENT_KEYWORDS = {
     "knowledge_evolution": [
         "FAQ", "知识库", "怎么操作", "如何接入",
         "文档", "教程", "Merchange Console",
+        # Day 18 P0：半自动知识闭环关键词（list_candidates / approve_case / reject_case）
+        # 防止"列出待审核"/"审核 case_001"被 TRA 抢路由
+        "列出", "待审核", "审核", "通过", "驳回",
+        "approve", "reject", "case_", "✅", "❌",
     ],
 }
 
