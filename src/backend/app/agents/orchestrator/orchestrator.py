@@ -77,6 +77,16 @@ INTENT_KEYWORDS = {
         "帮我开", "帮我建", "帮我创建", "帮我弄", "帮我搞", "帮我提",
         "弄一个", "搞一个", "提一个", "下一个", "起一个",
         "创建", "新建",
+        # Day 18 P1-final：自然语言介入/跟进类关键词
+        # 让 TRA 在「需要你们运营团队介入处理」「帮我跟进」「运营介入」上赢过 PDA
+        "运营团队", "运营介入", "介入", "跟进", "帮我处理", "帮我跟进", "帮我介入",
+        "运营跟进", "团队介入", "人工介入", "需要介入", "需要跟进",
+        # Day 18 P1-final：「AI 答不了」类关键词
+        # 商户明确表示 bot 答不了（"我不懂/不知道/不清楚"）→ 自动派单
+        # 替代之前错误的"PDA 反问自动派单"逻辑
+        "我不懂", "我不知道", "我也不清楚", "不清楚", "不懂", "答不上",
+        "答不上来", "不知道怎么", "不知道怎么搞", "不知道怎么解决",
+        "试了没用", "试了不行", "试了还是", "都没用", "都不行",
     ],
     "knowledge_evolution": [
         "FAQ", "知识库", "怎么操作", "如何接入",
@@ -159,6 +169,13 @@ class Orchestrator:
         user_query: str,
         merchant_context: Optional[dict] = None,
     ) -> dict:
+        # Day 18 P1：ctx 携带 force_intent 时强制覆盖意图（ws_client 会话延续用）
+        # 例：商户回"需要"→ recovered_from_session → force_intent="ticket_routing"
+        #   避免 bot 走 unknown → MSA 反问
+        # 注意：这里只是 pop 出 force_intent，不污染 _route_locked 收到的 ctx
+        force_intent = None
+        if isinstance(merchant_context, dict) and "force_intent" in merchant_context:
+            force_intent = merchant_context.pop("force_intent")
         """主入口：识别意图 → 调对应 Tool → 可选链式触发下一 Tool → 返回。
 
         Day 14 P1-3 新增 chain_mode="auto" 自动链式触发（如 PDA → TRA → KEA）。
@@ -209,12 +226,13 @@ class Orchestrator:
 
         # Day 15 P0-2：并发锁（route 入口加锁，instance 级可重入）
         with self._route_lock:
-            return self._route_locked(user_query, merchant_context)
+            return self._route_locked(user_query, merchant_context, force_intent=force_intent)
 
     def _route_locked(
         self,
         user_query: str,
         merchant_context: Optional[dict],
+        force_intent: Optional[str] = None,
     ) -> dict:
         """route() 的加锁实现（Day 15 P0-2：threading.RLock 包裹）。
 
@@ -225,6 +243,14 @@ class Orchestrator:
 
         # Step 1: 关键词匹配
         intent, matched = self._classify_intent(user_query)
+
+        # Step 1.5: Day 18 P1 — ctx.force_intent 强制覆盖（ws_client 会话延续用）
+        # 当 ws 检测到肯定词 + 历史 ctx 时，会在 ctx 里放 force_intent="ticket_routing"
+        # 这种情况下跳过关键词分类，直接走对应 router
+        if force_intent and force_intent in INTENT_KEYWORDS:
+            intent = force_intent
+            matched = []  # 强制意图不依赖关键词
+            logger.info(f"[Orchestrator] force_intent={force_intent} 覆盖关键词结果")
 
         # Step 2: 关键词未命中 + 启用 LLM fallback → 调 LLM 兜底
         llm_used = False
@@ -347,7 +373,21 @@ class Orchestrator:
 
         注：本方法被 route() 调用时已做 LLM 兜底，这里实际只跑关键词。
         单独抽出来便于测试 + 未来扩展（如多轮对话复用关键词结果）。
+
+        Day 18 P1-final：增加「AI 答不了」优先级。
+        商户说"我不懂/不知道/不清楚/答不上"明确表示 bot 答不了 → 强制走 ticket_routing。
+        覆盖 PDA 关键词的"错误码"等先命中问题（如"我不知道错误码"应是派单不是反问）。
         """
+        # Day 18 P1-final：「AI 答不了」硬优先级（强制走 ticket_routing，不计分）
+        _AI_CANNOT_ANSWER = (
+            "我不懂", "我不知道", "我也不清楚", "不清楚",
+            "答不上", "答不上来", "不知道怎么",
+        )
+        q_lower = query or ""
+        for kw in _AI_CANNOT_ANSWER:
+            if kw in q_lower:
+                return "ticket_routing", [kw]
+
         scores = {}
         matched_by_intent = {}
         for intent, kws in INTENT_KEYWORDS.items():

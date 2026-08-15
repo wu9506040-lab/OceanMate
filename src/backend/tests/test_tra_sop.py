@@ -338,17 +338,16 @@ class TestFriendlyDegradation:
     """SOP-TRA-002：所有失败场景必须用户友好。"""
 
     def test_missing_problem_type_returns_friendly_error(self, tra):
-        """route_ticket 缺 problem_type → 友好提示，不抛 raw exception。"""
+        """route_ticket 缺 problem_type → Day 18 P1 自动推断「拒付」并成功派单。"""
         result = tra.execute({
             "intent": "route_ticket",
             "priority": "high",
             "tier": "vip",
         })
-        assert result["status"] == "not_found"
-        assert result["match_level"] == "no_match"
-        assert "problem_type" in result["trace"]["hint"]
-        # 必须返 trace 不是裸抛
-        assert "rules_loaded" in result["trace"]
+        # Day 18 P1：缺 problem_type 时自动推断为「拒付」并完成路由
+        assert result["status"] == "pending"
+        assert result["problem_type"] == "拒付"
+        assert result["ticket_id"].startswith("tkt_")
 
     def test_no_rules_loaded_returns_friendly_error(self, tra_no_rules):
         """规则 JSON 不存在 → 友好兜底。"""

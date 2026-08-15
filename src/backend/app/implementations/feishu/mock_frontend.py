@@ -52,9 +52,9 @@ class MockFrontend(BaseFrontend):
 
     # === 5 方法实现（全部 mock） ===
 
-    def send_message(self, user_id: str, message: str) -> bool:
+    def send_message(self, user_id: str, message: str, receive_id_type: str = "open_id") -> bool:
         """Mock 发消息：永远成功 + 写日志。"""
-        self._log("send_message", user_id=user_id, message=message)
+        self._log("send_message", user_id=user_id, message=message, receive_id_type=receive_id_type)
         return True
 
     def send_private(self, user_id: str, message: str) -> bool:
