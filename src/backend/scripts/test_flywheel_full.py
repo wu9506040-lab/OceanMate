@@ -36,7 +36,7 @@ with TestClient(m.app) as client:
     print('\n[Step 2] 查 cases 表')
     case_repo = kea.case_repo
     if case_repo:
-        all_cases = case_repo.list_all(limit=10)
+        all_cases = case_repo.list(limit=10)
         print(f"  cases 表总数: {len(all_cases)}")
         for c in all_cases[:3]:
             cid = getattr(c, 'id', c.get('id') if isinstance(c, dict) else '?')

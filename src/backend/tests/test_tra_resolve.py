@@ -146,9 +146,10 @@ class TestResolveTicket:
         assert result["promote_result"]["rejected"] is True
 
     def test_resolve_no_case_found_no_promote(self, tra_with_kea, mock_kea):
-        """diagnosis_id 查不到 case → 不 promote，trace.skip_promote_reason 有说明。"""
+        """Day 18 P0：diagnosis_id 查不到 case → 自动生成 case 并 promote（关单即沉淀）。"""
         tra_with_kea.case_repo.get_by_id.return_value = None
         tra_with_kea.case_repo.list.return_value = []
+        tra_with_kea.case_repo.create.return_value = True
 
         result = tra_with_kea.execute({
             "intent": "resolve_ticket",
@@ -158,11 +159,12 @@ class TestResolveTicket:
 
         # 工单仍关闭成功
         assert result["status"] == "closed"
-        # KEA 没被调
-        assert not mock_kea.execute.called
-        # promote_result 是 None
-        assert result["promote_result"] is None
-        assert "未关联 case" in result["trace"]["skip_promote_reason"]
+        # Day 18 P0：自动生成 case → KEA 被调
+        assert tra_with_kea.case_repo.create.called
+        assert mock_kea.execute.called
+        # 传给 KEA 的 case_id 是自动生成的（case_tkt_xxxx_<timestamp>）
+        call_args = mock_kea.execute.call_args[0][0]
+        assert call_args["case_id"].startswith("case_tkt_")
 
     def test_resolve_ticket_not_found(self, tra_with_kea):
         """不存在的 ticket_id → not_found。"""
