@@ -364,7 +364,7 @@ _KEA_SEARCH_KEYWORDS = [
 # 设计原则：审核命令要简单，能在飞书对话里直接打出来
 _KEA_REVIEW_KEYWORDS = ["审核", "审一下", "审批", "approve", "reject", "✅", "❌"]
 # case_id 正则：case_ 后跟 1~30 字母数字（涵盖 case_001 短格式 + case_demo_high_001 长格式）
-_KEA_CASE_ID_RE = re.compile(r"(case_[a-zA-Z0-9]{1,30})")
+_KEA_CASE_ID_RE = re.compile(r"(case_[a-zA-Z0-9_]{1,40})")
 _KEA_APPROVE_VERBS = ["通过", "同意", "approve", "✅", "ok", "OK", "好的", "可以", "行", "是"]
 _KEA_REJECT_VERBS = ["拒绝", "驳回", "reject", "❌", "不通过", "no", "NO", "不行", "别", "否"]
 
@@ -651,7 +651,6 @@ def route_kea(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
         params = {
             "intent": review_sub_intent,
             "case_id": review_case_id,
-            "reviewer": ctx.get("reviewer") or ctx.get("merchant_id") or "operator",
         }
         result = registry.safe_execute("knowledge_evolution", params)
         return {

@@ -64,12 +64,15 @@ def create_default_orchestrator(
     orch = Orchestrator()
     orch.register_tool(MSATool(rag=rag, llm=llm))
     orch.register_tool(PDATool())  # PDA 内部自管 service，LLM 自带降级
-    orch.register_tool(TRATool(ticket_repo=ticket_repo))
-    orch.register_tool(KEATool(
+    # Day 18 P0：先实例化 KEA → 再注入 TRA（TRA auto_promote 钩子依赖 KEA）
+    # 修 chain_config + factory 同模式 bug（Day 14 修复模式）
+    kea_tool = KEATool(
         case_repo=case_repo,
         rag=rag,
         embedding_meta_repo=db,
-    ))
+    )
+    orch.register_tool(TRATool(ticket_repo=ticket_repo, kea=kea_tool, case_repo=case_repo))
+    orch.register_tool(kea_tool)
     return orch
 
 
