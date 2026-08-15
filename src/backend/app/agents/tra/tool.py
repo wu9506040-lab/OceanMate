@@ -475,8 +475,38 @@ class TRATool(BaseTool):
             case_id = self._lookup_case_id(diagnosis_id)
 
             if not case_id:
-                skip_promote_reason = f"diagnosis_id='{diagnosis_id}' 未关联 case"
-            else:
+                # Day 18 P0：diagnosis_id 为空时自动生成 case（关单即沉淀）
+                # PoC：cases 表根据 ticket_data + resolution 派生，case_id 用 ticket 后缀
+                if self.case_repo is not None:
+                    try:
+                        from app.models import Case
+                        import time as _time
+                        case_id = f"case_tkt_{ticket_id[-8:]}_{int(_time.time())}"
+                        new_case = Case(
+                            id=case_id,
+                            problem_desc=str(ticket_data.get("problem_type") or "工单案例")[:200],
+                            diagnosis=str(ticket_data.get("problem_type") or "")[:200],
+                            resolution=resolution[:200] if resolution else "",
+                            country=ticket_data.get("country") or "GLOBAL",
+                            channel=ticket_data.get("channel") or "unknown",
+                            error_code=ticket_data.get("error_code") or "",
+                            problem_type=ticket_data.get("problem_type", ""),
+                            confidence=0.85,  # 关单默认置信度（审核流程会校验）
+                            merchant_id=ticket_data.get("merchant_id") or "unknown_demo_merchant",
+                            feishu_record_id="",
+                        )
+                        if self.case_repo.create(new_case):
+                            logger.info(f"[TRA] 关单自动生成 case: {case_id}")
+                        else:
+                            case_id = None
+                            skip_promote_reason = "case_repo.create 失败"
+                    except Exception as e:
+                        case_id = None
+                        logger.warning(f"[TRA] 自动生成 case 异常: {e}")
+                        skip_promote_reason = f"自动生成 case 异常: {e}"
+                else:
+                    skip_promote_reason = f"diagnosis_id='{diagnosis_id}' 未关联 case 且 case_repo 未注入"
+            if case_id:
                 # 调 KEA.promote_to_faq
                 try:
                     wrapped = self.kea.execute({
@@ -485,7 +515,6 @@ class TRATool(BaseTool):
                     })
                     promote_result = wrapped
                 except Exception as e:
-                    logger = logging.getLogger(__name__)
                     logger.warning(f"resolve_ticket → KEA.promote_to_faq 失败: {e}")
                     skip_promote_reason = f"KEA 调用异常: {e}"
         elif auto_promote and self.kea is None:

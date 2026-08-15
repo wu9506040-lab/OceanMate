@@ -1,0 +1,37 @@
+{
+  "T0": {
+    "intent": "payment_diagnosis",
+    "conf": 0.8,
+    "ticket_id": "tkt_03e97801f65b",
+    "chain_steps": [
+      "payment_diagnosis",
+      "ticket_routing",
+      "knowledge_evolution"
+    ]
+  },
+  "T1": {
+    "intent": "payment_diagnosis_clarify",
+    "reply": "",
+    "clarify_message": "您的问题我需要更多信息"
+  },
+  "T3": {
+    "intent": "ticket_routing",
+    "status": "closed",
+    "promote_result_pending_review": true,
+    "auto_case_id": "case_tkt_7801f65b_1786804654"
+  },
+  "T4": {
+    "intent": "knowledge_evolution",
+    "candidates_count": 4,
+    "first_case": "case_tkt_7801f65b_1786804654"
+  },
+  "T6": {
+    "intent": "knowledge_evolution",
+    "approved": true,
+    "chroma_id": "faq_case_tkt_7801f65b_1786804654_864c68fe",
+    "faq_vec_count": 9
+  },
+  "T9": {
+    "intent": "payment_diagnosis"
+  }
+}
