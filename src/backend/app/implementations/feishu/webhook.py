@@ -250,6 +250,89 @@ def _br_pix_template() -> dict:
     }
 
 
+# Day 18 P2-final：跨 channel 兜底模板（解决 T1.5 bug）
+# 商户说 "MasterCard 拒付 13.1"（13.1 实际是 Visa 码）→ PDA Tool 推断 category=not_received
+# 现有 _PDA_TEMPLATES 只有 ("拒付", "not_received", "Visa")，三层 fallback 全 miss → 落到默认模板
+# 修复：增加 channel=None 兜底模板，任何 channel 都能命中具体 category 方案
+
+def _not_received_template(channel_hint: str) -> dict:
+    """拒付·商品/服务未收到 类模板（Visa 13.1/13.3、Mastercard 等通用）。
+
+    channel_hint: "Visa" / "Mastercard" / "通用" — 用于标题里告知商户。
+    """
+    is_visa = channel_hint == "Visa"
+    auto_block_label = "Visa RDR" if is_visa else "Mastercard Collaboration (CFR 平台)"
+    block_short = "RDR" if is_visa else "Collaboration"
+    return {
+        "title": f"{channel_hint} 13.x 拒付（买家说没收到货）",
+        "empathy": "看到您遇到拒付，确实让人头疼，我来帮您分析。",
+        "steps": [
+            {
+                "title": "第一步：准备申诉材料",
+                "content": [
+                    "实物商品：物流单号 + 签收记录",
+                    "数字商品：下载记录 + 登录日志 + 激活时间",
+                    "都要附上和买家的沟通截图",
+                ],
+            },
+            {
+                "title": f"第二步：开通 {auto_block_label} 自动拦截",
+                "content": [
+                    f"在 OP 商户后台 → 风控管理里开启 {auto_block_label}",
+                    f"以后这类拒付会自动拦截，不用每次申诉",
+                ],
+            },
+            {
+                "title": "第三步：降低以后的拒付",
+                "content": [
+                    "发货后主动给买家发物流信息",
+                    "减少『以为没发货』的误会",
+                ],
+            },
+        ],
+        "cta": f"需要我帮你创建工单让财务团队跟进，或开通 {block_short} 自动拦截吗？",
+    }
+
+
+def _not_authorized_template(channel_hint: str) -> dict:
+    """拒付·未获持卡人授权 类模板（MC 4837/4863、Visa 等通用）。
+
+    channel_hint: "Mastercard" / "Visa" / "通用" — 用于标题里告知商户。
+    """
+    is_mc = channel_hint == "Mastercard"
+    block_label = "Mastercard Collaboration (CFR 平台)" if is_mc else "Visa RDR"
+    block_short = "Collaboration" if is_mc else "RDR"
+    return {
+        "title": f"{channel_hint} 4837/4863 拒付（持卡人不认这笔交易）",
+        "empathy": "未授权类拒付容易反复触发，我来帮您梳理根因。",
+        "steps": [
+            {
+                "title": "第一步：检查 3DS / SecureCode 验证记录",
+                "content": [
+                    "在 OP 商户后台 → 风控管理 → 3DS 配置",
+                    "看这笔交易是否触发 3DS 验证",
+                    "如果没触发，下次同样会被拒",
+                ],
+            },
+            {
+                "title": "第二步：检查 Card-on-File 配置",
+                "content": [
+                    "CVV 校验是否开启",
+                    "存储的卡信息是否加密（PCI DSS）",
+                ],
+            },
+            {
+                "title": f"第三步：开通 {block_label} 拦截",
+                "content": [
+                    "在 OP 商户后台 → 风控管理 → Collaboration / RDR",
+                    "可在拒付发生前主动拦截",
+                ],
+            },
+        ],
+        "cta": f"需要我帮你创建工单让财务团队跟进，或开通 {block_short} 拦截吗？",
+    }
+
+
 # 模板按 (problem_type, category, channel) 三层 fallback 选
 _PDA_TEMPLATES: dict = {
     # === Visa 13.1 — 拒付：商品/服务未收到 ===
@@ -316,6 +399,14 @@ _PDA_TEMPLATES: dict = {
     ("支付失败", "pix_weekend", None): _br_pix_template(),
     ("结算延迟", "pix_weekend", None): _br_pix_template(),
     ("结算延迟", None, None): _br_pix_template(),
+    # === Day 18 P2-final：跨 channel 兜底（T1.5 bug 修复）===
+    # 商户说 "MasterCard 拒付 13.1" → PDA Tool 推断 category=not_received
+    # 不加这两个 key 就会三层 fallback 全 miss，落到默认"收集证据"模板
+    ("拒付", "not_received", "Mastercard"): _not_received_template("Mastercard"),
+    ("拒付", "not_authorized", "Visa"): _not_authorized_template("Visa"),
+    # channel=None 兜底（任何 channel 命中 category 都给具体方案，不再 fallback 到默认）
+    ("拒付", "not_received", None): _not_received_template("通用"),
+    ("拒付", "not_authorized", None): _not_authorized_template("通用"),
 }
 
 
@@ -945,10 +1036,13 @@ class FeishuWebhookHandler:
 
     # === 辅助 ===
 
-    def _safe_send(self, user_id: str, message: str) -> bool:
-        """Frontend 发送失败也不抛异常（拒答友好降级）。"""
+    def _safe_send(self, user_id: str, message: str, receive_id_type: str = "open_id") -> bool:
+        """Frontend 发送失败也不抛异常（拒答友好降级）。
+
+        Day 18 P1：receive_id_type 支持 "chat_id"（群消息回复）
+        """
         try:
-            return self.frontend.send_message(user_id, message)
+            return self.frontend.send_message(user_id, message, receive_id_type=receive_id_type)
         except Exception as e:
             logger.warning(f"Frontend send_message failed: {e}")
             return False
