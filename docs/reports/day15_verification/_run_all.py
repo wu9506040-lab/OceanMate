@@ -133,7 +133,7 @@ CASES = [
         "key_check": "完整链路: webhook → orchestrator → send_image 触发",
         "user_query": "我美国站卖软件的，Visa 13.1 拒付好多，怎么办？",
         "via": "webhook",
-        "merchant_context": {"user_id": "ou_aa9ece53b9a503cf7007ce2d42021a1c"},
+        "merchant_context": {"user_id": os.environ.get("FEISHU_USER_ID_DEMO", "ou_demo_user")},
         "expect": {
             "intent": "payment_diagnosis",
             "image_path": "data/error_images/cb_demo_13_1.png",
@@ -146,7 +146,7 @@ CASES = [
         "key_check": "完整链路: webhook → orchestrator → send_image + Fix D",
         "user_query": "美国 MC 4837 拒付越来越多",
         "via": "webhook",
-        "merchant_context": {"user_id": "ou_aa9ece53b9a503cf7007ce2d42021a1c"},
+        "merchant_context": {"user_id": os.environ.get("FEISHU_USER_ID_DEMO", "ou_demo_user")},
         "expect": {
             "intent": "payment_diagnosis",
             "image_path": "data/error_images/cb_demo_4837.png",
@@ -173,7 +173,7 @@ def post_webhook(query: str, user_id: str) -> int:
         "schema": "2.0",
         "header": {
             "event_type": "im.message.receive_v1",
-            "app_id": "cli_aaf8271657f9dbb5",
+            "app_id": os.environ.get("FEISHU_APP_ID", "cli_demo_app"),
             "tenant_key": "x",
             "create_time": str(int(time.time())),
         },

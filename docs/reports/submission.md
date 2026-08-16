@@ -519,8 +519,9 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 ![Feishu Chat](../runbook/feishu_chat_screenshot.png)
 
 **说明**：
-- 1280×800 PNG（74KB），Playwright headless 真实渲染
-- 模拟真实飞书智能伙伴 UI（左侧深色导航 + 右侧对话气泡）
+- ⚠️ **此为产品形态示意图（程序化 mock）**，非真实飞书对话截图；用于静态文档呈现产品形态
+- 真实对话请看 demo 视频（录屏脚本 `demo/recordings/main_demo_script.md`）
+- 视觉规范：左侧深色导航 + 右侧对话气泡（按真实飞书色系还原）
 - 对话流（真实 demo_01 链路）：
   - 14:23 商户"你好消息" → bot 4 能力菜单回复
   - 14:24 商户问"美国站卖软件，Visa 13.1 拒付好多" → PDA 诊断回执
@@ -531,7 +532,8 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 ![Diagnosis](../runbook/diagnosis_screenshot.png)
 
 **说明**：
-- 1100×900 PNG（110KB），Playwright headless 真实渲染
+- ⚠️ **此为产品形态示意图（程序化 mock）**，非真实飞书界面截图
+- 真实诊断输出请参考 § 6.1 demo_01 实测 JSON + 录屏视频
 - demo_01（M_US_DIGITAL_001 / US / Visa / CB_13.1）真实输出结构卡片化
 - 5 模块：问题档案 + 根因分析（3 类）+ 证据链（4 条）+ 配图卡片 + 申诉建议（4 步）
 - 底部 metadata：demo_id + tool + latency + 自动派单 + send_private briefing

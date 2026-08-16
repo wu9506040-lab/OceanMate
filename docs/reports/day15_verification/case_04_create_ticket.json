@@ -1,7 +1,7 @@
 {
   "case": "case_04_create_ticket",
   "via": "api",
-  "elapsed_ms": 5,
+  "elapsed_ms": 475,
   "result": {
     "intent": "ticket_routing",
     "tool_name": "ticket_routing",
@@ -9,21 +9,37 @@
       "success": true,
       "data": {
         "intent": "route_ticket",
-        "ticket_id": "",
-        "problem_type": "",
+        "ticket_id": "tkt_21d3bc5420d1",
+        "problem_type": "拒付",
         "priority": "medium",
-        "status": "not_found",
-        "assignee": "",
-        "source": "",
+        "status": "pending",
+        "assignee": "财务团队-争议处理",
+        "source": "merchant_diagnosis",
         "diagnosis_id": null,
-        "sla_hours": 0,
-        "notification_channel": "",
-        "rule_id": "",
-        "match_level": "no_match",
-        "create_time_estimate": "",
+        "sla_hours": 12,
+        "notification_channel": "飞书财务群",
+        "rule_id": "rule_demo_chargeback_medium",
+        "match_level": "priority_wildcard",
+        "create_time_estimate": "2026-08-16T19:43:07.753185Z",
+        "briefing": {
+          "team": "财务团队-争议处理",
+          "notification_channel": "飞书财务群",
+          "ticket_id": "tkt_21d3bc5420d1",
+          "merchant_id": "",
+          "problem_type": "拒付",
+          "priority": "medium",
+          "diagnosis_id": "",
+          "problem_summary": "",
+          "sla_hours": 12,
+          "sla_due": "2026-08-16T19:43:07.753185Z"
+        },
         "trace": {
-          "error": "problem_type 必填",
-          "hint": "请从 PDA 诊断结果中传入 problem_type，或商户明确告知问题类型。",
+          "rule_id": "rule_demo_chargeback_medium",
+          "matched_priority": "medium",
+          "matched_tier": "*",
+          "persisted_via": "both",
+          "feishu_record_id": "fss_a03da15026414ce5",
+          "summary_chars": 0,
           "rules_loaded": 10
         }
       }
@@ -35,14 +51,91 @@
         "创建"
       ],
       "sub_intent": "route_ticket",
-      "query_intent_matched": [],
+      "query_intent_matched": [
+        "帮我创建",
+        "创建"
+      ],
       "params": {
         "intent": "route_ticket",
         "priority": "medium",
         "tier": "standard"
       },
       "llm_used": false
-    }
+    },
+    "chain": [
+      {
+        "step": 2,
+        "tool": "knowledge_evolution",
+        "result": {
+          "success": true,
+          "data": {
+            "intent": "search_faq",
+            "count": 3,
+            "faqs": [
+              {
+                "chroma_id": "faq_case_tkt_b4a7bdef_1786810090_6eb560d5",
+                "case_id": "case_tkt_b4a7bdef_1786810090",
+                "text_excerpt": "问题: 拒付\n诊断: 拒付\n解决方案: 已联系银行并补充凭证，争议处理材料已提交\n国家: GLOBAL\n渠道: unknown\n错误码: N/A",
+                "country": "GLOBAL",
+                "problem_type": "拒付",
+                "score_proxy": 0.85,
+                "case_info": {
+                  "problem_desc": "拒付",
+                  "resolution": "已联系银行并补充凭证，争议处理材料已提交",
+                  "country": "GLOBAL",
+                  "channel": "unknown",
+                  "error_code": "",
+                  "problem_type": "拒付",
+                  "confidence": 0.85
+                }
+              },
+              {
+                "chroma_id": "faq_case_tkt_47ac2340_1786810135_9f322ff1",
+                "case_id": "case_tkt_47ac2340_1786810135",
+                "text_excerpt": "问题: 拒付\n诊断: 拒付\n解决方案: 已联系银行并补充凭证，争议处理材料已提交\n国家: GLOBAL\n渠道: unknown\n错误码: N/A",
+                "country": "GLOBAL",
+                "problem_type": "拒付",
+                "score_proxy": 0.85,
+                "case_info": {
+                  "problem_desc": "拒付",
+                  "resolution": "已联系银行并补充凭证，争议处理材料已提交",
+                  "country": "GLOBAL",
+                  "channel": "unknown",
+                  "error_code": "",
+                  "problem_type": "拒付",
+                  "confidence": 0.85
+                }
+              },
+              {
+                "chroma_id": "faq_case_tkt_bc2406ea_1786813991_7ee904a3",
+                "case_id": "case_tkt_bc2406ea_1786813991",
+                "text_excerpt": "问题: 拒付\n诊断: 拒付\n解决方案: 已联系银行并补充凭证，争议处理材料已提交\n国家: GLOBAL\n渠道: unknown\n错误码: N/A",
+                "country": "GLOBAL",
+                "problem_type": "拒付",
+                "score_proxy": 0.85,
+                "case_info": {
+                  "problem_desc": "拒付",
+                  "resolution": "已联系银行并补充凭证，争议处理材料已提交",
+                  "country": "GLOBAL",
+                  "channel": "unknown",
+                  "error_code": "",
+                  "problem_type": "拒付",
+                  "confidence": 0.85
+                }
+              }
+            ],
+            "trace": {
+              "query": "拒付 帮我创建一个工单",
+              "top_k": 3,
+              "country_filter": "GLOBAL",
+              "collection": "faq_vec",
+              "rag_results": 3
+            }
+          }
+        },
+        "triggered_by": "ticket_routing"
+      }
+    ]
   },
   "expect": {
     "intent": "ticket_routing",

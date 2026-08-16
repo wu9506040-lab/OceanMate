@@ -2,7 +2,7 @@
   "case": "case_09_webhook_visa",
   "via": "webhook",
   "http_status": 200,
-  "elapsed_ms": 5494,
+  "elapsed_ms": 5648,
   "result": {
     "intent": "payment_diagnosis",
     "tool_name": "payment_diagnosis",
@@ -12,7 +12,8 @@
         "problem_type": "拒付",
         "root_causes": [
           "拒付原因码 13.1「Merchandise/Services Not Received」（商品/服务未收到）",
-          "持卡人/发卡行发起拒付，理由码 13.1，商品/服务未收到"
+          "持卡人主张未收到商品或服务，触发 Visa 13.1 拒付",
+          "3DS 配置覆盖率不足导致风险无法拦截"
         ],
         "evidence_chain": [
           {
@@ -44,22 +45,30 @@
             "id": "cb_demo_13_5#w0",
             "source": "chroma:error_codes_vec",
             "description": "13.5: Misrepresentation。触发条件:持卡人/发卡行发起拒付,理由码 13.5。建议处理:消费者争议。准备 CB 申诉材料(订单详情/物流/退款记录);优先 RDR 拦截。来源:Visa/Mastercard Reason Code Public Reference (chargebackgurus.com, 2026)"
+          },
+          {
+            "type": "knowledge_base",
+            "id": "faq_case_fw_1786596717_7305d142",
+            "source": "chroma:faq_vec",
+            "description": "问题: OCEANMATE-FLYWHEEL-1786596717 测试商户在 US 站 Visa 13.1 拒付率飙升\n诊断: 3DS 配置覆盖率不足 + 数字商品凭证缺失\n解决方案: 升级 3DS 2.0 + 启用 Verifi RDR/CDRN\n国家: US\n渠道: Visa\n错误码: 13.1"
           }
         ],
         "recommended_actions": [
           "准备物流签收记录、投递证明、买家沟通截图",
           "如数字商品：附登录日志、下载记录、激活时间",
-          "准备订单详情、物流信息、退款记录",
-          "开通 RDR 拦截减少后续争议"
+          "升级 3DS 2.0 提升验证覆盖",
+          "启用 Verifi RDR/CDRN 预防拒付",
+          "准备订单详情、物流记录等申诉材料"
         ],
         "confidence": 0.8,
         "next_agent": "Ticket Routing Agent",
         "error_image_path": "data/error_images/cb_demo_13_1.png",
         "trace": {
-          "evidence_count": 4,
+          "evidence_count": 5,
           "llm_provider": "QwenProvider",
           "evidence_types": [
             "risk_rule",
+            "knowledge_base",
             "knowledge_base",
             "knowledge_base",
             "knowledge_base"
@@ -91,23 +100,20 @@
       "extracted_from_query": {
         "country": "US",
         "channel": "Visa",
-        "error_code": "CB_13.1"
+        "error_code": "CB_13.1",
+        "order_id": null
       },
       "query_type": "code_required",
+      "is_rebuttal": false,
+      "code_specific_enriched": {
+        "channel": "Visa",
+        "error_code": "13.1",
+        "reason_name": "Merchandise/Services Not Received",
+        "category": "not_received",
+        "injected_actions_count": 2
+      },
       "llm_used": false
-    },
-    "chain": [
-      {
-        "step": 2,
-        "tool": "ticket_routing",
-        "result": {
-          "success": false,
-          "error_code": "TOOL_PARAM_INVALID",
-          "error_message": "Tool 'ticket_routing' 参数校验失败: None is not of type 'string'"
-        },
-        "triggered_by": "payment_diagnosis"
-      }
-    ]
+    }
   },
   "expect": {
     "intent": "payment_diagnosis",

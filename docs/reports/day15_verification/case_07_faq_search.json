@@ -1,7 +1,7 @@
 {
   "case": "case_07_faq_search",
   "via": "api",
-  "elapsed_ms": 142,
+  "elapsed_ms": 500,
   "result": {
     "intent": "knowledge_evolution",
     "tool_name": "knowledge_evolution",
@@ -9,7 +9,7 @@
       "success": true,
       "data": {
         "intent": "search_faq",
-        "count": 3,
+        "count": 5,
         "faqs": [
           {
             "chroma_id": "faq_case_flywheel_demo_br_pix_v2_56ea43b0",
@@ -29,7 +29,7 @@
             }
           },
           {
-            "chroma_id": "faq_case_flywheel_demo_br_pix_v2_a2781a82",
+            "chroma_id": "faq_case_flywheel_demo_br_pix_v2_92707d89",
             "case_id": "case_flywheel_demo_br_pix_v2",
             "text_excerpt": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A",
             "country": "BR",
@@ -46,7 +46,41 @@
             }
           },
           {
-            "chroma_id": "faq_case_flywheel_demo_br_pix_v2_c134bcd2",
+            "chroma_id": "faq_case_flywheel_demo_br_pix_v2_c14f2840",
+            "case_id": "case_flywheel_demo_br_pix_v2",
+            "text_excerpt": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A",
+            "country": "BR",
+            "problem_type": "支付失败",
+            "score_proxy": 0.95,
+            "case_info": {
+              "problem_desc": "BR Pix 周末 T+1 延迟 商户咨询",
+              "resolution": "建议商户提前告知客户，避开 BR 周六 02:00-04:00",
+              "country": "BR",
+              "channel": "Pix",
+              "error_code": null,
+              "problem_type": "支付失败",
+              "confidence": 0.95
+            }
+          },
+          {
+            "chroma_id": "faq_case_flywheel_demo_br_pix_v2_f999caf3",
+            "case_id": "case_flywheel_demo_br_pix_v2",
+            "text_excerpt": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A",
+            "country": "BR",
+            "problem_type": "支付失败",
+            "score_proxy": 0.95,
+            "case_info": {
+              "problem_desc": "BR Pix 周末 T+1 延迟 商户咨询",
+              "resolution": "建议商户提前告知客户，避开 BR 周六 02:00-04:00",
+              "country": "BR",
+              "channel": "Pix",
+              "error_code": null,
+              "problem_type": "支付失败",
+              "confidence": 0.95
+            }
+          },
+          {
+            "chroma_id": "faq_case_flywheel_demo_br_pix_v2_7725aa1e",
             "case_id": "case_flywheel_demo_br_pix_v2",
             "text_excerpt": "问题: BR Pix 周末 T+1 延迟 商户咨询\n诊断: BR 央行 SPI 系统批处理窗口导致\n解决方案: 建议商户提前告知客户，避开 BR 周六 02:00-04:00\n国家: BR\n渠道: Pix\n错误码: N/A",
             "country": "BR",
@@ -68,7 +102,7 @@
           "top_k": 5,
           "country_filter": null,
           "collection": "faq_vec",
-          "rag_results": 3
+          "rag_results": 5
         }
       }
     },

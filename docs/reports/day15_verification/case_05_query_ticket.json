@@ -1,7 +1,7 @@
 {
   "case": "case_05_query_ticket",
   "via": "api",
-  "elapsed_ms": 2,
+  "elapsed_ms": 0,
   "result": {
     "intent": "ticket_routing",
     "tool_name": "ticket_routing",

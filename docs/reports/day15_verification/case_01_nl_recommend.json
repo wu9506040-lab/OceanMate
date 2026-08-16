@@ -1,7 +1,7 @@
 {
   "case": "case_01_nl_recommend",
   "via": "api",
-  "elapsed_ms": 1939,
+  "elapsed_ms": 24684,
   "result": {
     "intent": "merchant_success",
     "tool_name": "merchant_success",
