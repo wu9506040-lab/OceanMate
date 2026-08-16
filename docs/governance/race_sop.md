@@ -51,8 +51,8 @@
 
 | # | 类型 | 时长 | 内容 |
 |---|------|------|------|
-| 1 | **3 分钟主 demo** | 180s ± 10s | 完整业务流程（商户咨询 → 6 Agent 协同 → 飞书自动派单） |
-| 2 | **AtoA 调用链 demo** | 60s | 展示 6 Agent 之间如何调用（AtoA 协议可视化） |
+| 1 | **3 分钟主 demo** | 180s ± 10s | 完整业务流程（商户咨询 → 4 Agent + Orchestrator 协同 + OPA 可视化 → 飞书自动派单） |
+| 2 | **AtoA 调用链 demo** | 60s | 展示 4 Agent + Orchestrator 之间如何调用（AtoA 协议可视化） |
 | 3 | **飞书原生集成 demo** | 60s | 智能伙伴对话 + 多维表格自动更新 + 妙记转工单 |
 
 ### 2.2 录屏脚本模板
@@ -63,7 +63,7 @@
   → 旁白："商户面临真实痛点..."
 
 [0:30-1:30] 演示：诊断 Agent 自动响应
-  → 屏幕：智能伙伴对话 + 6 Agent 协同面板
+  → 屏幕：智能伙伴对话 + 4 Agent + Orchestrator 协同面板
   → 旁白："诊断 Agent 自动调取知识/路由/协同..."
 
 [1:30-2:30] 演示：飞书生态闭环
@@ -105,7 +105,7 @@
 |---|------|------|--------|
 | 1 | Part 1 终稿 | `submission/part1_前置分析.md` | P0 |
 | 2 | Part 2 终稿 | `submission/part2_整体方案.md` | P0 |
-| 3 | 6 Agent 架构图 | `submission/architecture_diagrams/agent_architecture.png` | P0 |
+| 3 | 4 Agent + Orchestrator 架构图（含 OPA 可视化工具）| `submission/architecture_diagrams/agent_architecture.png` | P0 |
 | 4 | AtoA 时序图 | `submission/architecture_diagrams/atoa_sequence.png` | P0 |
 
 ### 3.2 加分提交（6 件 · 越多越好）
@@ -161,14 +161,14 @@
 | 角色 | 负责 | 产出 |
 |------|------|------|
 | **A 业务架构师** | Part 1/2 终稿 + 架构图 + 调研 + 飞书配置 | 提交材料 |
-| **B Agent 工程师** | 6 Agent 代码 + 飞书 webhook + 录屏 | Demo |
+| **B Agent 工程师** | 4 Agent + Orchestrator 代码 + OPA 工具 + 飞书 webhook + 录屏 | Demo |
 
 ### 5.2 协作节奏
 
 | 时段 | A 在做 | B 在做 |
 |------|--------|--------|
 | 7-17 晚 | 拍板决策 + 仓库骨架 | 申请飞书账号 |
-| 7-18 上午 | Part 1/2 + Mermaid 图 | 6 Agent stub |
+| 7-18 上午 | Part 1/2 + Mermaid 图 | 4 Agent + Orchestrator stub |
 | 7-18 下午 | 飞书配置 + 录屏脚本 | 飞书 webhook + 联调 |
 | 7-19 上午 | 录屏 + 整理材料 | Bug 修复 + 录屏 |
 | 7-19 下午 | cross-check + 提交 | cross-check + 提交 |
@@ -200,14 +200,14 @@
 | 评分维度 | 权重（推测）| 自检方式 |
 |---------|-----------|---------|
 | 业务理解深度 | ⭐⭐⭐⭐ | Part 1 引用外部数据 ≥ 3 处 |
-| 方案架构完整性 | ⭐⭐⭐⭐⭐ | 6 Agent + AtoA + 飞书生态三件齐 |
+| 方案架构完整性 | ⭐⭐⭐⭐⭐ | 4 Agent + Orchestrator + OPA + AtoA + 飞书生态五件齐 |
 | 技术创新性 | ⭐⭐⭐⭐ | AtoA 协议 + 知识反哺闭环 |
 | 飞书生态融合度 | ⭐⭐⭐⭐⭐ | 智能伙伴 + 多维表格 + 妙记都用上 |
 | 可演示性 | ⭐⭐⭐⭐⭐ | 3 分钟录屏完整跑通 |
 | 工程化规范 | ⭐⭐⭐ | CLAUDE.md + commit 历史 |
 | 团队协作 | ⭐⭐⭐ | 文档清晰 + 分工明确 |
 
-> **结论**：评委 80% 注意力在"3 分钟录屏"+"6 Agent 架构图"——把这两个做到极致，其他项自然及格。
+> **结论**：评委 80% 注意力在"3 分钟录屏"+"4 Agent + Orchestrator 架构图"——把这两个做到极致，其他项自然及格。
 
 ---
 
@@ -219,5 +219,5 @@
 | 进度跟踪 | `docs/plan/progress.md` |
 | 调研记录 | `docs/plan/findings.md` |
 | 提交汇总 | `docs/reports/submission.md` |
-| 6 Agent 架构 | `docs/architecture/oceanmate.md` |
+| 4 Agent + Orchestrator 架构（含 OPA 工具）| `docs/architecture/oceanmate.md` |
 | AtoA 时序图 | `docs/architecture/atoa_sequence.md` |

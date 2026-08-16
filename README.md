@@ -198,7 +198,7 @@ OceanMate/
 │   └── architecture_diagrams/           ← 2 张架构图（Mermaid 源 + PNG）
 │
 ├── 📂 src/backend/                      ← 工程代码
-│   ├── app/                             ← 6 Agent + Provider 抽象
+│   ├── app/                             ← 4 Agent + Orchestrator + Provider 抽象（MSA/PDA/TRA/KEA/Orchestrator + scripts/render_dashboard.py OPA 工具）
 │   ├── scripts/                         ← 30+ 验证/seed 脚本
 │   │   ├── run_all_real.py              ⭐ 一键 6 Demo
 │   │   ├── verify_rerank_smoke.py       ← Rerank 真实链路

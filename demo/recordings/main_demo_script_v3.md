@@ -18,7 +18,7 @@
 | 4 | 人工模式 | `curl http://localhost:8000/api/debug/human_mode` → `users_in_human_mode: []` |
 | 5 | 飞书窗口 | 左侧栏 → OM AI → DM |
 | 6 | 关闭通知 | 飞书设置 → 通知 → 关闭 |
-| 7 | 浏览器 Dashboard | `https://oceanmate.feishu.cn/base/LQkTbJe1jaCM1PsFU48cslfgnSe` 标签页开好 |
+| 7 | 浏览器 Dashboard | `https://oceanmate.feishu.cn/base/${FEISHU_BTABLE_APP_TOKEN}` 标签页开好（token 从 `.env` 取） |
 | 8 | 开始录屏 | `Win + Alt + R`（右下角小红点出现） |
 
 ⚠️ **录屏全程不要打开 DevTools / 新标签**。
@@ -416,7 +416,7 @@ BR Visa 13.1 又拒付了
 **T8.1** `Alt+Tab` 切到浏览器 Dashboard
 
 **T8.2** 鼠标停顿在多维表格，口播（12 秒）：
-> 「数据规模 —— 4 张多维表实时同步：117 错误码 / 16 支付方式 / 10 路由规则 / 1 案例库。**总 144 条真实数据，全部从飞书多维表来**，不是 mock。faq_vec 当前 N 条（每次录屏会变）—— Chroma 自进化。**测试 434 passed**。」
+> 「数据规模 —— 4 张多维表实时同步：117 错误码 / 16 支付方式 / 10 路由规则 / 1 案例库。**总 144 条真实数据，全部从飞书多维表来**，不是 mock。faq_vec 当前 N 条（每次录屏会变）—— Chroma 自进化。**测试 484 passed**（截至 Day 18 提交）。」
 
 ---
 
@@ -439,7 +439,7 @@ BR Visa 13.1 又拒付了
 > **3 个亮点**：
 > 1. **机器人自助优先**——答得了不派单，**不打扰运营**
 > 2. **人机共存**——bot 静默不干扰人工接管
-> 3. **PoC 是生产级**——飞书 WS 真接通 + 144 条真实数据 + 434 测试 + 真实 lead open_id + 半自动闭环
+> 3. **PoC 是生产级**——飞书 WS 真接通 + 144 条真实数据 + 484 测试 + 真实 lead open_id + 半自动闭环
 >
 > **演示价值 > API 实现**。完。」
 

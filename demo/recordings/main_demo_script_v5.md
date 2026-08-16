@@ -30,7 +30,7 @@
 | 4 | 人工模式 | `curl http://localhost:8000/api/debug/human_mode` → `users_in_human_mode: []` |
 | 5 | 飞书窗口 | 左侧栏 → OM AI → DM |
 | 6 | 关闭通知 | 飞书设置 → 通知 → 关闭 |
-| 7 | 浏览器 Dashboard | `https://oceanmate.feishu.cn/base/LQkTbJe1jaCM1PsFU48cslfgnSe` 标签页开好 |
+| 7 | 浏览器 Dashboard | `https://oceanmate.feishu.cn/base/${FEISHU_BTABLE_APP_TOKEN}` 标签页开好（token 从 `.env` 取） |
 | 8 | 多维表格 · 待审核区 | 浏览器开 `review_decisions` 表的"T8 用视图" |
 | 9 | 开始录屏 | `Win + Alt + R`（右下角小红点出现） |
 

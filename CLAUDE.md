@@ -11,7 +11,7 @@
 | 业务       | 跨境支付商户成功运营助手（OP/Oceanpayment 命题）                   |
 | 赛事       | 2026 飞书 AI 先锋未来人才大赛 · 华南 · 报名截止 2026-07-19         |
 | 技术栈     | FastAPI + Vue3 + Qwen (DashScope) + 飞书 AI 全家桶                |
-| 架构基线   | 6 Agent + AtoA 协议 + 飞书生态（见 `docs/architecture/oceanmate.md`） |
+| 架构基线   | **4 核心 Agent + Orchestrator 中枢 + OPA 工具**（MSA/PDA/TRA/KEA + Orchestrator + OPA 可视化面板）+ AtoA 协议 + 飞书生态（见 `docs/architecture/oceanmate.md`）|
 | 工程纪律   | 本文件 + `docs/governance/race_sop.md`                              |
 
 **比赛核心命题**：「AI 驱动的跨境商户成功运营助手」—— 商户选型 / 接入 / 诊断 / 工单 / 知识 / 协同。
@@ -22,8 +22,8 @@
 
 | # | 原则 | 含义 | 落地 |
 |---|------|------|------|
-| 1 | **Interface First** | 先定义 Protocol 再写实现 | 6 Agent 各自有独立 Protocol，放 `src/backend/app/agents/<name>/protocols.py` |
-| 2 | **Module Isolation** | 6 Agent 强隔离，禁止跨 Agent 侵入 | Agent 之间仅通过 AtoA 协议交互，不直接调用内部函数 |
+| 1 | **Interface First** | 先定义 Protocol 再写实现 | 4 核心 Agent + Orchestrator 中枢各自有独立 Protocol，放 `src/backend/app/agents/<name>/protocols.py` |
+| 2 | **Module Isolation** | 4 业务 Agent + Orchestrator 中枢强隔离，禁止跨 Agent 侵入 | Agent 之间仅通过 AtoA 协议交互，不直接调用内部函数 |
 | 3 | **Dependency Inversion** | 依赖方向单向，上层依赖抽象 | FastAPI Depends / 工厂函数；禁止 `new` 具体类 |
 
 ---
@@ -58,7 +58,7 @@
 | 1  | Agent 直接 `import dashscope; Generation.call(...)` | Agent → `LLMProvider` Protocol       |
 | 2  | Prompt 写在 `chat_service.py:42` 的 f-string        | 放 `config/prompts/{name}.yaml`        |
 | 3  | 业务规则 `if emotion_score > 80:` 硬编码            | 读 `config.yaml.emotion_threshold`    |
-| 4  | 看到 PR 涉及 6 Agent 中 3+ 个                       | 拆 PR / 拆 commit                    |
+| 4  | 看到 PR 涉及 4 Agent + Orchestrator 中 3+ 个        | 拆 PR / 拆 commit                    |
 | 5  | 改完未跑相关测试/录屏就提交                          | §5 自检 + §6 验证                    |
 
 ### 4.2 Step 3 Stop-Loss：自检 6 问
@@ -81,7 +81,7 @@
 | 单 Agent 示例                  | 说明                  |
 |-------------------------------|-----------------------|
 | 仅改诊断 Agent                 | 不动路由 / 协同        |
-| 仅改飞书 Webhook 集成          | 不动 6 Agent 逻辑      |
+| 仅改飞书 Webhook 集成          | 不动 4 Agent + Orchestrator 逻辑 |
 | 仅改前端一个组件               | 不动后端 / 协议        |
 | 仅改文档 / Mermaid 图          | 不动代码              |
 
@@ -106,7 +106,7 @@
 |--------------------|--------------------------------|---------------------------------------|
 | 文档 / 注释 / Mermaid 图 | 肉眼通读                   | 无错字；图渲染正常                    |
 | Prompt / 配置        | 单测 + 黄金用例（≥ 3 条）       | 全部命中预期                          |
-| API 路由 / 6 Agent    | curl + pytest + 飞书 webhook    | 200/正确字段；异常路径返 4xx          |
+| API 路由 / 4 Agent + Orchestrator | curl + pytest + 飞书 webhook | 200/正确字段；异常路径返 4xx          |
 | 飞书生态集成          | 录屏（智能伙伴对话 + 多维表格）  | 3 分钟内可演示完整业务流              |
 | 前端 UI               | build + 浏览器肉眼检查          | 视觉/交互符合预期，无控制台报错       |
 
@@ -131,7 +131,7 @@
 1. What（做了什么）
 2. Why（为什么）
 3. Flow（输入 → 输出）
-4. Architecture Role（在 6 Agent 中的位置）
+4. Architecture Role（在 4 Agent + Orchestrator 中的位置）
 
 **新 Agent 交付 6 件套（强制）**：
 
@@ -151,7 +151,7 @@
 | 场景                       | 文档                                          |
 |----------------------------|-----------------------------------------------|
 | 比赛 SOP（提交/录屏/组队） | `docs/governance/race_sop.md`                  |
-| 6 Agent 架构              | `docs/architecture/oceanmate.md`               |
+| 4 Agent + Orchestrator 架构（+ OPA 工具）| `docs/architecture/oceanmate.md`  |
 | AtoA 时序图                | `docs/architecture/atoa_sequence.md`           |
 | 任务计划                   | `docs/plan/task_plan.md`                        |
 | 进度跟踪                   | `docs/plan/progress.md`                         |

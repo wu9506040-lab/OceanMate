@@ -75,7 +75,7 @@
 | **PDA**（Payment Diagnosis Agent）| ② 诊断 | 给拒付与支付失败"根因 + 证据链 + 申诉建议" |
 | **TRA**（Ticket Routing Agent）| ③ 工单路由 | 按问题类型场景化分派 + 飞书审批流 SLA |
 | **KEA**（Knowledge Evolution Agent）| ⑤ 知识沉淀 | 案例 → FAQ → 知识库 → 下次自动召回 |
-| **OPA**（Operation Panel Agent）| ⑥ 运营可视化 | 工单池/错误码/趋势 dashboard 实时同步 |
+| **OPA**（Operation Panel · 可视化工具）| ⑥ 运营可视化 | 工单池/错误码/趋势 dashboard 实时同步（注：OPA 是脚本工具，不在 `app/agents/` 目录，非独立 Agent）|
 
 ---
 
@@ -94,7 +94,7 @@
 ┌────────────────────────────────────────────────────────────┐
 │  L2 · 业务编排层（Orchestrator + 6 Tool · 含 PWR 子能力）       │
 │      app/agents/orchestrator/    意图分流 / 上下文传递         │
-│      app/agents/<name>/          MSA / PDA / TRA / KEA / OPA │
+│      app/agents/<name>/          MSA / PDA / TRA / KEA │
 │      入口契约：BaseTool（@interface · MCP tool_spec 标准）      │
 └────────────────────────────────────────────────────────────┘
                           │
@@ -178,7 +178,7 @@
 | 测试 | 22/22 通过 |
 | 文件 | `src/backend/app/agents/kea/tool.py` |
 
-#### Agent 5：OPA — 运营可视化 Agent
+#### 工具 OPA — 运营可视化面板（非独立 Agent · 脚本工具）
 
 | 维度 | 内容 |
 |------|------|
@@ -188,8 +188,9 @@
 | 输入 | 工单池实时统计 + 错误码分布 + 优先级分布 + 报告日期趋势 |
 | 输出 | 飞书多维表 Dashboard 6 模块（标题/优先级/状态/趋势/柱状/统计）|
 | 关键文件 | `src/backend/scripts/render_dashboard.py` · `src/backend/scripts/cleanup_dashboard_data.py` · `docs/runbook/dashboard_screenshot.png` |
+| 备注 | OPA 是 `scripts/render_dashboard.py` 等脚本集合，不在 `app/agents/` 目录；**不属于 Agent 体系** |
 
-#### Agent 6：Orchestrator — 商户成功 AI 中枢
+#### Agent 5（中枢）：Orchestrator — 商户成功 AI 中枢
 
 | 维度 | 内容 |
 |------|------|
@@ -339,7 +340,7 @@
 | 审核分级 | **≥ 0.9 自动 promote → Chroma / 0.7-0.9 进 pending 表待人工 / < 0.7 拒绝**（避免低质量案例污染知识库）|
 | 代码 | `src/backend/app/agents/kea/tool.py:42` |
 
-### 4.5 OPA（Operation Panel Agent）
+### 4.5 OPA（Operation Panel · 可视化工具）
 
 | 项目 | 详情 |
 |------|------|
@@ -601,7 +602,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 |------|------|
 | 最小修改 | KEA FK 修复只改了 1 个 SQL（cases DROP + CREATE），未动其他表 |
 | 真实凭证不提交 | `.env` 加入 `.gitignore` · `.env.example` 是占位模板 |
-| 测试覆盖 | 4 Tool 全部 ≥ 13 用例（**PDA 13 / MSA 18 / TRA 25 / KEA 22，合计 78 用例** + RAG 17 + RAG 扩展 14 + 跨语言 5 + 业务规则 20 + Day 15 P0 17 + Orchestrator 22 + Feishu 20 + Repo 17 + LLM 14 + Embedder 11 + Data Cleaning 17 + Chunking 17 + WS 17 = 286 用例全过）|
+| 测试覆盖 | 4 Tool 全部 ≥ 13 用例（**PDA 13 / MSA 18 / TRA 25 / KEA 22，合计 78 用例** + RAG 17 + RAG 扩展 14 + 跨语言 5 + 业务规则 20 + Day 15 P0 17 + Orchestrator 22 + Feishu 20 + Repo 17 + LLM 14 + Embedder 11 + Data Cleaning 17 + Chunking 17 + WS 17 + Kea review + 业务回归 4 类规则 + 真实 11 case E2E = 488 collected / **484 passed**，4 个 errors 是 test_real_feishu_e2e 需真实飞书连接，本地跳过）|
 | 录屏必真实 | 不允许 mock pass 算完成（feedback_no_shortcut）|
 
 ---
@@ -615,7 +616,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | 3 | 4 核心 Tool 详解 | `docs/agents/{merchant_success,payment_diagnosis,ticket_routing,knowledge_evolution}_agent.md` | ✅ |
 | 4 | 依赖关系图 | 架构图（Mermaid）· `docs/architecture/agent_architecture.md` | ✅ |
 | 5 | 调用流程图 | 业务流（Mermaid sequence）· `docs/architecture/business_flow.md` | ✅ |
-| 6 | 真实数据 | 203 条多维表 + 107 张配图 + 268 测试用例 | ✅ |
+| 6 | 真实数据 | 203 条多维表 + 107 张配图 + **484 测试用例通过**（pytest --collect-only = 488，4 个 errors 是 test_real_feishu_e2e 需真实飞书连接）| ✅ |
 | 7 | 录屏脚本 | `src/backend/scripts/demo_end_to_end.py` + `run_all_real.py` | ✅ |
 | 8 | 截图 | `docs/runbook/dashboard_screenshot.png` + 录屏（Day 14 补录）| 🟡 |
 
@@ -642,7 +643,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | **Day 15 P0-2** | 无并发控制（潜在 instance state 串台）| `route()` 内部状态全局部化但仍缺防御性锁 | `threading.RLock` 包裹 `_route_locked()`；5 并发测试不串台 | `tests/test_p0_day15.py::TestP0_2Concurrency` 3/3 |
 | **Day 15 P0-3** | LLM 返回字符串 `confidence="0.85"` → `>= 0.7` TypeError | Qwen chat_structured 偶尔返回字符串 | `_coerce_float` (Orchestrator) + `_safe_float` (chain_config) 强转 + 截断 [0,1] | `tests/test_p0_day15.py::TestP0_3LLMStrictValidation` 6/6 |
 | **Day 15 P0-4** | 飞书 webhook 无签名校验（伪造风险）| 之前 Day 14 P1 删了签名校验（明文 hash） | 重写 `FeishuWebhookHandler.verify_signature`：SHA256(ts+nonce+key+body) + `hmac.compare_digest` 常量时间比较；env `FEISHU_ENABLE_SIGNATURE_CHECK=1` 开启 | `tests/test_p0_day15.py::TestP0_4WebhookSignature` 5/5 |
-| **Day 15 P1-6** | Orchestrator 988 行违反 §3.3「单 Agent < 600 行」| 4 个 `_route_*` 函数 + 大量 slot 字典挤在一个类 | 拆 `app/agents/orchestrator/routers.py`（625 行）；Orchestrator 降到 **395 行**；4 个路由函数 + 3 个 slot 提取器 + 2 个 helper 全部模块化 | `wc -l orchestrator.py` = 395 ≤ 600；286 测试全过 |
+| **Day 15 P1-6** | Orchestrator 988 行违反 §3.3「单 Agent < 600 行」| 4 个 `_route_*` 函数 + 大量 slot 字典挤在一个类 | 拆 `app/agents/orchestrator/routers.py`（625 行）；Orchestrator 降到 **395 行**；4 个路由函数 + 3 个 slot 提取器 + 2 个 helper 全部模块化 | `wc -l orchestrator.py` = 395 ≤ 600；484 测试全过 |
 
 ### 10.2 已知边界（未完全修复 · 如实记录）
 
@@ -723,6 +724,17 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | 数据 | `docs/data/{payment_error_cases,payment_methods,ticket_routing_rules}.json` |
 | 截图 | `docs/runbook/dashboard_screenshot.png` · `dashboard_preview.html` |
 | Runbook | `docs/runbook/dashboard_config_guide.md` · `rebuild_bitable_in_feishu.md` |
+
+## 附录 A2：飞书外部资源链接（评审可选访问）
+
+| 资源 | 链接 | 权限 |
+|------|------|------|
+| 飞书多维表格（OceanMate 数据 · 真实工单池） | `https://oceanmate.feishu.cn/base/${FEISHU_BTABLE_APP_TOKEN}`（token 从 `.env` 取，飞行社企业授权可读） | 飞行社企业成员可读；非成员需 lead 邀请 |
+| 飞书开放平台（开发者后台参考） | https://open.feishu.cn/app | 公开 |
+| 飞书 API 文档（IM/消息/Webhook） | https://open.feishu.cn/document/server-docs/api-call-guide/server-api-list | 公开 |
+| 飞书事件订阅指南 | https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/event-subscription-guide/event-subscriptions | 公开 |
+
+> **注意**：多维表格 `app_token` 在 `.env` 里保管（已 .gitignore），不提交仓库；评测时由 lead 在飞书后台授权访问。
 
 ## 附录 B：Git 提交信息
 
