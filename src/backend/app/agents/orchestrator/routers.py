@@ -429,10 +429,34 @@ def route_pda(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
     # 1. 从 query 提取参数
     extracted = extract_pda_params(query)
 
-    # 2. ctx 优先（商户明确提供），query 提取次之
-    country = ctx.get("country") or extracted["country"]
-    channel = ctx.get("channel") or extracted["channel"]
-    error_code = ctx.get("error_code") or extracted["error_code"]
+    # 2. Day 18 P2-fix：session 残留字段覆盖新 query 提取值 bug
+    # 场景：T0.1 已设 session={country:BR, channel:Visa, error_code:CB_13.1}
+    #      T1.1 "NL MasterCard 拒付，没收到错误码" → extracted={NL, MasterCard, None}
+    #      旧逻辑 ctx.get() or extracted[] → ctx 残留 BR/Visa/CB_13.1 覆盖新值
+    #      → PDA Tool 直接被调，给错答案（Visa 13.1）而漏掉「缺 error_code 反问」
+    # 修复：新 query 提到 country 或 channel（且与历史不一致）→ 视为新 case，
+    #      丢弃历史 case-specific 字段（error_code / order_id）。
+    # extracted 优先（最新 query），ctx 兜底（同 case 细化场景）。
+    new_country = extracted["country"]
+    new_channel = extracted["channel"]
+    old_country = ctx.get("country")
+    old_channel = ctx.get("channel")
+    case_changed = (
+        (new_country and old_country and new_country != old_country)
+        or (new_channel and old_channel and new_channel != old_channel)
+    )
+    if case_changed:
+        # 新 case：只用 extracted（drop 历史 error_code / order_id）
+        country = new_country
+        channel = new_channel
+        error_code = extracted["error_code"] or ""
+        order_id = extracted["order_id"] or ""
+    else:
+        # 同 case 细化 / 首次提问：extracted 优先，ctx 兜底
+        country = new_country or old_country
+        channel = new_channel or old_channel
+        error_code = extracted["error_code"] or ctx.get("error_code") or ""
+        order_id = extracted["order_id"] or ctx.get("order_id") or ""
 
     # 3. 判断 query 类型，决定是否反问
     query_type = classify_diagnosis_query_type(query, error_code)
@@ -479,7 +503,10 @@ def route_pda(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
         "channel": channel if channel else "ANY",
         "error_code": error_code or "",
         "query_text": effective_query,
-        "affected_orders": ctx.get("affected_orders", []),
+        "affected_orders": (
+            [order_id] if order_id
+            else ctx.get("affected_orders", [])
+        ),
     }
     wrapped = registry.safe_execute("payment_diagnosis", params)
     data = wrapped.get("data", {}) if wrapped.get("success") else {}

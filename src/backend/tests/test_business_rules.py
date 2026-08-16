@@ -215,3 +215,106 @@ class TestNoFakeErrorCode:
         )
         items = store.lookup_knowledge_base(problem)
         assert items == [], f"无关召回未被过滤: {[i.id for i in items]}"
+
+
+# === 规则 5：session 残留字段不得覆盖新 query 的参数 ===
+#
+# Day 18 P2-final 录屏实拍发现：T0.1 → T1.1 场景，
+# T0.1 已设 session={country:BR, channel:Visa, error_code:CB_13.1}，
+# T1.1 "NL MasterCard 拒付，没收到错误码" 触发 _try_recover_context 后
+# ctx 残留值覆盖了新 query 提取出的 NL/Mastercard/None → PDA Tool 直接被调，
+# 给 Visa 13.1 完整方案而漏掉「缺 error_code 反问」。
+#
+# 修复：route_pda 检测到新 query 显式提到 country 或 channel（与历史不一致）
+# → 视为新 case，丢弃历史的 error_code / order_id。
+
+class TestSessionCtxDoesNotOverrideNewQuery:
+    """session 残留字段不得覆盖新 query 的参数（Day 18 P2-final bug fix）。"""
+
+    @pytest.fixture
+    def orch(self):
+        from app.agents.pda.tool import PDATool
+        from app.agents.msa.tool import MSATool
+        from app.agents.tra.tool import TRATool
+        from app.agents.kea.tool import KEATool
+
+        o = Orchestrator(use_llm_fallback=False)
+        o.register_tool(PDATool())
+        o.register_tool(MSATool())
+        o.register_tool(TRATool())
+        o.register_tool(KEATool())
+        return o
+
+    def test_new_country_triggers_clarify_not_full_answer(self, orch):
+        """新 case (NL vs 历史 BR) + 缺 error_code → 必须反问，不能直接给 Visa 答案。"""
+        # 模拟 T0.1 已写入 session 的 ctx
+        ctx = {
+            "country": "BR",
+            "channel": "Visa",
+            "error_code": "CB_13.1",
+            "problem_type": "拒付",
+            "merchant_id": "m_demo",
+            "recovered_from_session": True,
+        }
+
+        result = orch.route(
+            user_query="NL MasterCard 拒付，没收到错误码",
+            merchant_context=ctx,
+        )
+
+        # 关键断言：必须返回 clarify，不能直接给 Visa 13.1 答案
+        assert result["intent"] == "payment_diagnosis_clarify", (
+            f"应触发反问，实际 intent={result['intent']}。bug：session 残留字段覆盖新 query"
+        )
+        clarify = result.get("clarify_message", "")
+        assert "error_code" in clarify, f"反问应提到 error_code，实际={clarify[:80]}"
+
+    def test_new_channel_triggers_clarify(self, orch):
+        """新 channel (Mastercard vs 历史 Visa) + 缺 error_code → 反问。"""
+        ctx = {
+            "country": "NL",
+            "channel": "Visa",
+            "error_code": "CB_13.1",
+            "problem_type": "拒付",
+            "recovered_from_session": True,
+        }
+        result = orch.route(
+            user_query="NL MasterCard 又拒付了",
+            merchant_context=ctx,
+        )
+        # NL/Mastercard 是新 case → 丢历史 error_code → 走反问
+        assert result["intent"] == "payment_diagnosis_clarify"
+
+    def test_same_case_refinement_inherits_country_channel(self, orch):
+        """同 case 细化（不提到新 country/channel）→ 继承 session 的 country/channel/error_code。"""
+        ctx = {
+            "country": "NL",
+            "channel": "Mastercard",
+            "error_code": "",
+            "problem_type": "拒付",
+            "merchant_id": "m_demo",
+            "recovered_from_session": True,
+        }
+        result = orch.route(
+            user_query="错误码是 13.1，订单号 ORD-12345",
+            merchant_context=ctx,
+        )
+        # 同 case 细化 → 直接调 PDA Tool
+        assert result["intent"] == "payment_diagnosis"
+        params = result["trace"]["params"]
+        assert params["country"] == "NL"
+        assert params["channel"] == "Mastercard"
+        assert params["error_code"] == "CB_13.1"
+        assert "ORD-12345" in params["affected_orders"]
+
+    def test_first_query_no_session_uses_extracted(self, orch):
+        """首次提问无 session → 完全用 extracted。"""
+        result = orch.route(
+            user_query="BR Visa 拒付，错误码 13.1，怎么办？",
+            merchant_context={"merchant_id": "m_demo"},
+        )
+        assert result["intent"] == "payment_diagnosis"
+        params = result["trace"]["params"]
+        assert params["country"] == "BR"
+        assert params["channel"] == "Visa"
+        assert params["error_code"] == "CB_13.1"
