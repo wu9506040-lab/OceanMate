@@ -143,7 +143,7 @@ class TestApproveCaseSyncsToBitable:
         payload = call_args[0][0]  # 第一个位置参数
 
         assert payload["case_id"] == pending_case.id
-        assert payload["decision"] == "approved"
+        assert payload["decision"] == "已通过"
         assert payload["reviewer"] == "ou_lead_001"
         assert payload["problem_type"] == "支付失败"
         assert payload["confidence"] == 0.85
@@ -196,7 +196,7 @@ class TestPromoteToFaqSyncsToBitable:
 
         payload = mock_frontend.sync_review_decision.call_args[0][0]
         assert payload["case_id"] == high_confidence_case.id
-        assert payload["decision"] == "auto_promoted"
+        assert payload["decision"] == "自动入审"
         assert payload["reviewer"] == "auto"  # 自动入审
         assert payload["confidence"] == 0.92
 
@@ -212,7 +212,7 @@ class TestPromoteToFaqSyncsToBitable:
 
         payload = mock_frontend.sync_review_decision.call_args[0][0]
         assert payload["case_id"] == pending_case.id
-        assert payload["decision"] == "pending_review"
+        assert payload["decision"] == "待审核"
         assert payload["reviewer"] == "auto"
 
     def test_promote_without_frontend_does_not_crash(

@@ -22,7 +22,7 @@ for line in env_text.splitlines():
 
 
 def fetch_data():
-    """拉真实数据，返回 dict 包含 type/status/priority/date 分布。"""
+    """拉真实数据，返回 dict 包含 type/status/priority/date 分布 + pending_count（审核决策）。"""
     token = httpx.post(
         'https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal',
         json={'app_id': env['FEISHU_APP_ID'], 'app_secret': env['FEISHU_APP_SECRET']},
@@ -67,6 +67,36 @@ def fetch_data():
             else:
                 dt = str(rd)[:10]
             date_count[dt] = date_count.get(dt, 0) + 1
+
+    # Day 18 P2-final：拉 review_decisions 表，只数"待审核"案例（审核过的就不算）
+    # 实现：拉所有记录 → 按 case_id 取最新决策 → 只数 latest=pending_review 的 case
+    # （避免一个 case 既有 pending 又有 approved 时重复计数 + 过滤掉历史已通过/已拒绝的）
+    pending_count = 0
+    review_table_id = env.get('FEISHU_BTABLE_REVIEW_DECISIONS_TABLE_ID', '').strip()
+    if review_table_id:
+        try:
+            r2 = httpx.get(
+                f'https://open.feishu.cn/open-apis/bitable/v1/apps/{app_token}/tables/{review_table_id}/records',
+                headers=headers,
+                params={'page_size': 500},
+                timeout=15,
+            )
+            all_review_items = (r2.json().get('data') or {}).get('items') or []
+            # 按 case_id 取最新决策（decided_at 越大越新）
+            latest_by_case = {}
+            for it in all_review_items:
+                f = it.get('fields', {}) or {}
+                case_id = f.get('案例ID', '')
+                if not case_id:
+                    continue
+                decided_at = f.get('决策时间', 0) or 0  # 飞书表 schema：决策时间
+                if case_id not in latest_by_case or decided_at > latest_by_case[case_id][1]:
+                    latest_by_case[case_id] = (f.get('决策', ''), decided_at)
+            # 只数 latest=待审核 的（运营还没处理的；Day 18 P2-final 选项已中文化）
+            pending_count = sum(1 for decision, _ in latest_by_case.values() if decision == '待审核')
+        except Exception:
+            pending_count = 0  # 拉失败兜底为 0（不阻断看板渲染）
+
     return {
         'total': len(filtered),
         'raw_total': len(all_items),
@@ -74,6 +104,8 @@ def fetch_data():
         'status_count': status_count,
         'prio_count': prio_count,
         'date_count': dict(sorted(date_count.items())),
+        # Day 18 P2-final：只数"待审核"，审核过的不算
+        'pending_count': pending_count,
     }
 
 
@@ -104,10 +136,14 @@ def render_html(data: dict) -> str:
 body {{ font-family: -apple-system, "Segoe UI", "PingFang SC", sans-serif; background: #F5F7FA; color: #1F2329; padding: 24px; margin: 0; }}
 h1 {{ color: #1F2329; margin: 0 0 8px 0; font-size: 22px; }}
 .subtitle {{ color: #646A73; font-size: 13px; margin-bottom: 20px; }}
-.cards {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }}
+.cards {{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }}
 .card {{ background: white; border-radius: 8px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }}
 .card .v {{ font-size: 28px; font-weight: 600; color: #1F2329; }}
 .card .l {{ font-size: 12px; color: #646A73; }}
+/* Day 18 P2-final：待审核卡（橙色高亮，运营/lead 一眼看到待办） */
+.card.pending {{ background: #FF7D00; box-shadow: 0 2px 8px rgba(255,125,0,0.35); }}
+.card.pending .v {{ color: white; font-weight: 700; }}
+.card.pending .l {{ color: white; font-weight: 500; }}
 .grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }}
 .panel {{ background: white; border-radius: 8px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }}
 .panel h3 {{ margin: 0 0 12px 0; font-size: 14px; color: #1F2329; }}
@@ -121,13 +157,14 @@ td {{ padding: 6px 0; border-bottom: 1px solid #F0F1F3; }}
 .date-panel {{ margin-top: 16px; }}
 </style></head><body>
 <h1>OceanMate AI 运营看板</h1>
-<div class="subtitle">实时数据 · 来源：飞书多维表格（飞行社企业）· 2026-08-13 12:50</div>
+<div class="subtitle">实时数据 · 待审核 <b style="color:#FF7D00">{data['pending_count']}</b> 条 · 运营在飞书多维表格 review_decisions 表审核 · 来源：飞书多维表格（飞行社企业）· 2026-08-16 14:30</div>
 
 <div class="cards">
   <div class="card"><div class="v">{data['total']}</div><div class="l">有效工单（过滤后）</div></div>
   <div class="card"><div class="v">{data['raw_total']}</div><div class="l">原始工单数</div></div>
   <div class="card"><div class="v">{len(data['date_count'])}</div><div class="l">覆盖天数</div></div>
   <div class="card"><div class="v">4</div><div class="l">活跃团队</div></div>
+  <div class="card pending"><div class="v">⏳ {data['pending_count']}</div><div class="l">待审核案例</div></div>
 </div>
 
 <div class="grid">
@@ -166,6 +203,7 @@ async def main():
     data = fetch_data()
     print(f'  total (filtered) = {data["total"]}')
     print(f'  raw total = {data["raw_total"]}')
+    print(f'  pending_count (待审核) = {data["pending_count"]}')
     print(f'  problem_type: {data["type_count"]}')
     print(f'  status: {data["status_count"]}')
     print(f'  priority: {data["prio_count"]}')

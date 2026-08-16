@@ -128,16 +128,21 @@ class TestP0_3LLMStrictValidation:
         assert _safe_float(-0.3) == 0.0
 
     def test_pda_chain_trigger_handles_string_confidence(self):
-        """PDA_TO_TRA_CHAIN.trigger 在 confidence="0.85" 时不抛 TypeError。"""
+        """PDA_TO_TRA_CHAIN.trigger 在 confidence="0.85" 时不抛 TypeError。
+
+        Day 18 P1-final: PDA_TO_TRA 链已禁用（trigger 永远 False），
+        但 trigger 函数仍必须容忍字符串 confidence（不抛 TypeError）。
+        """
         # 模拟 PDA 返回字符串 confidence（之前会 TypeError）
         prev_data = {
             "confidence": "0.85",  # 字符串！
             "problem_type": "拒付",
             "next_agent": "Ticket Routing Agent",
         }
-        # 不应抛 TypeError
+        # 不应抛 TypeError（即便 trigger 已禁用，调用本身必须安全）
         result = PDA_TO_TRA_CHAIN["trigger"](prev_data)
-        assert result is True, "字符串 '0.85' 应被解析为 0.85 ≥ 0.7"
+        # Day 18 P1-final: 链禁用 → trigger 永远 False（产品决策：bot 能答就不派单）
+        assert result is False
 
     def test_orchestrator_handles_string_confidence_from_llm(self, orch):
         """Orchestrator 接收字符串 confidence 不报错（_coerce_float 生效）。"""

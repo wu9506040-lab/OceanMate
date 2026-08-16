@@ -51,6 +51,20 @@ def db(tmp_db_path: Path) -> SQLiteDatabase:
 @pytest.fixture
 def repos(db: SQLiteDatabase) -> dict:
     """注入 6 个 Repository 实例。"""
+    # Day 18 P2-final：review_decisions 表由 KEA Tool 运行时自动建（_record_review_decision），
+    # 但 list_review_history 测试需要测试 fixture 直接写入 → 在此处预建
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS review_decisions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            case_id TEXT NOT NULL,
+            decision TEXT NOT NULL,
+            reviewer TEXT,
+            note TEXT,
+            chroma_id TEXT,
+            confidence REAL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )"""
+    )
     return {
         "merchant": MerchantRepository(db),
         "error_code": ErrorCodeRepository(db),

@@ -216,6 +216,56 @@ class FeishuOpenAPI:
         body = {"fields": fields}
         return self._post_authed(url, body, "bitable.add_record").get("data", {})
 
+    # === Day 18 P2-final：反向同步（多维表格 → 后端）===
+
+    def list_records(
+        self,
+        app_token: str,
+        table_id: str,
+        *,
+        filter_expr: Optional[str] = None,
+        page_size: int = 500,
+        max_pages: int = 10,
+    ) -> list[dict]:
+        """分页拉取多维表格记录（用于反向同步审核决策）。
+
+        Args:
+            app_token: 多维表格 app_token
+            table_id: 表格 ID
+            filter_expr: 飞书过滤语法（例：'CurrentValue.[决策]="待审核"'），None=全量
+            page_size: 单页条数（飞书最大 500）
+            max_pages: 最大页数（防失控）
+
+        Returns:
+            记录列表（每条含 record_id + fields）
+        """
+        all_items: list[dict] = []
+        page_token: Optional[str] = None
+        for _ in range(max_pages):
+            params: dict = {"page_size": page_size}
+            if filter_expr:
+                params["filter"] = filter_expr
+            if page_token:
+                params["page_token"] = page_token
+            url = f"{self.base_url}/bitable/v1/apps/{app_token}/tables/{table_id}/records"
+            data = self._get_authed(url, "bitable.list_records").get("data") or {}
+            all_items.extend(data.get("items") or [])
+            if not data.get("has_more"):
+                break
+            page_token = data.get("page_token")
+            if not page_token:
+                break
+        return all_items
+
+    def get_record(
+        self, app_token: str, table_id: str, record_id: str
+    ) -> dict:
+        """按 record_id 查单条记录（webhook 事件拿不到全字段时用）。"""
+        url = (
+            f"{self.base_url}/bitable/v1/apps/{app_token}/tables/{table_id}/records/{record_id}"
+        )
+        return self._get_authed(url, "bitable.get_record").get("data") or {}
+
     # === 内部辅助 ===
 
     def _post_authed(self, url: str, body: dict, endpoint: str) -> dict:

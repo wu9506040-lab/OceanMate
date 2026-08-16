@@ -81,6 +81,28 @@ class MockFrontend(BaseFrontend):
         self._log("sync_dashboard_data", data=data)
         return True
 
+    def sync_review_decision(self, data: dict) -> bool:
+        """Mock 同步审核决策到 review_decisions：写日志 + 返回 True。"""
+        self._log("sync_review_decision", data=data)
+        return True
+
+    # === Day 18 P2-final：反向同步（Mock）===
+
+    def fetch_review_decisions(
+        self,
+        *,
+        decision_filter: Optional[str] = None,
+        max_pages: int = 10,
+    ) -> list[dict]:
+        """Mock 拉取审核决策：返回空列表（录屏用 Mock 时多维表格数据靠手动 seed）。"""
+        self._log("fetch_review_decisions", decision_filter=decision_filter, max_pages=max_pages)
+        return []
+
+    def get_record_by_id(self, record_id: str) -> dict:
+        """Mock 按 record_id 查记录：返回空 dict。"""
+        self._log("get_record_by_id", record_id=record_id)
+        return {}
+
     # === 辅助：日志读写 ===
 
     def _log(self, event: str, **fields) -> None:

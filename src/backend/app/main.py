@@ -511,6 +511,154 @@ def feishu_url_verification(payload: dict):
     return _webhook_handler._handle_url_verification(payload)
 
 
+# === Day 18 P2-final：审核决策反向同步（多维表格 → 后端） ===
+
+@app.post("/admin/sync-bit")
+def admin_sync_review_decisions():
+    """手动同步多维表格审核决策到后端（录屏演示用）。
+
+    流程：
+    1. 拉飞书 review_decisions 表里所有 decision != '待审核' 的记录
+    2. 对每条已通过（approved）的 → 调 KEA approve_case（强制写 Chroma）
+    3. 对每条已拒绝（rejected）的 → 调 KEA reject_case（更新 review_decisions）
+    4. 返回同步结果（哪些 case 入库了，哪些拒绝了，哪些跳过）
+
+    用途：录屏节奏可控（运营在多维表格改 decision → 点同步按钮 → 立刻入库）。
+    生产可改用飞书多维表格 webhook 自动触发（见 /feishu/bitable/webhook）。
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    if not _frontend or not hasattr(_frontend, "fetch_review_decisions"):
+        return {
+            "success": False,
+            "error": "frontend 未配置或不支持 fetch_review_decisions",
+            "synced": [],
+        }
+
+    # 1) 拉所有待审核以外的决策（运营已操作的）
+    items_to_apply = _frontend.fetch_review_decisions(decision_filter=None) or []
+    # Mock 模式 + 真实模式都按 decision 字段过滤（飞书存"待审核"/"已通过"/"已拒绝"）
+    pending_set = {"待审核", "pending_review"}
+    synced = []
+    skipped = []
+    errors = []
+
+    for item in items_to_apply:
+        fields = item.get("fields") or {}
+        decision = fields.get("决策", "")
+        if decision in pending_set:
+            skipped.append({"record_id": item.get("record_id"), "reason": "仍为待审核"})
+            continue
+        # 字段名映射（飞书表 schema：案例ID/决策/审核人/备注...）
+        case_id = fields.get("案例ID", "")
+        reviewer = fields.get("审核人", "lead")
+        note = fields.get("备注", "")
+        if not case_id:
+            skipped.append({"record_id": item.get("record_id"), "reason": "案例ID 缺失"})
+            continue
+        # 2) 调 KEA（approve / reject）
+        try:
+            if decision in ("已通过", "approved"):
+                result = _orchestrator.registry.safe_execute(
+                    "knowledge_evolution",
+                    {"intent": "approve_case", "case_id": case_id, "reviewer": reviewer},
+                )
+            elif decision in ("已拒绝", "rejected"):
+                result = _orchestrator.registry.safe_execute(
+                    "knowledge_evolution",
+                    {"intent": "reject_case", "case_id": case_id, "reviewer": reviewer, "reason": note},
+                )
+            else:
+                skipped.append({"record_id": item.get("record_id"), "reason": f"未知 decision={decision}"})
+                continue
+            synced.append({
+                "record_id": item.get("record_id"),
+                "case_id": case_id,
+                "decision": decision,
+                "success": result.get("success", False),
+            })
+        except Exception as e:
+            logger.warning(f"/admin/sync-bit 处理 {case_id} 失败: {e}")
+            errors.append({"record_id": item.get("record_id"), "case_id": case_id, "error": str(e)})
+
+    return {
+        "success": True,
+        "synced": synced,
+        "skipped": skipped,
+        "errors": errors,
+        "summary": {
+            "synced_count": len(synced),
+            "skipped_count": len(skipped),
+            "error_count": len(errors),
+        },
+    }
+
+
+@app.post("/feishu/bitable/webhook")
+async def feishu_bitable_webhook(request: Request):
+    """飞书多维表格自动化事件回调（生产预留，录屏可不动）。
+
+    飞书配置：review_decisions 表 → decision 字段值变化 → 触发 webhook
+    Payload 含 record_id → 调 frontend.get_record_by_id → 调 approve/reject_case
+
+    与 /admin/sync-bit 的区别：本 endpoint 是单条增量同步，/admin/sync-bit 是全量拉取。
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        body = await request.body()
+        payload = json.loads(body) if body else {}
+    except (json.JSONDecodeError, Exception):
+        return {"code": 400, "msg": "invalid json"}
+
+    # 飞书多维表格事件 payload 结构：
+    # {"schema": "bitable.record.changed_v1", "event": {"record_id": "...", "table_id": "...", ...}}
+    event = payload.get("event") or {}
+    record_id = event.get("record_id", "")
+    if not record_id:
+        logger.warning("feishu_bitable_webhook 收到无 record_id 事件")
+        return {"code": 400, "msg": "missing record_id"}
+
+    # 1) 拉完整 record
+    if not _frontend or not hasattr(_frontend, "get_record_by_id"):
+        return {"code": 500, "msg": "frontend unavailable"}
+    record = _frontend.get_record_by_id(record_id)
+    if not record:
+        return {"code": 404, "msg": "record not found"}
+
+    # 飞书 API 返回结构：{"record": {"record_id": "...", "fields": {...}}}
+    # 同时兼容扁平格式 {"fields": {...}}（Mock 测试用）
+    inner = (record.get("record") or {}) if isinstance(record, dict) else {}
+    fields = (inner.get("fields") or record.get("fields") or {}) if isinstance(record, dict) else {}
+    decision = fields.get("决策", "")
+    case_id = fields.get("案例ID", "")
+    reviewer = fields.get("审核人", "lead")
+    note = fields.get("备注", "")
+    if not case_id:
+        return {"code": 400, "msg": "case_id missing in record"}
+
+    # 2) 调 KEA
+    try:
+        if decision in ("已通过", "approved"):
+            result = _orchestrator.registry.safe_execute(
+                "knowledge_evolution",
+                {"intent": "approve_case", "case_id": case_id, "reviewer": reviewer},
+            )
+        elif decision in ("已拒绝", "rejected"):
+            result = _orchestrator.registry.safe_execute(
+                "knowledge_evolution",
+                {"intent": "reject_case", "case_id": case_id, "reviewer": reviewer, "reason": note},
+            )
+        else:
+            return {"code": 200, "msg": f"decision={decision} no action"}
+        return {"code": 0, "msg": "success", "case_id": case_id, "success": result.get("success", False)}
+    except Exception as e:
+        logger.warning(f"feishu_bitable_webhook 处理 {case_id} 失败: {e}")
+        return {"code": 500, "msg": str(e)}
+
+
 # === 启动入口（uvicorn）===
 
 if __name__ == "__main__":
