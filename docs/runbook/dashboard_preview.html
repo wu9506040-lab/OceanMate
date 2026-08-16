@@ -4,10 +4,14 @@
 body { font-family: -apple-system, "Segoe UI", "PingFang SC", sans-serif; background: #F5F7FA; color: #1F2329; padding: 24px; margin: 0; }
 h1 { color: #1F2329; margin: 0 0 8px 0; font-size: 22px; }
 .subtitle { color: #646A73; font-size: 13px; margin-bottom: 20px; }
-.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
 .card { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
 .card .v { font-size: 28px; font-weight: 600; color: #1F2329; }
 .card .l { font-size: 12px; color: #646A73; }
+/* Day 18 P2-final：待审核卡（橙色高亮，运营/lead 一眼看到待办） */
+.card.pending { background: #FF7D00; box-shadow: 0 2px 8px rgba(255,125,0,0.35); }
+.card.pending .v { color: white; font-weight: 700; }
+.card.pending .l { color: white; font-weight: 500; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .panel { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
 .panel h3 { margin: 0 0 12px 0; font-size: 14px; color: #1F2329; }
@@ -21,27 +25,28 @@ td { padding: 6px 0; border-bottom: 1px solid #F0F1F3; }
 .date-panel { margin-top: 16px; }
 </style></head><body>
 <h1>OceanMate AI 运营看板</h1>
-<div class="subtitle">实时数据 · 来源：飞书多维表格（飞行社企业）· 2026-08-13 12:50</div>
+<div class="subtitle">实时数据 · 待审核 <b style="color:#FF7D00">0</b> 条 · 运营在飞书多维表格 review_decisions 表审核 · 来源：飞书多维表格（飞行社企业）· 2026-08-16 14:30</div>
 
 <div class="cards">
-  <div class="card"><div class="v">59</div><div class="l">有效工单（过滤后）</div></div>
-  <div class="card"><div class="v">60</div><div class="l">原始工单数</div></div>
+  <div class="card"><div class="v">112</div><div class="l">有效工单（过滤后）</div></div>
+  <div class="card"><div class="v">113</div><div class="l">原始工单数</div></div>
   <div class="card"><div class="v">7</div><div class="l">覆盖天数</div></div>
   <div class="card"><div class="v">4</div><div class="l">活跃团队</div></div>
+  <div class="card pending"><div class="v">⏳ 0</div><div class="l">待审核案例</div></div>
 </div>
 
 <div class="grid">
   <div class="panel">
     <h3>问题类型分布</h3>
-    <table><tr><td>拒付</td><td><div class="bar" style="width:440px"></div></td><td>22</td></tr><tr><td>支付失败</td><td><div class="bar" style="width:320px"></div></td><td>16</td></tr><tr><td>咨询</td><td><div class="bar" style="width:220px"></div></td><td>11</td></tr><tr><td>退款异常</td><td><div class="bar" style="width:200px"></div></td><td>10</td></tr></table>
+    <table><tr><td>拒付</td><td><div class="bar" style="width:660px"></div></td><td>33</td></tr><tr><td>支付失败</td><td><div class="bar" style="width:600px"></div></td><td>30</td></tr><tr><td>咨询</td><td><div class="bar" style="width:500px"></div></td><td>25</td></tr><tr><td>退款异常</td><td><div class="bar" style="width:420px"></div></td><td>21</td></tr><tr><td>通道测试</td><td><div class="bar" style="width:60px"></div></td><td>3</td></tr></table>
   </div>
   <div class="panel">
     <h3>状态分布</h3>
-    <table><tr><td>in_progress</td><td>25</td></tr><tr><td>pending</td><td>20</td></tr><tr><td>resolved</td><td>14</td></tr></table>
+    <table><tr><td>in_progress</td><td>39</td></tr><tr><td>resolved</td><td>38</td></tr><tr><td>pending</td><td>32</td></tr><tr><td>-</td><td>3</td></tr></table>
   </div>
   <div class="panel">
     <h3>优先级分布</h3>
-    <table><tr><td>medium</td><td>34 (57%)</td></tr><tr><td>high</td><td>22 (37%)</td></tr><tr><td>low</td><td>3 (5%)</td></tr></table>
+    <table><tr><td>medium</td><td>60 (53%)</td></tr><tr><td>high</td><td>40 (35%)</td></tr><tr><td>low</td><td>12 (10%)</td></tr></table>
   </div>
   <div class="panel">
     <h3>SLA / 通知</h3>

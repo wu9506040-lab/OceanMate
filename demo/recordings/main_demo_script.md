@@ -361,7 +361,7 @@ BR Visa 13.1 又拒付了
 | 失败 | 兜底 |
 |------|------|
 | bot 不回 | 看 `/tmp/uvicorn_day18.log` `[WS]` 段，有无报错 |
-| briefing 没落 DM | `.env` 里 `FEISHU_TEAM_*_OPEN_ID` 必须全是 `ou_aa9ece53b9a503cf7007ce2d42021a1c` |
+| briefing 没落 DM | `.env` 里 `FEISHU_TEAM_*_OPEN_ID` 必须全是 lead 自己的 open_id（见 `.env`） |
 | `【人工】已解决` 不生效 | 看 `[WS] [人工] 前缀不带 ticket_id` 日志；确认前缀是 `【人工】`（全角）或 `[人工]`（半角）|
 | `【人工】已解决` 没自动找 ticket | 看 `[WS] [人工] 前缀不带 ticket_id，从会话状态找到最近` 日志；如果没日志，检查上一轮是否成功创建工单 |
 | T3.0 「需要」走 MSA 反问 | 看 `[Orchestrator] force_intent=ticket_routing` 日志；如果没日志，说明会话延续没生效 |

@@ -1,7 +1,7 @@
 {
   "case": "case_08_unknown",
   "via": "api",
-  "elapsed_ms": 491,
+  "elapsed_ms": 621,
   "result": {
     "intent": "unknown_fallback_to_msa",
     "tool_name": "merchant_success",

@@ -2,7 +2,7 @@
   "case": "case_10_webhook_mc",
   "via": "webhook",
   "http_status": 200,
-  "elapsed_ms": 5731,
+  "elapsed_ms": 4972,
   "result": {
     "intent": "payment_diagnosis",
     "tool_name": "payment_diagnosis",
@@ -12,8 +12,8 @@
         "problem_type": "拒付",
         "root_causes": [
           "拒付原因码 4837「No Cardholder Authorization」（未获得持卡人授权）",
-          "持卡人/发卡行发起拒付，理由码 4837：未获得持卡人授权",
-          "持卡人/发卡行发起拒付，理由码 4849：可疑商户行为"
+          "持卡人或发卡行发起拒付，理由码 4837（无持卡人授权）",
+          "持卡人或发卡行发起拒付，理由码 4849（可疑商户行为）"
         ],
         "evidence_chain": [
           {
@@ -45,7 +45,8 @@
           "复核 3DS/SecureCode 验证记录（是否在交易中触发）",
           "排查 Card-on-File 存储与 CVV 校验配置",
           "准备订单、物流、退款凭证",
-          "开通 RDR 或 Collaboration 拦截争议"
+          "优先使用 RDR 或 Collaboration 拦截争议",
+          "检查交易流程是否符合支付规范"
         ],
         "confidence": 0.85,
         "next_agent": "Ticket Routing Agent",
@@ -85,23 +86,20 @@
       "extracted_from_query": {
         "country": "US",
         "channel": "Mastercard",
-        "error_code": "CB_4837"
+        "error_code": "CB_4837",
+        "order_id": null
       },
       "query_type": "code_required",
+      "is_rebuttal": false,
+      "code_specific_enriched": {
+        "channel": "Mastercard",
+        "error_code": "4837",
+        "reason_name": "No Cardholder Authorization",
+        "category": "not_authorized",
+        "injected_actions_count": 2
+      },
       "llm_used": false
-    },
-    "chain": [
-      {
-        "step": 2,
-        "tool": "ticket_routing",
-        "result": {
-          "success": false,
-          "error_code": "TOOL_PARAM_INVALID",
-          "error_message": "Tool 'ticket_routing' 参数校验失败: None is not of type 'string'"
-        },
-        "triggered_by": "payment_diagnosis"
-      }
-    ]
+    }
   },
   "expect": {
     "intent": "payment_diagnosis",

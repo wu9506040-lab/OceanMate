@@ -369,7 +369,7 @@ PYTHONIOENCODING=utf-8 python E:/ai-pioneer/docs/reports/day15_verification/_ver
 ## 12. 诚实声明
 
 ✅ **真实验证**：所有 case 都真实打到 `http://localhost:8000/api/chat` 和 `/feishu/webhook`，不是 mock。
-✅ **真实环境**：FeishuFrontend 连真实飞书（APP_ID=cli_aaf8271657f9dbb5），send_image 返回 True。
+✅ **真实环境**：FeishuFrontend 连真实飞书（APP_ID 见 `.env`），send_image 返回 True。
 ✅ **真实 LLM 降级**：Qwen 无 API key 时 MockLLMProvider 提供 actions；Fix D 在 Mock 路径生效（参见 qwen_provider._build_prompt 也会在 evidence rule 引导下使用真实文本）。
 
 ⚠️ **唯一未端到端验证的环节**：Webhook 路径里 `Frontend.send_message` 发文字 + `Frontend.send_image` 发图—— 已经在 webhook 路径上 HTTP 200 通过，且 send_image 单点独立调用返回 True，但**没有真实打开飞书客户端查看图片是否收到**。这需要录屏时人工确认。

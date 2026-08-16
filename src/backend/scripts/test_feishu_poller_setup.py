@@ -45,8 +45,8 @@ except ImportError:
 
 from app.implementations.feishu.api import FeishuOpenAPI, FeishuAPIError  # noqa: E402
 
-# 用户 open_id（从 cc-connect config.toml 已知）
-USER_OPEN_ID = os.getenv("USER_OPEN_ID", "ou_4a2da87d3b67eae1c7a0860d85f43776")
+# 用户 open_id（从 .env 读 USER_OPEN_ID；fallback 仅示意）
+USER_OPEN_ID = os.getenv("USER_OPEN_ID", "ou_demo_user")
 
 
 def main() -> int:
