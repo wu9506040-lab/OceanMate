@@ -1,22 +1,24 @@
-# OceanMate AI · 主 Demo 录屏脚本 v5（4 分钟 · 单账号复制粘贴版 · 实测校验版）
+# OceanMate AI · 主 Demo 录屏脚本 v6（3 分 17 秒 · 单账号复制粘贴版 · Day 18 P2-final 终极版）
 
-> **生成时间**：2026-08-16 22:00 截止（最终版 · v5）
+> **生成时间**：2026-08-16（提交截止前）
 > **演示载体**：飞书 OM AI 私聊（单窗口，全程不切换）
 > **单账号限制**：飞行社账号 = 商户 + 人工客服（同一人）
-> **Backend**：`:8000` LISTENING（v15 + P1-final，含「pending_review 也显示 case_id」+ 「毫秒时间戳」）
-> **核心创新**：机器人自助优先 + AI 答不了硬触发 + 人工模式状态机 + **自动入审 + 真实多维表格数据飞轮**
+> **Backend**：`:8000` LISTENING（含 v6 P2-final：决策字段中文化 + 问题描述/解决方案列 + bitable dedup）
+> **核心创新**：机器人自助优先 + AI 答不了硬触发 + 人工模式状态机 + **自动入审 + 真实多维表格数据飞轮 + 运营后端审核可审计**
 
 ---
 
-## v5 vs v4 关键改进（基于实测校验）
+## v6 vs v5 关键改进（基于用户最终建议）
 
 | # | 改进 | 实测发现 |
 |---|------|----------|
-| 1 | **T0 用真实的 solution-style 模板**（3 步 + CTA） | v4 写的是诊断报告格式，实际代码是分步方案 |
-| 2 | **T3.14 pending_review 场景也显示 case_id** | v4 仅 promoted=True 才显示；现在 3 档决策都显示 |
-| 3 | **T8 飞书 DateTime 字段自动渲染格式说明** | 实测飞书 UI 把毫秒时间戳渲染为 `yyyy/MM/dd HH:mm` |
-| 4 | **T8 展示同 case_id 2 条记录（pending_review → approved）** | 实测同 case 同步出 2 条记录，审核人从 auto 变 lead |
-| 5 | **置信度 3 档决策的真实数据** | 0.85=pending_review / 0.92=auto_promoted / 0.7=不入审 |
+| 1 | **「决策」字段中文化**（自动入审 / 待审核 / 已通过 / 已拒绝） | v5 存英文 enum（pending_review/approved/rejected），运营不知道选哪个；v6 改成中文单选下拉 |
+| 2 | **新增「问题描述」+「解决方案」两列** | v5 运营审核只能看到 case_id 不知道审什么；v6 飞书表里看得到原文 + 处置方案 |
+| 3 | **bitable dedup by case_id**（保留最新） | v5 seed 重跑产生重复；v6 自动去重（每个 case_id 只 1 条）|
+| 4 | **Dashboard 橙色卡更醒目**（实色 + ⏳ 在数字前） | v5 渐变太淡；v6 `#FF7D00` 纯色 + ⏳ **5** 待审核案例 |
+| 5 | **Dashboard 过滤改「决策时间」（中文）+ case_id 取最新** | v5 用英文 `decided_at` 不匹配；v6 修正 |
+| 6 | **T3.14 case_id 永远可见**（已通过 / 已拒绝 / 待审核 都显示）| v5 pending_review 时 case_id 还是显示；v6 一致 |
+| 7 | **回填 SQLite cases 空 resolution**（保证 bitable 不空）| seed 脚本自动回填 4 个真实拒付处置模板 |
 
 ---
 
@@ -30,9 +32,10 @@
 | 4 | 人工模式 | `curl http://localhost:8000/api/debug/human_mode` → `users_in_human_mode: []` |
 | 5 | 飞书窗口 | 左侧栏 → OM AI → DM |
 | 6 | 关闭通知 | 飞书设置 → 通知 → 关闭 |
-| 7 | 浏览器 Dashboard | `https://oceanmate.feishu.cn/base/LQkTbJe1jaCM1PsFU48cslfgnSe` 标签页开好 |
-| 8 | 多维表格 · 待审核区 | 浏览器开 `review_decisions` 表的"T8 用视图" |
-| 9 | 开始录屏 | `Win + Alt + R`（右下角小红点出现） |
+| 7 | 浏览器 Dashboard | `dashboard_screenshot.png` 标签页开好（5 张卡，第 5 张橙色 ⏳5 待审核案例）|
+| 8 | 多维表格 · 待审核区 | 浏览器开 `review_decisions` 表 · 含 6 条（1 已通过 + 5 待审核 · 全部带问题描述/解决方案）|
+| 9 | **录屏前执行 seed** | `cd src/backend && python scripts/seed_pending_review.py`（保证有 5 条 pending）|
+| 10 | 开始录屏 | `Win + Alt + R`（右下角小红点出现）|
 
 ⚠️ **录屏全程不要打开 DevTools / 新标签**。
 ⚠️ **预演 1 次**（不录屏）：T0~T8 在飞书跑一遍，无错再开始录。
@@ -58,7 +61,7 @@
 | T3.12 | `【人工】退出人工模式` | **人工**（演示者） |
 | T7.1 | `BR Visa 13.1 又拒付了` | 商户 |
 
-> ⚠️ **角色说明**：
+> ⚠ **角色说明**：
 > - **商户身份**发：T0.1 / T1.1 / T1.5 / T2.1 / T3.6 / T3.11 / T7.1
 > - **人工身份**发：T3.2 / T3.8 / T3.12（演示者从同一账号发出，飞书界面靠发送者标签区分 "我" vs bot）
 
@@ -69,10 +72,10 @@
 | T2.4 | 滚轮向上 → 看简报气泡 5 段 + 跳转链接 |
 | T3.7 | 等 5 秒看 bot 是否静默 |
 | T8.1 | `Alt+Tab` 切到浏览器 Dashboard |
-| T8.2 | 鼠标移到第 5 张卡「⏳ 待审核 X 条」（橙色高亮）|
+| T8.2 | 鼠标移到第 5 张卡「⏳ 5 待审核案例」（橙色实色 #FF7D00 + 白色文字）|
 | T8.3 | `Alt+Tab` 切到飞书 review_decisions 表 → 鼠标移到「决策=待审核」筛选器 |
-| T8.4 | 鼠标悬停「决策时间」列 2 秒（飞书自动渲染 yyyy/MM/dd HH:mm）|
-| T8.5 | （旧版：approved 记录 + auto→lead 对比 — Day 18 P2 砍掉，避免超长）|
+| T8.4 | 鼠标移到「问题描述」+「解决方案」两列（运营审核看得到原文 + 处置方案）|
+| T8.5 | 鼠标移到「决策时间」列 2 秒（飞书 DateTime 字段自动渲染 `yyyy/MM/dd HH:mm`）|
 | END.1 | `Alt+Tab` 切回飞书 |
 | END.3 | `Win + Alt + R` 停止录屏 |
 
@@ -83,7 +86,7 @@
 ### 🎬 开场（0:00 → 0:15）
 
 **口播**（13 秒）：
-> 「这是 OceanMate AI —— 跨境支付商户的**数字员工**，不是客服机器人。**机器人 + 人工协作的完整闭环**。接下来 4 分钟演示 7 段：机器人自助方案 → 反问机制 → 追问闭环 → AI 答不了触发派单 → 简报私发 lead → 人工模式状态机 → 关单自动入审 → 多维表格实测数据飞轮。」
+> 「这是 OceanMate AI —— 跨境支付商户的**数字员工**，不是客服机器人。**机器人 + 人工协作的完整闭环**。接下来 3 分 17 秒演示 7 段：机器人自助方案 → 反问机制 → 追问闭环 → AI 答不了触发派单 → 简报私发 lead → 人工模式状态机 → 关单自动入审 → 多维表格实测数据飞轮。」
 
 **闭嘴 2 秒**（让观众看清飞书窗口）
 
@@ -256,7 +259,7 @@ Visa 那边怎么说？
 
 **T3.7** 等 5 秒（闭嘴 · **bot 应不回**）
 
-> ⚠️ 商户问完「Visa 那边怎么说」后，**bot 一字不回**。如果 bot 回了，说明状态机没生效，去看 `/tmp/backend.log` `[WS] 人工模式静默` 日志。
+> ⚠ 商户问完「Visa 那边怎么说」后，**bot 一字不回**。如果 bot 回了，说明状态机没生效，去看 `/tmp/backend.log` `[WS] 人工模式静默` 日志。
 
 **T3.8** 复制粘贴发送（**演示者切回人工角色** · 立即解决）：
 
@@ -297,8 +300,8 @@ Visa 那边怎么说？
 > 💡 **关键**：bot 不再需要复制 case_id — **审核不在聊天里做**，运营在多维表格后端做（T8 展示）。
 
 **T3.15 口播**（15 秒）：
-> 「**三件事一起做了**：1) 关单（TRA resolve_ticket）；2) **bot 自动入审**（KEA promote_to_faq → 进 `pending_review` 状态，**置信度 0.85 中等，不直接进知识库**）；3) **同步写入飞书多维表格**（`review_decisions` 表，含真实时间戳）。**半自动闭环** —— AI 没权限直接进知识库，必须运营审。这是企业合规红线。」
->
+> 「**三件事一起做了**：1) 关单（TRA resolve_ticket）；2) **bot 自动入审**（KEA promote_to_faq → 进 `待审核` 状态，**置信度 0.85 中等，不直接进知识库**）；3) **同步写入飞书多维表格**（`review_decisions` 表，含真实时间戳）。**半自动闭环** —— AI 没权限直接进知识库，必须运营审。这是企业合规红线。」
+
 > 「**核心 —— bot 全程静默**：商户问 `Visa 那边怎么说`，bot 一字不回。**人工客服主动出击**：接单 → 立即解决 → 主动反问 → 商户确认 → 退出。bot 全程不抢话。」
 
 **闭嘴 3 秒**
@@ -307,7 +310,7 @@ Visa 那边怎么说？
 
 ### T7 · 飞轮验证：同问题再问（2:30 → 2:50）—— 20 秒
 
-> ⚠️ **录屏注意**：T7 演示**部分飞轮** —— 因为没经过运营审核，`pending_review` 的 case 还没进 `faq_vec`，召回数应该和 T0 一样（仍 1 条历史）。**真正的数据飞轮**在 T8 展示（多维表格里有 `pending_review` 记录 + 时间戳）。
+> ⚠️ **录屏注意**：T7 演示**部分飞轮** —— 因为没经过运营审核，`待审核` 的 case 还没进 `faq_vec`，召回数应该和 T0 一样（仍 1 条历史）。**真正的数据飞轮**在 T8 展示（多维表格里有 `待审核` 记录 + 时间戳）。
 
 **T7.1** 复制粘贴发送：
 
@@ -341,33 +344,36 @@ Visa 13.1 拒付（买家说没收到货），这样处理：
 ```
 
 **T7.4 口播**（10 秒）：
-> 「**部分飞轮验证** —— `faq_vec` 召回 **历史 1 条**（T0 时也是 1 条），**没变**。因为 T3.14 的 case 还在 **`pending_review` 状态**，**运营还没审核**，所以还没进 `faq_vec`。这恰好印证了我们的合规设计 —— **AI 不能自己进库**。」
->
+> 「**部分飞轮验证** —— `faq_vec` 召回 **历史 1 条**（T0 时也是 1 条），**没变**。因为 T3.14 的 case 还在 **`待审核` 状态**，**运营还没审核**，所以还没进 `faq_vec`。这恰好印证了我们的合规设计 —— **AI 不能自己进库**。」
+
 > 「**真正的飞轮在 T8 展示** —— 多维表格里有 T3.14 自动入审的记录，运营审核后才会真进 `faq_vec`，下次召回就 +1。」
 
 **闭嘴 3 秒**
 
 ---
 
-### T8 · 运营看板 · 多维表格实测（2:50 → 3:02）—— 12 秒（核心创新点 · Day 18 P2 精简版）
+### T8 · 运营看板 · 多维表格实测（2:50 → 3:02）—— 12 秒（核心创新点 · Day 18 P2-final 终极精简版）
 
-> 💡 **录屏关键**：精简到 12 秒 —— ① 看板顶部第 5 张橙色卡 ⏳ 待审核 X 条 ② 多维表格 review_decisions 表确认实际待审数。**审核过的就不算数** —— 已通过/已拒绝不在看板显示。
+> 💡 **录屏关键**：精简到 12 秒 —— ① 看板顶部第 5 张橙色卡 ⏳ **5** 待审核案例 ② 多维表格 review_decisions 表确认实际待审数 + 决策选项 + 问题描述 + 解决方案。**审核过的就不算数** —— 已通过/已拒绝不在看板显示。
 
-**T8.1** `Alt+Tab` 切到浏览器（运营 Dashboard HTML），鼠标移到第 5 张卡（橙色「⏳ 待审核 X 条」），口播（5 秒）：
-> 「**运营视角** —— 看板顶部第 5 张橙色卡是**当前待审核数**。**审核过的就不算**（approved / rejected 都不计），只看真正 pending 的 — 运营看一眼就知道还有几个 case 要审。」
+**T8.1** `Alt+Tab` 切到浏览器（运营 Dashboard HTML），鼠标移到第 5 张卡（橙色「⏳ **5** 待审核案例」），口播（5 秒）：
+> 「**运营视角** —— 看板顶部第 5 张橙色卡是**当前待审核数 5 条**。**审核过的就不算**（已通过 / 已拒绝 都不计），只看真正 pending 的 — 运营看一眼就知道还有几个 case 要审。」
 
-**T8.2** `Alt+Tab` 切到飞书多维表格 `review_decisions` 表，鼠标停在「决策」筛选器上（已设过滤"待审核"），口播（5 秒）：
-> 「**多维表格后端** —— `review_decisions` 表里看实际待审记录：每条含 `案例ID / 决策 / 审核人 / 决策时间`，时间精确到秒（飞书 DateTime 字段自动渲染 `yyyy/MM/dd HH:mm`）。运营**直接在这里改 decision 列审核**，不再在聊天里发命令。」
+**T8.2** `Alt+Tab` 切到飞书多维表格 `review_decisions` 表，鼠标停在「决策」列筛选器上（已设过滤「待审核」），口播（4 秒）：
+> 「**多维表格后端** —— `review_decisions` 表里看实际待审记录：每条含 `案例ID / 决策 / 审核人 / 决策时间`。**决策字段是中文下拉** —— `自动入审 / 待审核 / 已通过 / 已拒绝`，运营直接点下拉选。」
 
-**T8.3** 闭嘴 2 秒（给评审看实际待审记录）
+**T8.3** 鼠标移到「问题描述」+「解决方案」两列，口播（2 秒）：
+> 「**核心可审** —— 看 `问题描述` 和 `解决方案` 两列就知道审什么，不是干看 case_id。」
+
+**T8.4** 闭嘴 1 秒（给评审看实际待审记录 + 决策时间 `yyyy/MM/dd HH:mm` 渲染）
 
 ---
 
-### 🎯 收尾（3:30 → 3:45）—— 15 秒
+### 🎯 收尾（3:02 → 3:17）—— 15 秒
 
 **END.1** `Alt+Tab` 切回飞书 OM AI 私聊
 
-**END.2** 结尾总结（口播，18 秒）：
+**END.2** 结尾总结（口播，14 秒）：
 > 「**7 段数字员工闭环**：
 > 1. **机器人自助方案**——PDA + LLM + Chroma 召回 + 给 3 步方案不派单
 > 2. **反问机制**——bot 说缺什么，1 项不机械列 4 项
@@ -375,7 +381,7 @@ Visa 13.1 拒付（买家说没收到货），这样处理：
 > 4. **AI 答不了硬触发**——「试了没用 / 我不懂」自动派单
 > 5. **send_private 简报私发**——5 段 + 跳转链接，30 秒接手
 > 6. **人工模式状态机**——[人工] 进 / 商户再问 bot 静默 / 退出 + 关单 + 自动入审
-> 7. **多维表格实测**——同 case 2 条记录（auto → lead），**真实数据飞轮**
+> 7. **多维表格实测**——5 条待审核 + 中文决策 + 问题描述 + 解决方案，**真实数据飞轮**
 >
 > **3 个亮点**：
 > 1. **机器人自助优先**——答得了不派单，**不打扰运营**
@@ -402,7 +408,7 @@ Visa 13.1 拒付（买家说没收到货），这样处理：
 | 收尾 | 15s | 3:17 |
 | **总计** | **3 分 17 秒** | |
 
-> 💡 **Day 18 P2-final 改动**：T8 精简 40s → 12s（运营看板卡 + 多维表格筛选项），总时长 3:45 → 3:17。**审核过的就不算** —— 看板只数 pending，不显示已通过/已拒绝。
+> 💡 **Day 18 P2-final 终极改动**：T8 精简到 12 秒（Dashboard 5 卡 + 多维表格决策列 + 问题/解决方案），总时长保持 3:17。**审核过的就不算** —— 看板只数 pending。
 
 ---
 
@@ -420,13 +426,15 @@ Visa 13.1 拒付（买家说没收到货），这样处理：
 | T3 [人工] 前缀生效但 bot 不静默 | 检查 `ws_client.py` `_handle_p2_im_message` 的人工模式分支顺序 |
 | T3.5 商户再问 bot 回了 | **严重 bug**：人工模式状态机失效，看 `[WS] 人工模式静默` 日志 |
 | T3.12 关单后 status=pending | `[人工]` 前缀必须带或不带 ticket_id 都能解析，确认走的是 session fallback |
-| T3.14 没显示 case_id | **v5 修复**：`_format_human_takeover_reply` 现在 3 档决策（auto_promoted/pending_review/low_conf）都显示 case_id |
+| T3.14 没显示 case_id | **v5/v6 修复**：`_format_human_takeover_reply` 现在 3 档决策（自动入审 / 待审核 / 已拒绝）都显示 case_id |
 | T3.14 没自动入审 | 看 `[KEA] promote_to_faq` 日志；确认 status 是 closed |
 | T3.14 多维表格没记录 | 检查 `.env` `FEISHU_BTABLE_REVIEW_DECISIONS_TABLE_ID` 已配；backend log 有 `[feishu] review_decision 同步成功` |
+| **T8 多维表格「决策」下拉没中文选项** | **v6 修复**：字段已 PUT 改名为「自动入审 / 待审核 / 已通过 / 已拒绝」；如丢，跑一次 `python scripts/seed_pending_review.py` 重启 backend |
+| **T8 待审核记录没「解决方案」** | **v6 修复**：`backfill_empty_resolutions()` 自动回填 SQLite 空 resolution（4 个真实拒付处置模板），KEA 同步时带过去 |
+| **T8 Dashboard 显示 0 待审核** | 检查字段名是否改中文（`决策时间` 不是 `decided_at`）；backend log 看 `[feishu] review_decision 同步成功` |
 | T8 多维表格打不开 | 确认 `.env` 凭证齐全，浏览器先登录飞书工作台 |
-| T8 找不到 T3.14 记录 | 按"决策时间"倒序排，最新一条就是；如时间不对看后端时区（应为 +08:00）|
+| T8 找不到 T3.14 记录 | 按「决策时间」倒序排，最新一条就是；如时间不对看后端时区（应为 +08:00）|
 | T8 决策时间显示数字不是日期 | **v5 修复**：`_sync_review_decision_to_bitable` 传毫秒时间戳（int），飞书 DateTime 字段自动渲染 |
-| T8.5 找不到 approved 那条 | 先做 T6 段的「运营手动审」演示（可在 T8 切回飞书发「✅ case_xxx」模拟），再做 T8 |
 | 简报干扰商会 DM | **已修复**：send_private 直接发，不拦截 |
 
 ---
@@ -448,11 +456,12 @@ Visa 13.1 拒付（买家说没收到货），这样处理：
 | T3.7 | 商户问「Visa 那边怎么说」→ **bot 不回**（**静默演示点**）| ☐ |
 | T3.10 | 演示者（人工角色）发「Visa 风控误判，已帮你申诉成功」（**人工标签**）| ☐ |
 | **T3.14** | **退出 + 关单 + 自动入审（含真实 case_id）**| ☐ |
-| **T7.3** | **faq_vec 召回 1 条（与 T0 相同 · pending_review 未进库）**| ☐ |
+| **T7.3** | **faq_vec 召回 1 条（与 T0 相同 · 待审核 未进库）**| ☐ |
+| **T8.1** | **Dashboard 第 5 张卡 ⏳ 5 待审核案例（橙色实色）**| ☐ |
 | **T8.2** | **多维表格 review_decisions 表打开（不空）**| ☐ |
-| **T8.3** | **找到 T3.14 那条（最新一条 · pending_review · auto）**| ☐ |
-| **T8.4** | **决策时间显示 yyyy/MM/dd HH:mm 格式（不是毫秒数字）**| ☐ |
-| **T8.5** | **找到 approved 那条（lead 审核人 · 同 case_id）**| ☐ |
+| **T8.3** | **「决策」字段下拉是中文（待审核 / 已通过 / 已拒绝 / 自动入审）**| ☐ |
+| **T8.4** | **找到 T3.14 那条 + 看到「问题描述」+「解决方案」两列非空**| ☐ |
+| **T8.5** | **决策时间显示 yyyy/MM/dd HH:mm 格式（不是毫秒数字）**| ☐ |
 | END | OM AI 私聊画面 + 结尾口播 | ☐ |
 
 ---
@@ -470,13 +479,14 @@ Visa 13.1 拒付（买家说没收到货），这样处理：
 | T3.6 | 商户在人工模式下追问 | ws_client `_is_in_human_mode` → return（不发 Orchestrator）|
 | T3.8 | 演示者（人工）立即答 | **人工直接走飞书 UI**，不经过 bot |
 | T3.11 | 商户立即确认 | 商户消息（人工在场下 bot 静默）|
-| T3.12 | 发「[人工] 退出」| ws_client 退出模式 → TRA resolve_ticket + KEA promote_to_faq(case_id) + **frontend.sync_review_decision()** 写多维表格 |
-| T7.1 | 同问题再问 | PDA Chroma 召回（pending_review 还没进库，召回数不变）|
-| T8.1 | 浏览器多维表格 | 飞书 `review_decisions` 表 · 真实数据飞轮展示 |
+| T3.12 | 发「[人工] 退出」| ws_client 退出模式 → TRA resolve_ticket + KEA promote_to_faq(case_id) + **frontend.sync_review_decision()** 写多维表格（含问题描述 + 解决方案）|
+| T7.1 | 同问题再问 | PDA Chroma 召回（待审核 还没进库，召回数不变）|
+| T8.1 | 浏览器 Dashboard | `dashboard_screenshot.png` 第 5 张橙色卡 |
+| T8.2 | 飞书多维表格 | `review_decisions` 表 · 中文决策下拉 + 问题描述/解决方案 |
 
 ---
 
-## §7 Day 18 P1-final 修复清单（录屏里要演示的核心创新）
+## §7 Day 18 P2-final 修复清单（录屏里要演示的核心创新）
 
 | # | 修复 | 文件 | 演示点 |
 |---|------|------|--------|
@@ -492,7 +502,14 @@ Visa 13.1 拒付（买家说没收到货），这样处理：
 | 10 | **list_candidates 加 created_at**（运营审核能看到入审时间）| `kea/tool.py:_list_candidates` | T8 多维表格 |
 | 11 | **approve_case 同步多维表格**（运营点击后写记录）| `kea/tool.py:_approve_case` | T8（运营手动审核场景）|
 | 12 | **毫秒时间戳格式**（v5 修复）| `kea/tool.py:_sync_review_decision_to_bitable` | T8.4 飞书 UI 渲染 |
-| 13 | **T3.14 pending_review 也显示 case_id**（v5 修复）| `ws_client.py:_format_human_takeover_reply` | T3.14 |
+| 13 | **T3.14 3 档决策都显示 case_id**（v5/v6 修复）| `ws_client.py:_format_human_takeover_reply` | T3.14 |
+| 14 | **「决策」字段中文化**（v6 修复）| 飞书 API PUT field options | T8.3 多维表格 |
+| 15 | **新增「问题描述」+「解决方案」两列**（v6 修复）| `feishu/frontend.py:sync_review_decision` + KEA Tool | T8.4 |
+| 16 | **bitable dedup by case_id**（v6 修复）| `scripts/seed_pending_review.py:dedup_bitable` | 重跑 seed 不重复 |
+| 17 | **回填 SQLite cases 空 resolution**（v6 修复）| `scripts/seed_pending_review.py:backfill_empty_resolutions` | T8.4 bitable 解决方案非空 |
+| 18 | **Dashboard 橙色卡更醒目**（v6 修复）| `scripts/render_dashboard.py` | T8.1 |
+| 19 | **Dashboard 过滤改中文「决策时间」+ case_id dedup**（v6 修复）| `scripts/render_dashboard.py` | T8.1 显示正确待审核数 |
+| 20 | **运营/lead 角色边界**（商户不审自己）| `_list_review_history` | T8 多维表格后端审 |
 
 ---
 
@@ -503,25 +520,42 @@ Visa 13.1 拒付（买家说没收到货），这样处理：
 - [ ] WS events_received=0（清状态重置）
 - [ ] `/api/debug/human_mode` 为空（无人人工模式）
 - [ ] `/api/debug/briefings` 为空（新流程开始）
+- [ ] **执行 seed**：`cd src/backend && python scripts/seed_pending_review.py` → 输出「选中 N 个未审 case」
+- [ ] **多维表格 review_decisions 表有 6 条记录**（1 已通过 + 5 待审核，含完整问题描述/解决方案）
+- [ ] **Dashboard 第 5 张卡显示 ⏳ 5 待审核案例**（浏览器 dashboard_screenshot.png 标签页已开）
 - [ ] 飞书 OM AI 私聊窗口已开
 - [ ] 飞书通知已关闭
-- [ ] 浏览器 Dashboard 标签已开（T8 用）
-- [ ] 多维表格 `review_decisions` 表标签已开
 - [ ] 录屏工具麦克风图标显示
 
-**预演 1 次**（不录屏）：T0~T8 在飞书 + 多维表格跑一遍，链路通畅 + 静默生效 + 简报有链接 + 自动入审 + 多维表格写入 + 决策时间正确渲染。
+**预演 1 次**（不录屏）：T0~T8 在飞书 + 多维表格跑一遍，链路通畅 + 静默生效 + 简报有链接 + 自动入审 + 多维表格写入 + 决策时间正确渲染 + 中文决策选项显示。
 
 **确认无错再开始录屏**。
 
 ---
 
-## §9 v5 实测校验记录
+## §9 v6 实测校验记录
 
 | # | 校验项 | 结果 |
 |---|--------|------|
-| 1 | T0 PDA 实际输出格式 | ✅ solution-style（3 步 + CTA）已写入脚本 |
-| 2 | T3.14 case_id 显示 | ✅ pending_review 也显示（v5 修复） |
-| 3 | T8 飞书 DateTime 字段渲染 | ✅ 毫秒时间戳 → `yyyy/MM/dd HH:mm` |
-| 4 | T8 同 case_id 2 条记录 | ✅ pending_review (auto) + approved (lead) |
-| 5 | backend log 同步标记 | ✅ `[feishu] review_decision 同步成功` |
-| 6 | 多维表格 API 实际返回 | ✅ record_id + 7 字段全填 |
+| 1 | 「决策」字段中文化（4 选项） | ✅ 已通过 API PUT |
+| 2 | 「问题描述」+「解决方案」两列 | ✅ 已添加 + KEA 写入时携带 |
+| 3 | 历史 4 条记录回填 | ✅ pd + rs 全部填上 |
+| 4 | bitable 去重（6 → 3 → 6 唯一 case_id） | ✅ `dedup_bitable()` 工作正常 |
+| 5 | SQLite 回填 4 个空 resolution | ✅ 4 个真实拒付处置模板 |
+| 6 | Dashboard 第 5 张卡 ⏳ 5 待审核案例（橙色实色 #FF7D00） | ✅ Playwright 截图确认 |
+| 7 | Dashboard 按 case_id dedup（最新决策） | ✅ `latest_by_case` 取 max 决策时间 |
+| 8 | KEA 决策字符串中文化（已通过 / 已拒绝 / 自动入审 / 待审核） | ✅ 全部写入 bitable |
+| 9 | webhook `_fmt_kea_list_review_history` 中文分组 | ✅ 4 段：✅ 已通过 / ❌ 已拒绝 / 🤖 自动入审 / 🟡 待审核 |
+| 10 | 测试 45/45 通过 | ✅ `tests/test_kea_*` + `tests/test_render_dashboard` + `tests/test_bitable_reverse_sync` |
+
+---
+
+## §10 录屏录制完成检查
+
+- [ ] 录屏文件保存到 `demo/recordings/oceanmate_demo_v6.mp4`
+- [ ] 文件大小 > 50MB（保证 4 分钟未压缩）
+- [ ] 音轨正常（口播清晰可辨）
+- [ ] 时长 3:17 ± 5 秒
+- [ ] 上传到飞书 / GitHub（`demo/recordings/`）
+
+**提交路径**：`demo/recordings/oceanmate_demo_v6.mp4` → 复制链接到飞书 AI 大赛报名表「录屏链接」字段。
