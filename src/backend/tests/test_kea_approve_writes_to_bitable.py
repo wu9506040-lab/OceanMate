@@ -147,10 +147,22 @@ class TestApproveCaseSyncsToBitable:
         assert payload["reviewer"] == "ou_lead_001"
         assert payload["problem_type"] == "支付失败"
         assert payload["confidence"] == 0.85
-        # decided_at 必须是 ISO 格式字符串（含 T 或 -）
+        # decided_at 必须是毫秒时间戳（int）— 飞书 DateTime 字段 type=5 要求
+        # decided_at_iso 是 ISO 字符串（备用，UI 友好）
         assert "decided_at" in payload
-        assert isinstance(payload["decided_at"], str)
-        assert "T" in payload["decided_at"]
+        assert isinstance(payload["decided_at"], int), (
+            f"decided_at 应为毫秒时间戳（int），实际={type(payload['decided_at']).__name__}"
+        )
+        # 毫秒时间戳范围合理：当前时间 ± 60s
+        import time
+        now_ms = int(time.time() * 1000)
+        assert abs(payload["decided_at"] - now_ms) < 60_000, (
+            f"decided_at 偏离当前时间过大：{payload['decided_at']} vs {now_ms}"
+        )
+        # 备用 ISO 字符串也存在
+        assert "decided_at_iso" in payload
+        assert isinstance(payload["decided_at_iso"], str)
+        assert "T" in payload["decided_at_iso"]
 
     def test_approve_without_frontend_does_not_crash(self, kea_no_frontend, pending_case):
         """frontend=None 时 approve_case 不报错（NoOp 静默）。"""
