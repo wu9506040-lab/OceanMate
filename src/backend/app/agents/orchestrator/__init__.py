@@ -7,6 +7,7 @@ def create_default_orchestrator(
     db_path: str = "data/oceanmate.db",
     chroma_path: str = "data/chroma",
     auto_init_db: bool = True,
+    frontend=None,  # Day 18 P1-final：注入 frontend 让 KEA 同步审核决策到多维表格
 ) -> Orchestrator:
     """工厂函数：装配 4 Tool + DB + RAG 的默认 Orchestrator。
 
@@ -20,6 +21,7 @@ def create_default_orchestrator(
         db_path: SQLite 数据库路径
         chroma_path: Chroma 数据目录
         auto_init_db: 自动初始化 DB（执行 DDL），默认 True
+        frontend: BaseFrontend 实例（Day 18 P1-final：KEA 同步审核决策到多维表格）
 
     Returns:
         Orchestrator 实例
@@ -66,10 +68,12 @@ def create_default_orchestrator(
     orch.register_tool(PDATool())  # PDA 内部自管 service，LLM 自带降级
     # Day 18 P0：先实例化 KEA → 再注入 TRA（TRA auto_promote 钩子依赖 KEA）
     # 修 chain_config + factory 同模式 bug（Day 14 修复模式）
+    # Day 18 P1-final：注入 frontend（KEA 同步审核决策到多维表格）
     kea_tool = KEATool(
         case_repo=case_repo,
         rag=rag,
         embedding_meta_repo=db,
+        frontend=frontend,
     )
     orch.register_tool(TRATool(ticket_repo=ticket_repo, kea=kea_tool, case_repo=case_repo))
     orch.register_tool(kea_tool)
