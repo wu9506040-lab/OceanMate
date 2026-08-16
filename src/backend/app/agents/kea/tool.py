@@ -397,19 +397,27 @@ class KEATool(BaseTool):
 
         用途：录屏演示"自动入审"和"运营审核"两条记录都写入多维表格，
         评审可在飞书多维表格页面看到真实时间戳 + 案例 ID。
+
+        decided_at 格式：
+        - 给多维表格 API：毫秒时间戳（int，飞书 DateTime 字段 type=5 要求）
+        - 给前端 UI：ISO 字符串（中文显示友好）
         """
         if self.frontend is None:
             return  # NoOp（tests / mock 场景）
         try:
             from datetime import datetime, timezone, timedelta
-            # ISO 格式 + 北京时间（飞书 UI 显示更友好）
             beijing = timezone(timedelta(hours=8))
-            decided_at = datetime.now(beijing).isoformat(timespec="seconds")
+            now_beijing = datetime.now(beijing)
+            # 飞书 DateTime 字段（type=5）必须用毫秒时间戳（int）
+            decided_at_ms = int(now_beijing.timestamp() * 1000)
+            # ISO 格式备用（万一字段类型改了不报错）
+            decided_at_iso = now_beijing.isoformat(timespec="seconds")
             self.frontend.sync_review_decision({
                 "case_id": case_id,
                 "decision": decision,
                 "reviewer": reviewer,
-                "decided_at": decided_at,
+                "decided_at": decided_at_ms,        # 毫秒时间戳
+                "decided_at_iso": decided_at_iso,   # ISO 字符串（UI 友好）
                 "problem_type": problem_type,
                 "confidence": confidence,
                 "ticket_id": ticket_id,

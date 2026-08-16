@@ -82,9 +82,16 @@ def _format_human_takeover_reply(resolve_result: dict, resolution_text: str) -> 
     # 之前读 `promotion` 永远是 {} → case_id 显示 '?'
     promotion = resolve_result.get("promote_result") or resolve_result.get("promotion") or {}
     promoted = promotion.get("promoted", False)
-    promote_reason = promotion.get("skip_reason") or ""
+    pending_review = promotion.get("pending_review", False)
     # promote_to_faq 返回值含 `case_id`（以前的代码读 `faq_id` 是错的）
     case_id = promotion.get("case_id") or promotion.get("faq_id", "?")
+    # pending_review 的 reason 在 trace.reason 里（不是 skip_reason）
+    promote_trace = promotion.get("trace") or {}
+    promote_reason = (
+        promotion.get("skip_reason")
+        or promote_trace.get("reason")
+        or ""
+    )
 
     lines = [
         f"👨‍💼 **人工客服已接管** 工单 `{ticket_id}`",
@@ -108,12 +115,26 @@ def _format_human_takeover_reply(resolve_result: dict, resolution_text: str) -> 
     else:
         lines.append(f"⚠️ 关单结果：{status}")
 
+    # 知识沉淀行：3 档决策都展示（让 case_id 永远可见）
     if promoted:
         lines.append(
             f"🧠 知识沉淀：自动升格为 FAQ（`{case_id}`）"
         )
-    elif promote_reason:
-        lines.append(f"🧠 知识沉淀：{promote_reason}")
+    elif pending_review and case_id and case_id != "?":
+        # 中置信度（0.7-0.9）：入待审，运营后端审核
+        confidence = promote_trace.get("confidence", "?")
+        lines.append(
+            f"🧠 知识沉淀：自动入审（`{case_id}`）· 置信度 {confidence} · "
+            f"等运营审核后入知识库"
+        )
+    elif promote_reason and case_id and case_id != "?":
+        # 低置信度或 skip_reason：给出原因
+        lines.append(
+            f"🧠 知识沉淀：未入审（`{case_id}`）· {promote_reason[:80]}"
+        )
+    elif case_id and case_id != "?":
+        # fallback：只要有 case_id 就展示
+        lines.append(f"🧠 知识沉淀：case_id `{case_id}`")
 
     return "\n".join(lines)
 
