@@ -22,6 +22,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -35,6 +36,8 @@ from app.implementations.rag.chroma_rag import (
     COLLECTION_FAQ,
 )
 from app.models import Case
+
+logger = logging.getLogger(__name__)
 
 
 # === FAQ 升级阈值（来自 OP 真实运维经验）===
@@ -86,6 +89,7 @@ class KEATool(BaseTool):
         rag: Optional[BaseRAGEngine] = None,
         chroma_path: Optional[Path] = None,
         embedding_meta_repo=None,
+        frontend=None,  # Day 18 P1-final：BaseFrontend 实例（同步审核决策到多维表格）
     ):
         """初始化 KEATool。
 
@@ -94,6 +98,7 @@ class KEATool(BaseTool):
             rag: 注入 BaseRAGEngine（默认 None → ChromaRAGEngine 懒加载）
             chroma_path: Chroma 数据目录覆盖（默认走 ChromaRAGEngine 默认路径）
             embedding_meta_repo: 注入 embedding_meta 仓库（PoC 阶段直接走 SQLiteDatabase）
+            frontend: 注入 BaseFrontend（Day 18 P1-final · 审核决策同步到多维表格）
         """
         self.case_repo = case_repo
         self.rag = rag
@@ -108,6 +113,9 @@ class KEATool(BaseTool):
         elif case_repo is not None and hasattr(case_repo, "db"):
             # 共用 case_repo 的 db（嵌入到 BaseDatabase）
             self._db = case_repo.db
+
+        # Day 18 P1-final：frontend 注入（可空，None 时跳过多维表格同步）
+        self.frontend = frontend
 
     def _ensure_rag(self) -> BaseRAGEngine:
         """懒加载 ChromaRAGEngine。"""
@@ -279,6 +287,15 @@ class KEATool(BaseTool):
             }
         elif confidence < AUTO_PROMOTE_MIN_CONFIDENCE_PROMOTE_TO_CHROMA_UPPER:
             # 0.7 ~ 0.9：待审核，不进 Chroma（list_candidates 可查到）
+            # Day 18 P1-final：把"待审核"记录写到多维表格，录屏可现场展示
+            self._sync_review_decision_to_bitable(
+                case_id=case_id,
+                decision="pending_review",
+                reviewer="auto",
+                problem_type=case.problem_type or "",
+                confidence=confidence,
+                ticket_id=case.ticket_id if hasattr(case, "ticket_id") else "",
+            )
             return {
                 "intent": "promote_to_faq",
                 "count": 0,
@@ -287,7 +304,7 @@ class KEATool(BaseTool):
                 "case_id": case_id,
                 "trace": {
                     "decision": "pending_review",
-                    "reason": f"confidence {confidence:.2f} ∈ [{AUTO_PROMOTE_MIN_CONFIDENCE_PROMOTE_TO_CHROMA_LOWER}, {AUTO_PROMOTE_MIN_CONFIDENCE_PROMOTE_TO_CHROMA_UPPER})，标记待审核。运营可在 list_candidates 看到，审核通过后重试 promote_to_faq",
+                    "reason": f"confidence {confidence:.2f} ∈ [{AUTO_PROMOTE_MIN_CONFIDENCE_PROMOTE_TO_CHROMA_LOWER}, {AUTO_PROMOTE_MIN_CONFIDENCE_PROMOTE_TO_CHROMA_UPPER})，标记待审核。运营可在多维表格 review_decisions 表手动改 'decision' 为 'approved' 触发入库",
                     "confidence": confidence,
                     "problem_type": case.problem_type,
                     "review_url": "list_candidates",
@@ -339,6 +356,16 @@ class KEATool(BaseTool):
                     embedding_meta_error=str(e),
                 )
 
+        # Day 18 P1-final：高置信度自动升格 → 多维表格留痕（虽然直接进 FAQ，但评审可在 review_decisions 表看到）
+        self._sync_review_decision_to_bitable(
+            case_id=case_id,
+            decision="auto_promoted",
+            reviewer="auto",
+            problem_type=case.problem_type or "",
+            confidence=confidence,
+            ticket_id=case.ticket_id if hasattr(case, "ticket_id") else "",
+        )
+
         return {
             "intent": "promote_to_faq",
             "count": 1,
@@ -354,6 +381,41 @@ class KEATool(BaseTool):
                 "problem_type": case.problem_type,
             },
         }
+
+    # === Day 18 P1-final：自动沉淀到多维表格（让录屏能展示真实数据飞轮）===
+
+    def _sync_review_decision_to_bitable(
+        self,
+        case_id: str,
+        decision: str,
+        reviewer: str,
+        problem_type: str,
+        confidence: float,
+        ticket_id: str = "",
+    ) -> None:
+        """把审核决策同步到多维表格 review_decisions（失败不抛，仅 warn）。
+
+        用途：录屏演示"自动入审"和"运营审核"两条记录都写入多维表格，
+        评审可在飞书多维表格页面看到真实时间戳 + 案例 ID。
+        """
+        if self.frontend is None:
+            return  # NoOp（tests / mock 场景）
+        try:
+            from datetime import datetime, timezone, timedelta
+            # ISO 格式 + 北京时间（飞书 UI 显示更友好）
+            beijing = timezone(timedelta(hours=8))
+            decided_at = datetime.now(beijing).isoformat(timespec="seconds")
+            self.frontend.sync_review_decision({
+                "case_id": case_id,
+                "decision": decision,
+                "reviewer": reviewer,
+                "decided_at": decided_at,
+                "problem_type": problem_type,
+                "confidence": confidence,
+                "ticket_id": ticket_id,
+            })
+        except Exception as e:
+            logger.warning(f"sync_review_decision to bitable failed: {e}")
 
     # === 子能力 2：检索 FAQ ===
 
@@ -494,6 +556,9 @@ class KEATool(BaseTool):
             existing = self._get_embedding_meta(source_table="cases", source_id=c.id)
             if existing is not None:
                 continue
+            # Day 18 P1-final：列出待审时携带 created_at，让运营/lead 在多维表格里看到入审时间
+            # （先期 case 由 TRA Tool 关单时 promote_to_faq 自动入审，时间戳对评审可信度关键）
+            created_at = getattr(c, "created_at", None) or ""
             candidates.append({
                 "case_id": c.id,
                 "problem_desc": c.problem_desc,
@@ -502,6 +567,7 @@ class KEATool(BaseTool):
                 "channel": c.channel,
                 "problem_type": c.problem_type,
                 "confidence": c.confidence,
+                "created_at": created_at,
             })
             if len(candidates) >= limit:
                 break
@@ -617,7 +683,7 @@ class KEATool(BaseTool):
                     rag_written=True,
                 )
 
-        # 4) 记录审核留痕（review_decisions 表）
+        # 4) 记录审核留痕（review_decisions 表 + 多维表格）
         self._record_review_decision(
             case_id=case_id,
             decision="approved",
@@ -625,6 +691,15 @@ class KEATool(BaseTool):
             note=params.get("note", ""),
             chroma_id=chroma_id,
             confidence=confidence,
+        )
+        # Day 18 P1-final：同步到多维表格 review_decisions（录屏展示真实数据飞轮）
+        self._sync_review_decision_to_bitable(
+            case_id=case_id,
+            decision="approved",
+            reviewer=params.get("reviewer", "lead"),
+            problem_type=case.problem_type or "",
+            confidence=confidence,
+            ticket_id=case.ticket_id if hasattr(case, "ticket_id") else "",
         )
 
         # 5) 统计当前 faq_vec 总数（运营反馈「已加入知识库，共 N 条」）

@@ -44,6 +44,8 @@ class FeishuFrontend(BaseFrontend):
         app_secret: str,
         btable_app_token: str = DEFAULT_BTABLE_APP_TOKEN,
         btable_table_id: str = DEFAULT_BTABLE_TABLE_ID,
+        # Day 18 P1-final：review_decisions 表独立 ID（与其他多维表分开，录屏单独展示）
+        btable_review_decisions_table_id: str = "",
         verification_token: Optional[str] = None,
     ):
         self.app_id = app_id
@@ -52,6 +54,8 @@ class FeishuFrontend(BaseFrontend):
         self.api = FeishuOpenAPI(app_id=app_id, app_secret=app_secret)
         self.btable_app_token = btable_app_token
         self.btable_table_id = btable_table_id
+        # Day 18 P1-final：审核决策同步到多维表格（独立表）
+        self.btable_review_decisions_table_id = btable_review_decisions_table_id
 
     def close(self) -> None:
         """关闭 HTTP 客户端（测试 / 进程退出时）。"""
@@ -146,6 +150,45 @@ class FeishuFrontend(BaseFrontend):
             return True
         except FeishuAPIError as e:
             logger.warning(f"Feishu sync_dashboard_data failed: {e}")
+            return False
+
+    def sync_review_decision(self, data: dict) -> bool:
+        """同步审核决策到多维表格（Day 18 P1-final · 知识沉淀可视化）。
+
+        用途：录屏展示"真实数据飞轮" — 商户问题 → 自动入审 → 运营审核 →
+        写入多维表格 → 下次同类问题命中。
+
+        失败处理：凭证缺失 / API 失败 → 返回 False + log（不抛 raw exception）。
+        """
+        if not (self.btable_app_token and self.btable_review_decisions_table_id):
+            logger.warning(
+                "Feishu review_decisions 表未配置（btable_app_token / "
+                "btable_review_decisions_table_id 缺失）"
+            )
+            return False
+        try:
+            # 复用 sync_dashboard_data 的底层 API（POST bitable/v1/.../records）
+            # 字段名：case_id / decision / reviewer / decided_at / problem_type / confidence / ticket_id
+            self.api.sync_dashboard_data(
+                app_token=self.btable_app_token,
+                table_id=self.btable_review_decisions_table_id,
+                fields={
+                    "案例ID": data.get("case_id", ""),
+                    "决策": data.get("decision", ""),
+                    "审核人": data.get("reviewer", ""),
+                    "决策时间": data.get("decided_at", ""),
+                    "问题类型": data.get("problem_type", ""),
+                    "置信度": float(data.get("confidence", 0) or 0),
+                    "工单ID": data.get("ticket_id", ""),
+                },
+            )
+            logger.info(
+                f"[feishu] review_decision 同步成功: case_id={data.get('case_id')}, "
+                f"decision={data.get('decision')}"
+            )
+            return True
+        except FeishuAPIError as e:
+            logger.warning(f"Feishu sync_review_decision failed: {e}")
             return False
 
 

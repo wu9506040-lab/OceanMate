@@ -92,12 +92,13 @@ async def lifespan(app: FastAPI):
     db_path = os.getenv("OCEANMATE_DB", "data/oceanmate.db")
     chroma_path = os.getenv("OCEANMATE_CHROMA", "data/chroma")
 
+    _frontend = get_feishu_frontend()
     _orchestrator = create_default_orchestrator(
         db_path=db_path,
         chroma_path=chroma_path,
         auto_init_db=True,
+        frontend=_frontend,  # Day 18 P1-final：注入 KEA 同步多维表格
     )
-    _frontend = get_feishu_frontend()
     _webhook_handler = FeishuWebhookHandler(
         orchestrator=_orchestrator,
         frontend=_frontend,

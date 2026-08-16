@@ -72,12 +72,19 @@ def _format_human_takeover_reply(resolve_result: dict, resolution_text: str) -> 
     """人工接管 + 关单的固定模板（不调 AI 生成，避免重复噪音）。
 
     设计原则：演示场景下让"人工接管"消息看起来像真人发的，固定模板更稳。
+
+    Day 18 P1-final：修 T3.14 bug — 读 `promote_result`（TRA Tool 实际返回 key）
+    而非 `promotion`（之前的拼写错误，导致 case_id 永远显示 '?'）。
     """
     status = resolve_result.get("status", "unknown")
     ticket_id = resolve_result.get("ticket_id", "?")
-    promotion = resolve_result.get("promotion") or {}
+    # Day 18 P1-final：TRA Tool 实际返回的是 `promote_result`（见 tra/tool.py:543）
+    # 之前读 `promotion` 永远是 {} → case_id 显示 '?'
+    promotion = resolve_result.get("promote_result") or resolve_result.get("promotion") or {}
     promoted = promotion.get("promoted", False)
     promote_reason = promotion.get("skip_reason") or ""
+    # promote_to_faq 返回值含 `case_id`（以前的代码读 `faq_id` 是错的）
+    case_id = promotion.get("case_id") or promotion.get("faq_id", "?")
 
     lines = [
         f"👨‍💼 **人工客服已接管** 工单 `{ticket_id}`",
@@ -95,7 +102,7 @@ def _format_human_takeover_reply(resolve_result: dict, resolution_text: str) -> 
         lines.append(f"✅ 工单状态：**已解决**（status=resolved）")
     elif status == "not_found":
         return (
-            f"�️ 未找到工单 `{ticket_id}`，请确认 ID 正确。\n"
+            f"⚠️ 未找到工单 `{ticket_id}`，请确认 ID 正确。\n"
             "提示：在飞书 OM AI 私聊里搜「工单」即可看到最近创建的工单号。"
         )
     else:
@@ -103,7 +110,7 @@ def _format_human_takeover_reply(resolve_result: dict, resolution_text: str) -> 
 
     if promoted:
         lines.append(
-            f"🧠 知识沉淀：自动升格为 FAQ（{promotion.get('faq_id', '?')}）"
+            f"🧠 知识沉淀：自动升格为 FAQ（`{case_id}`）"
         )
     elif promote_reason:
         lines.append(f"🧠 知识沉淀：{promote_reason}")

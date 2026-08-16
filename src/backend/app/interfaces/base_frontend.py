@@ -100,3 +100,28 @@ class BaseFrontend(ABC):
         Returns:
             True 成功 / False 失败
         """
+
+    def sync_review_decision(self, data: dict) -> bool:
+        """同步审核决策到多维表格（Day 18 P1-final · 知识沉淀可视化）。
+
+        用途：T6.1 运营审核通过 / 自动入审时，把决策记录写入多维表格
+        `review_decisions` 表，让录屏可以现场展示真实数据飞轮。
+
+        Args:
+            data: {
+                "case_id": "case_xxx",
+                "decision": "approved" | "rejected" | "auto_promoted",
+                "reviewer": "lead" | "auto",
+                "decided_at": "2026-08-16T02:30:00",
+                "problem_type": "拒付",
+                "confidence": 0.85,
+                "ticket_id": "tkt_xxx" (optional),
+            }
+
+        Returns:
+            True 成功 / False 失败
+
+        默认实现：NoOp（Mock/单元测试不写多维表格）。真实 FeishuFrontend 覆盖。
+        """
+        # 默认 no-op：子类可覆盖
+        return True

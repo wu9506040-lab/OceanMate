@@ -26,6 +26,7 @@ def get_feishu_frontend(
     app_secret: Optional[str] = None,
     btable_app_token: Optional[str] = None,
     btable_table_id: Optional[str] = None,
+    btable_review_decisions_table_id: Optional[str] = None,
     verification_token: Optional[str] = None,
     force_mock: bool = False,
 ) -> BaseFrontend:
@@ -50,6 +51,11 @@ def get_feishu_frontend(
     app_secret = app_secret or os.getenv("FEISHU_APP_SECRET", "")
     btable_app_token = btable_app_token or os.getenv("FEISHU_BTABLE_APP_TOKEN", "")
     btable_table_id = btable_table_id or os.getenv("FEISHU_BTABLE_TABLE_ID", "")
+    # Day 18 P1-final：review_decisions 表 ID（独立表，记录知识沉淀审核决策）
+    btable_review_decisions_table_id = (
+        btable_review_decisions_table_id
+        or os.getenv("FEISHU_BTABLE_REVIEW_DECISIONS_TABLE_ID", "")
+    )
     verification_token = verification_token or os.getenv("FEISHU_VERIFICATION_TOKEN")
 
     # 凭证缺失 → 自动 Mock
@@ -68,6 +74,7 @@ def get_feishu_frontend(
         app_secret=app_secret,
         btable_app_token=btable_app_token,
         btable_table_id=btable_table_id,
+        btable_review_decisions_table_id=btable_review_decisions_table_id,
         verification_token=verification_token,
     )
 
