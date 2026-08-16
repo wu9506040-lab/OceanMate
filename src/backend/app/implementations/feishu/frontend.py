@@ -169,6 +169,7 @@ class FeishuFrontend(BaseFrontend):
         try:
             # 复用 sync_dashboard_data 的底层 API（POST bitable/v1/.../records）
             # 字段名：case_id / decision / reviewer / decided_at / problem_type / confidence / ticket_id
+            # Day 18 P2-final 修订：增加 问题描述 + 解决方案 — 运营审核时要看到原文才知道审什么
             self.api.sync_dashboard_data(
                 app_token=self.btable_app_token,
                 table_id=self.btable_review_decisions_table_id,
@@ -180,6 +181,9 @@ class FeishuFrontend(BaseFrontend):
                     "问题类型": data.get("problem_type", ""),
                     "置信度": float(data.get("confidence", 0) or 0),
                     "工单ID": data.get("ticket_id", ""),
+                    # 新增：运营审核看的原文
+                    "问题描述": data.get("problem_desc", ""),
+                    "解决方案": data.get("resolution", ""),
                 },
             )
             logger.info(
@@ -190,6 +194,65 @@ class FeishuFrontend(BaseFrontend):
         except FeishuAPIError as e:
             logger.warning(f"Feishu sync_review_decision failed: {e}")
             return False
+
+    # === Day 18 P2-final：反向同步（多维表格 → 后端）===
+
+    def fetch_review_decisions(
+        self,
+        *,
+        decision_filter: Optional[str] = None,
+        max_pages: int = 10,
+    ) -> list[dict]:
+        """从飞书多维表格 review_decisions 表拉取审核决策记录。
+
+        用途：/admin/sync-bit（录屏）+ 飞书多维表格 webhook 兜底（生产）。
+
+        Args:
+            decision_filter: 可选过滤（'待审核' / '已通过' / '已拒绝' / '自动入审'），None=全量
+            max_pages: 最大拉取页数（防失控）
+
+        Returns:
+            records 列表（每条含 record_id + fields 含 案例ID/决策/审核人/决策时间...）。
+            凭证缺失或失败 → 返回 []（不抛异常，调用方按空列表处理）。
+        """
+        if not (self.btable_app_token and self.btable_review_decisions_table_id):
+            logger.warning(
+                "Feishu review_decisions 表未配置（fetch_review_decisions 跳过）"
+            )
+            return []
+        # 飞书多维表格字段值含中文（"待审核" / "已通过"），过滤表达式需转义
+        filter_expr = None
+        if decision_filter:
+            filter_expr = f'CurrentValue.[决策]="{decision_filter}"'
+        try:
+            items = self.api.list_records(
+                app_token=self.btable_app_token,
+                table_id=self.btable_review_decisions_table_id,
+                filter_expr=filter_expr,
+                max_pages=max_pages,
+            )
+            logger.info(
+                f"[feishu] fetch_review_decisions 成功: filter={decision_filter} count={len(items)}"
+            )
+            return items
+        except FeishuAPIError as e:
+            logger.warning(f"Feishu fetch_review_decisions failed: {e}")
+            return []
+
+    def get_record_by_id(self, record_id: str) -> dict:
+        """按 record_id 查多维表格单条记录（webhook 事件 payload 通常只含 record_id）。"""
+        if not (self.btable_app_token and self.btable_review_decisions_table_id):
+            logger.warning("Feishu review_decisions 表未配置（get_record_by_id 跳过）")
+            return {}
+        try:
+            return self.api.get_record(
+                app_token=self.btable_app_token,
+                table_id=self.btable_review_decisions_table_id,
+                record_id=record_id,
+            )
+        except FeishuAPIError as e:
+            logger.warning(f"Feishu get_record_by_id failed: {e}")
+            return {}
 
 
 def _data_to_btable_fields(data: dict) -> dict:

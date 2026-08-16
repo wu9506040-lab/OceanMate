@@ -132,8 +132,8 @@ class KEATool(BaseTool):
             "properties": {
                 "intent": {
                     "type": "string",
-                    "enum": ["promote_to_faq", "search_faq", "list_candidates", "approve_case", "reject_case"],
-                    "description": "意图：promote_to_faq / search_faq / list_candidates / approve_case / reject_case（Day 17 v3 人工审核）",
+                    "enum": ["promote_to_faq", "search_faq", "list_candidates", "approve_case", "reject_case", "list_review_history"],
+                    "description": "意图：promote_to_faq / search_faq / list_candidates / approve_case（内部） / reject_case（内部） / list_review_history（Day 18 P2-final 审核历史）",
                 },
                 "case_id": {
                     "type": "string",
@@ -208,6 +208,8 @@ class KEATool(BaseTool):
             return self._search_faq(params)
         elif intent == "list_candidates":
             return self._list_candidates(params)
+        elif intent == "list_review_history":
+            return self._list_review_history(params)
         elif intent == "approve_case":
             return self._approve_case(params)
         elif intent == "reject_case":
@@ -290,11 +292,13 @@ class KEATool(BaseTool):
             # Day 18 P1-final：把"待审核"记录写到多维表格，录屏可现场展示
             self._sync_review_decision_to_bitable(
                 case_id=case_id,
-                decision="pending_review",
+                decision="待审核",
                 reviewer="auto",
                 problem_type=case.problem_type or "",
                 confidence=confidence,
                 ticket_id=case.ticket_id if hasattr(case, "ticket_id") else "",
+                problem_desc=case.problem_desc or "",
+                resolution=case.resolution or "",
             )
             return {
                 "intent": "promote_to_faq",
@@ -359,11 +363,13 @@ class KEATool(BaseTool):
         # Day 18 P1-final：高置信度自动升格 → 多维表格留痕（虽然直接进 FAQ，但评审可在 review_decisions 表看到）
         self._sync_review_decision_to_bitable(
             case_id=case_id,
-            decision="auto_promoted",
+            decision="自动入审",
             reviewer="auto",
             problem_type=case.problem_type or "",
             confidence=confidence,
             ticket_id=case.ticket_id if hasattr(case, "ticket_id") else "",
+            problem_desc=case.problem_desc or "",
+            resolution=case.resolution or "",
         )
 
         return {
@@ -392,6 +398,8 @@ class KEATool(BaseTool):
         problem_type: str,
         confidence: float,
         ticket_id: str = "",
+        problem_desc: str = "",
+        resolution: str = "",
     ) -> None:
         """把审核决策同步到多维表格 review_decisions（失败不抛，仅 warn）。
 
@@ -401,6 +409,9 @@ class KEATool(BaseTool):
         decided_at 格式：
         - 给多维表格 API：毫秒时间戳（int，飞书 DateTime 字段 type=5 要求）
         - 给前端 UI：ISO 字符串（中文显示友好）
+
+        Day 18 P2-final 修订：增加 problem_desc + resolution — 运营在多维表格看到原文，
+        不然只看到 case_id 不知道审什么。
         """
         if self.frontend is None:
             return  # NoOp（tests / mock 场景）
@@ -409,7 +420,8 @@ class KEATool(BaseTool):
             beijing = timezone(timedelta(hours=8))
             now_beijing = datetime.now(beijing)
             # 飞书 DateTime 字段（type=5）必须用毫秒时间戳（int）
-            decided_at_ms = int(now_beijing.timestamp() * 1000)
+            # Day 18 P2-final：截到整秒（int(timestamp()) * 1000），避免小数毫秒位让飞书表格渲染失真
+            decided_at_ms = int(now_beijing.timestamp()) * 1000
             # ISO 格式备用（万一字段类型改了不报错）
             decided_at_iso = now_beijing.isoformat(timespec="seconds")
             self.frontend.sync_review_decision({
@@ -421,6 +433,8 @@ class KEATool(BaseTool):
                 "problem_type": problem_type,
                 "confidence": confidence,
                 "ticket_id": ticket_id,
+                "problem_desc": problem_desc,        # 新增
+                "resolution": resolution,            # 新增
             })
         except Exception as e:
             logger.warning(f"sync_review_decision to bitable failed: {e}")
@@ -532,7 +546,11 @@ class KEATool(BaseTool):
     # === 子能力 3：列候选 FAQ ===
 
     def _list_candidates(self, params: dict) -> dict:
-        """列高置信度 + 未沉淀的候选（confidence ≥ 阈值 + 无对应 embedding_meta）。"""
+        """列高置信度 + 未沉淀的候选（confidence ≥ 阈值 + 无对应 embedding_meta + 无 rejected 记录）。
+
+        Day 18 P2-final：reject 不写 embedding_meta，所以原实现会把被拒绝的 case 重新列出，
+        让运营重复审核。新增过滤：review_decisions 表里有任何 decision 记录的 case 不再列出。
+        """
         min_confidence = params.get("min_confidence", DEFAULT_MIN_CONFIDENCE)
         limit = params.get("limit", DEFAULT_LIST_LIMIT)
 
@@ -564,6 +582,10 @@ class KEATool(BaseTool):
             existing = self._get_embedding_meta(source_table="cases", source_id=c.id)
             if existing is not None:
                 continue
+            # 3) Day 18 P2-final：过滤已审过的（review_decisions 里有任何 decision 的）
+            # 涵盖 approved / rejected / auto_promoted — 这三类 case 都不应该再出现在候选池
+            if self._has_any_review_decision(c.id):
+                continue
             # Day 18 P1-final：列出待审时携带 created_at，让运营/lead 在多维表格里看到入审时间
             # （先期 case 由 TRA Tool 关单时 promote_to_faq 自动入审，时间戳对评审可信度关键）
             created_at = getattr(c, "created_at", None) or ""
@@ -588,6 +610,80 @@ class KEATool(BaseTool):
                 "min_confidence": min_confidence,
                 "limit": limit,
                 "raw_scanned": len(candidates_raw),
+            },
+        }
+
+    # === Day 18 P2-final：审核历史列表（运营可在多维表格修改 decision 后查询） ===
+
+    def _list_review_history(self, params: dict) -> dict:
+        """列所有审核历史记录（按 decision 分组：approved / rejected / auto_promoted / pending_review）。
+
+        Day 18 P2-final：approve_case / reject_case 不再被聊天触发，而是由 /admin/sync-bit 或
+        多维表格 webhook 反向同步调用。本接口用于运营/lead 在聊天里查询审核状态。
+        """
+        if self._db is None:
+            return self._error_result(
+                "list_review_history",
+                error="SQLite 未注入",
+                hint="Demo 场景请注入 embedding_meta_repo / case_repo。",
+            )
+        decision_filter = params.get("decision")  # None = 全部
+        limit = params.get("limit", 50)
+        try:
+            # 表不存在则自动建（PoC schema 兜底）
+            self._db.execute(
+                """CREATE TABLE IF NOT EXISTS review_decisions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    case_id TEXT NOT NULL,
+                    decision TEXT NOT NULL,
+                    reviewer TEXT,
+                    note TEXT,
+                    chroma_id TEXT,
+                    confidence REAL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )"""
+            )
+            if decision_filter:
+                rows = self._db.query(
+                    """SELECT case_id, decision, reviewer, note, chroma_id, confidence, created_at
+                       FROM review_decisions WHERE decision = :d
+                       ORDER BY created_at DESC LIMIT :lim""",
+                    {"d": decision_filter, "lim": limit},
+                )
+            else:
+                rows = self._db.query(
+                    """SELECT case_id, decision, reviewer, note, chroma_id, confidence, created_at
+                       FROM review_decisions
+                       ORDER BY created_at DESC LIMIT :lim""",
+                    {"lim": limit},
+                )
+        except Exception as e:
+            return self._error_result(
+                "list_review_history",
+                error=f"review_decisions 查询失败: {e}",
+                hint="检查 SQLite 连接与表 schema。",
+            )
+
+        # 按 decision 分组（已通过 → ✅, 已拒绝 → ❌, 自动入审 → 🤖, 待审核 → 🟡）
+        grouped = {"已通过": [], "已拒绝": [], "自动入审": [], "待审核": []}
+        for r in rows:
+            decision = r.get("decision", "待审核")
+            grouped.setdefault(decision, []).append({
+                "case_id": r.get("case_id"),
+                "reviewer": r.get("reviewer"),
+                "confidence": r.get("confidence"),
+                "decided_at": r.get("created_at"),  # ISO 字符串
+                "note": r.get("note", ""),
+                "chroma_id": r.get("chroma_id", ""),
+            })
+
+        return {
+            "intent": "list_review_history",
+            "count": len(rows),
+            "by_decision": grouped,
+            "trace": {
+                "decision_filter": decision_filter,
+                "limit": limit,
             },
         }
 
@@ -694,7 +790,7 @@ class KEATool(BaseTool):
         # 4) 记录审核留痕（review_decisions 表 + 多维表格）
         self._record_review_decision(
             case_id=case_id,
-            decision="approved",
+            decision="已通过",
             reviewer=params.get("reviewer", "unknown"),
             note=params.get("note", ""),
             chroma_id=chroma_id,
@@ -703,11 +799,13 @@ class KEATool(BaseTool):
         # Day 18 P1-final：同步到多维表格 review_decisions（录屏展示真实数据飞轮）
         self._sync_review_decision_to_bitable(
             case_id=case_id,
-            decision="approved",
+            decision="已通过",
             reviewer=params.get("reviewer", "lead"),
             problem_type=case.problem_type or "",
             confidence=confidence,
             ticket_id=case.ticket_id if hasattr(case, "ticket_id") else "",
+            problem_desc=case.problem_desc or "",
+            resolution=case.resolution or "",
         )
 
         # 5) 统计当前 faq_vec 总数（运营反馈「已加入知识库，共 N 条」）
@@ -759,7 +857,7 @@ class KEATool(BaseTool):
         # 即使 case 不存在也要记录拒绝（防重复审）
         self._record_review_decision(
             case_id=case_id,
-            decision="rejected",
+            decision="已拒绝",
             reviewer=params.get("reviewer", "unknown"),
             note=params.get("reason", params.get("note", "")),
             chroma_id="",
@@ -872,6 +970,41 @@ class KEATool(BaseTool):
             return rows[0]["chroma_id"] if rows else None
         except Exception:
             return None
+
+    # === Day 18 P2-final：审核决策存在性查询（用于过滤 list_candidates） ===
+
+    def _has_any_review_decision(self, case_id: str) -> bool:
+        """检查 review_decisions 表里是否有该 case 的任何决策记录。
+
+        返回 True 表示已被审核过（approved / rejected / auto_promoted / pending_review 任一），
+        list_candidates 会跳过这类 case，避免运营重复审核。
+
+        缺失表 / DB 未注入 / 异常 → 返回 False（兜底：不阻断主流程）。
+        """
+        if self._db is None:
+            return False
+        try:
+            # 表不存在则视为无记录（PoC schema 兜底）
+            self._db.execute(
+                """CREATE TABLE IF NOT EXISTS review_decisions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    case_id TEXT NOT NULL,
+                    decision TEXT NOT NULL,
+                    reviewer TEXT,
+                    note TEXT,
+                    chroma_id TEXT,
+                    confidence REAL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )"""
+            )
+            rows = self._db.query(
+                """SELECT 1 FROM review_decisions
+                   WHERE case_id = :cid LIMIT 1""",
+                {"cid": case_id},
+            )
+            return len(rows) > 0
+        except Exception:
+            return False
 
     # === 错误降级（友好提示，不抛 raw exception） ===
 

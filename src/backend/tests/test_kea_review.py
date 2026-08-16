@@ -1,4 +1,9 @@
-"""KEA 人工审核（approve_case / reject_case）测试 — Day 17 v3 半自动闭环。
+"""KEA 内部 API（approve_case / reject_case）测试 — Day 18 P2-final 反向同步。
+
+Day 18 P2-final 改动：
+- 移除聊天审核命令识别（运营去飞书多维表格 review_decisions 表改 decision）
+- approve_case / reject_case 改为内部 API，被 /admin/sync-bit 或飞书多维表格 webhook 反向同步调用
+- 仍保留写 Chroma + SQLite + 多维表格 sync_review_decision 的完整链路
 
 覆盖：
 - approve_case：强制写 Chroma + embedding_meta + review_decisions 留痕
@@ -6,10 +11,7 @@
 - approve_case：友好降级（缺 case_id / case 不存在 / 无 DB）
 - reject_case：记录到 review_decisions 不写 Chroma
 - reject_case：缺 case_id 友好降级
-- orchestrator._detect_review_command：命令识别单元测试
-- 不破坏现有 410 测试（KEA + 编排 + webhook）
-
-详见 docs/architecture/atoa_sequence.md（数字员工闭环第 5 段）。
+- webhook _fmt_kea_approve / _fmt_kea_reject：内部调用时仍渲染友好反馈
 """
 
 from pathlib import Path
@@ -17,10 +19,6 @@ from pathlib import Path
 import pytest
 
 from app.agents.kea import KEATool
-from app.agents.orchestrator.routers import (
-    _detect_review_command,
-    route_kea,
-)
 from app.implementations.feishu.webhook import FeishuWebhookHandler
 from app.models import Case, Merchant
 
@@ -109,7 +107,7 @@ class TestApproveCase:
             {"cid": pending_case.id},
         )
         assert len(reviews) == 1
-        assert reviews[0]["decision"] == "approved"
+        assert reviews[0]["decision"] == "已通过"
         assert reviews[0]["reviewer"] == "ou_operator_001"
 
         # 4. Chroma 真的能召回
@@ -199,7 +197,7 @@ class TestRejectCase:
             {"cid": pending_case.id},
         )
         assert len(reviews) == 1
-        assert reviews[0]["decision"] == "rejected"
+        assert reviews[0]["decision"] == "已拒绝"
         assert reviews[0]["note"] == "证据不足"
 
         # 3. Chroma faq_vec 没写入
@@ -233,112 +231,16 @@ class TestRejectCase:
         assert "case_id 必填" in result["trace"]["error"]
 
 
-# === _detect_review_command 测试 ===
-
-class TestDetectReviewCommand:
-    """orchestrator.routers._detect_review_command 单元测试。"""
-
-    def test_chinese_pass_through(self):
-        """「审核 case_001 通过」 → approve_case。"""
-        sub, cid = _detect_review_command("审核 case_001 通过")
-        assert sub == "approve_case"
-        assert cid == "case_001"
-
-    def test_chinese_reject(self):
-        """「审核 case_001 拒绝」 → reject_case。"""
-        sub, cid = _detect_review_command("审核 case_001 拒绝")
-        assert sub == "reject_case"
-        assert cid == "case_001"
-
-    def test_emoji_approve(self):
-        """「✅ case_001」 → approve_case。"""
-        sub, cid = _detect_review_command("✅ case_001")
-        assert sub == "approve_case"
-        assert cid == "case_001"
-
-    def test_emoji_reject(self):
-        """「❌ case_001」 → reject_case。"""
-        sub, cid = _detect_review_command("❌ case_001")
-        assert sub == "reject_case"
-        assert cid == "case_001"
-
-    def test_english_approve(self):
-        """「approve case_abc」 → approve_case。"""
-        sub, cid = _detect_review_command("approve case_abc")
-        assert sub == "approve_case"
-        assert cid == "case_abc"
-
-    def test_english_reject(self):
-        """「reject case_xyz」 → reject_case。"""
-        sub, cid = _detect_review_command("reject case_xyz")
-        assert sub == "reject_case"
-        assert cid == "case_xyz"
-
-    def test_no_case_id_returns_none(self):
-        """无 case_id → 不当作审核命令。"""
-        sub, cid = _detect_review_command("审核通过")
-        assert sub is None and cid is None
-
-    def test_case_id_without_review_keyword_returns_none(self):
-        """含 case_id 但无审核关键词 → 不当作审核命令（避免误判）。"""
-        sub, cid = _detect_review_command("case_001 是什么")
-        assert sub is None and cid is None
-
-    def test_review_keyword_with_neither_approve_nor_reject_returns_none(self):
-        """含审核关键词 + case_id 但没有 approve/reject 动词 → 不当作审核命令。"""
-        sub, cid = _detect_review_command("审核 case_001")
-        assert sub is None and cid is None
-
-    def test_empty_query_returns_none(self):
-        """空 query → None。"""
-        assert _detect_review_command("") == (None, None)
-        assert _detect_review_command(None) == (None, None)
-
-
-# === route_kea 集成：审核命令优先级 ===
-
-class TestRouteKeaReviewPriority:
-    """route_kea 必须把审核命令的优先级提到最高（不被 search/list 抢走）。"""
-
-    def test_review_command_takes_priority_over_search(self):
-        """「审核 case_001 通过」 → 走 approve_case，不被 search_faq 抢走。"""
-        from unittest.mock import MagicMock
-        registry = MagicMock()
-        # 让 __contains__ 找到 knowledge_evolution（避免 fallback 到 tool_not_available）
-        registry.__contains__.return_value = True
-        # 模拟 KEA Tool 返回
-        registry.safe_execute.return_value = {
-            "success": True,
-            "data": {"approved": True, "case_id": "case_001", "faq_vec_count": 1},
-        }
-
-        result = route_kea("审核 case_001 通过", {}, [], registry)
-        assert result["trace"]["sub_intent"] == "approve_case"
-        assert result["trace"]["review_command"] is True
-        # 调了 safe_execute，参数是 approve_case
-        call_args = registry.safe_execute.call_args
-        assert call_args.args[0] == "knowledge_evolution"
-        assert call_args.args[1]["intent"] == "approve_case"
-        assert call_args.args[1]["case_id"] == "case_001"
-
-    def test_search_faq_still_works_for_normal_query(self):
-        """普通 query（不含审核关键词 + case_id）→ 走 search_faq。"""
-        from unittest.mock import MagicMock
-        registry = MagicMock()
-        registry.__contains__.return_value = True
-        registry.safe_execute.return_value = {
-            "success": True,
-            "data": {"count": 0, "faqs": []},
-        }
-
-        result = route_kea("知识库怎么用", {}, [], registry)
-        assert result["trace"]["sub_intent"] == "search_faq"
-
-
 # === webhook _fmt_kea_approve / _fmt_kea_reject 测试 ===
 
 class TestFmtKeaApproveReject:
-    """FeishuWebhookHandler._fmt_kea_approve / _fmt_kea_reject 单元测试。"""
+    """FeishuWebhookHandler._fmt_kea_approve / _fmt_kea_reject 单元测试。
+
+    Day 18 P2-final：approve_case / reject_case 不再被聊天路由触发（运营去多维表格审核）。
+    但保留 _fmt_kea_approve / _fmt_kea_reject 作为内部 API 渲染 — 用于：
+    - /admin/sync-bit endpoint 同步后向运营反馈（v1 简化为 log，v2 可扩展为 bot 推消息）
+    - 单元测试覆盖
+    """
 
     def test_fmt_approve_success(self):
         """approve 成功 → 「✅ case_001 已通过审核，已加入知识库，当前 faq_vec 共 3 条」"""

@@ -970,7 +970,8 @@ class FeishuWebhookHandler:
     @staticmethod
     def _fmt_kea(data: dict, trace: dict) -> str:
         sub = trace.get("sub_intent")
-        # Day 17 v3：人工审核命令反馈（数字员工闭环第 5 段）
+        # Day 18 P2-final：approve_case / reject_case 不再被聊天触发（运营去多维表格审核）
+        # 保留这两个分支仅为兼容内部调用（如反向同步 endpoint），正常聊天路由不到这里
         if sub == "approve_case":
             return FeishuWebhookHandler._fmt_kea_approve(data)
         if sub == "reject_case":
@@ -989,9 +990,10 @@ class FeishuWebhookHandler:
                 excerpt = (f.get("case_info") or {}).get("problem_desc") or f.get("text_excerpt", "")
                 lines.append(f"  {i}. {_sanitize(str(excerpt))[:80]}")
             return "\n".join(lines)
-        # list_candidates
-        count = data.get("count", 0)
-        return f"📚 找到 {count} 个高置信度候选待升级。"
+        if sub == "list_review_history":
+            return FeishuWebhookHandler._fmt_kea_list_review_history(data)
+        # list_candidates（Day 18 P2-final：真正渲染候选列表）
+        return FeishuWebhookHandler._fmt_kea_list_candidates(data)
 
     @staticmethod
     def _fmt_kea_approve(data: dict) -> str:
@@ -1029,6 +1031,125 @@ class FeishuWebhookHandler:
             f"❌ {case_id} 已拒绝{suffix}（记录人：{reviewer}）。\n"
             "该案例不会进入知识库，避免污染检索结果。"
         )
+
+    @staticmethod
+    def _fmt_kea_list_candidates(data: dict) -> str:
+        """Day 18 P2-final：list_candidates 真正渲染候选清单。
+
+        旧实现只返一行总数（吞掉 candidates 数组），运营看不到 case_id。
+        新实现：列出每条 case 的 case_id / problem_desc / confidence / created_at，
+        并提示运营「请到飞书多维表格 review_decisions 表改 decision 列审核」。
+        """
+        count = data.get("count", 0)
+        candidates = data.get("candidates", [])
+        if count == 0:
+            return "📚 当前没有待审核案例（所有高置信度 case 都已经审过了）。"
+
+        lines = [f"📚 待审核案例 {count} 条：", ""]
+        for i, c in enumerate(candidates[:10], 1):  # 最多展示 10 条
+            case_id = c.get("case_id", "?")
+            problem_desc = _sanitize(str(c.get("problem_desc", "")))[:60]
+            problem_type = c.get("problem_type", "")
+            country = c.get("country", "")
+            channel = c.get("channel", "")
+            try:
+                conf_pct = f"{float(c.get('confidence', 0)):.0%}"
+            except (TypeError, ValueError):
+                conf_pct = "?"
+            created_at = c.get("created_at") or "?"
+            # 元信息行
+            meta_parts = [p for p in [problem_type, country, channel] if p]
+            meta_str = " · ".join(meta_parts)
+            lines.append(f"{i}. `case_id: {case_id}`")
+            lines.append(f"   问题：{problem_desc}")
+            if meta_str:
+                lines.append(f"   {meta_str} · 置信度 {conf_pct} · 入审 {created_at}")
+            else:
+                lines.append(f"   置信度 {conf_pct} · 入审 {created_at}")
+            lines.append("")
+
+        lines.append("💬 审核入口：飞书多维表格 → review_decisions 表 → 修改『决策』列")
+        lines.append("   ✅ 改 approved → 入知识库，下次同类问题自动命中")
+        lines.append("   ❌ 改 rejected（理由写『备注』列）→ 不入知识库")
+        return "\n".join(lines).rstrip()
+
+    @staticmethod
+    def _fmt_kea_list_review_history(data: dict) -> str:
+        """Day 18 P2-final：列审核历史（按 decision 分组）。
+
+        输出 4 段：✅ 已通过 / ❌ 已拒绝 / 🤖 自动入审 / 🟡 待审核。
+        用于运营在聊天里查询审核状态（无需打开多维表格）。
+        """
+        grouped = data.get("by_decision") or {}
+        total = data.get("count", 0)
+        if total == 0:
+            return "📋 审核历史：暂无记录。"
+
+        lines = [f"📋 审核历史（共 {total} 条）：", ""]
+
+        # 段 1：✅ 已通过（已入知识库）
+        approved = grouped.get("已通过", [])
+        lines.append(f"✅ 已通过（{len(approved)} 条 · 已入知识库）：")
+        if approved:
+            for r in approved[:5]:
+                lines.append(
+                    f"   • `case_id: {r.get('case_id')}` · "
+                    f"置信度 {float(r.get('confidence') or 0):.0%} · "
+                    f"审核人 {r.get('reviewer', '?')} · "
+                    f"{r.get('decided_at', '?')}"
+                )
+            if len(approved) > 5:
+                lines.append(f"   ... 还有 {len(approved) - 5} 条")
+        else:
+            lines.append("   （暂无）")
+        lines.append("")
+
+        # 段 2：❌ 已拒绝
+        rejected = grouped.get("已拒绝", [])
+        lines.append(f"❌ 已拒绝（{len(rejected)} 条 · 不入知识库）：")
+        if rejected:
+            for r in rejected[:5]:
+                lines.append(
+                    f"   • `case_id: {r.get('case_id')}` · "
+                    f"审核人 {r.get('reviewer', '?')} · "
+                    f"{r.get('decided_at', '?')}"
+                )
+            if len(rejected) > 5:
+                lines.append(f"   ... 还有 {len(rejected) - 5} 条")
+        else:
+            lines.append("   （暂无）")
+        lines.append("")
+
+        # 段 3：🤖 自动入审
+        auto = grouped.get("自动入审", [])
+        if auto:
+            lines.append(f"🤖 自动入审（{len(auto)} 条 · 已直接入知识库）：")
+            for r in auto[:5]:
+                lines.append(
+                    f"   • `case_id: {r.get('case_id')}` · "
+                    f"置信度 {float(r.get('confidence') or 0):.0%}"
+                )
+            if len(auto) > 5:
+                lines.append(f"   ... 还有 {len(auto) - 5} 条")
+            lines.append("")
+
+        # 段 4：🟡 待审核
+        pending = grouped.get("待审核", [])
+        lines.append(f"🟡 待审核（{len(pending)} 条）：")
+        if pending:
+            for r in pending[:5]:
+                lines.append(
+                    f"   • `case_id: {r.get('case_id')}` · "
+                    f"置信度 {float(r.get('confidence') or 0):.0%}"
+                )
+            if len(pending) > 5:
+                lines.append(f"   ... 还有 {len(pending) - 5} 条")
+        else:
+            lines.append("   （暂无）")
+
+        lines.append("")
+        lines.append("💬 完整记录：飞书多维表格 review_decisions 表")
+        return "\n".join(lines).rstrip()
 
     @staticmethod
     def _fmt_unknown_fallback(data: dict, trace: dict) -> str:
