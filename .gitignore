@@ -68,6 +68,9 @@ src/backend/data/audit_*.db
 src/backend/data/audit_*/
 src/backend/.feishu_mock_log.json
 
+# 顶层 data/ 误生成的 db（seed 脚本错跑到根目录时）
+data/*.db
+
 # Day 16 polishing 层 SQLite（自动创建，每次 init 重生）
 src/data/*.db
 src/data/
