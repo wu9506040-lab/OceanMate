@@ -237,6 +237,12 @@ class ChatRequest(BaseModel):
     merchant_context: Optional[dict] = None
 
 
+class FeedbackRequest(BaseModel):
+    case_id: str
+    signal: str  # "up" | "down"
+    note: Optional[str] = ""
+
+
 class HealthResponse(BaseModel):
     status: str
     tools: list[str]
@@ -327,6 +333,40 @@ def debug_briefings():
 def debug_human_mode():
     """当前在人工模式的用户列表（演示用：实时看 lead 是否在「人工接管」状态）。"""
     return get_human_mode_debug_state()
+
+
+# === Day 19 OPA 运营指标（数据飞轮"反哺业务"输出端）===
+
+@app.get("/api/opa/metrics")
+def opa_metrics():
+    """运营指标快照：错误码/问题类型/渠道分布 + 诊断置信度健康度 + KEA 审核通过率 + 知识资产台账。"""
+    from app.implementations.opa_metrics import collect_metrics
+    return collect_metrics()
+
+
+@app.get("/api/opa/trends")
+def opa_trends(weeks: int = 8):
+    """按 ISO 周的案例量与错误码趋势（周报 / 风控策略反哺数据源）。"""
+    from app.implementations.opa_metrics import collect_trends
+    return collect_trends(weeks=weeks)
+
+
+@app.post("/api/feedback")
+def record_feedback(req: FeedbackRequest):
+    """Day 19 飞轮反馈信号：记录商户对某案例解答的 👍/👎。
+
+    down → review_decisions 记 rejected（note=merchant_downvote），案例回到人工复审视野；
+    将来飞书卡片 👍/👎 按钮回调即转发本端点。
+    """
+    if _orchestrator is None:
+        return {"success": False, "error": "orchestrator 未初始化"}
+    wrapped = _orchestrator.registry.safe_execute("knowledge_evolution", {
+        "intent": "record_feedback",
+        "case_id": req.case_id,
+        "signal": req.signal,
+        "note": req.note or "",
+    })
+    return wrapped
 
 
 # === Day 10 黄金用例（评审 / 录屏用）===

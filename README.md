@@ -25,6 +25,27 @@
 
 ---
 
+## 📊 实测战绩（2026-10-09 复跑）
+
+| 维度 | 实测值 | 复现 |
+|------|--------|------|
+| **端到端场景** | 6 大真实业务 Demo **6/6 全部通过**（真 LLM 调用，非 mock） | `python scripts/run_all_real.py`（见下方 5 分钟快速开始） |
+| **测试资产** | **511 pytest 全部通过**，覆盖率 **77%** | `cd src/backend && python -m pytest tests --cov=app` |
+| **数据飞轮（读取侧）** | 作答命中历史已解决案例 → 优先复用真实解法（`trace.learned_faq`） | `POST /api/chat` 问 Visa 13.1 拒付 → 返回含 learned 解法 |
+| **反馈信号** | `POST /api/feedback` 👍/ 写入 review_decisions（👎 回复审池） | 见 [`docs/DESIGN-roadmap.md`](./docs/DESIGN-roadmap.md) §1 |
+| **运营指标（OPA）** | 错误码/渠道/置信度分布 + 审核通过率 + 周趋势，REST + 周报 | `GET /api/opa/metrics`、`python scripts/opa_report.py` |
+| **入库幂等** | `.add()→.upsert()`，重跑 seed/KEA 不再抛异常/产生重复 | `tests/test_ingest_idempotent.py` |
+| **架构** | **4 业务 Agent（MSA/PDA/TRA/KEA）+ Orchestrator 中枢 + OPA 指标服务 + AtoA 协议** + 飞书生态 | `src/backend/app/agents/` |
+
+> **数据诚实声明**（本仓库的一贯做法，被追问时能当场开代码）：
+> - 早期宣传的「全链路通过率 96%」经复核推翻——实测为 **PDA→TRA→KEA 链式触发依赖 LLM confidence ≥ 0.7，20 样本命中 4 次**，原始证据见 [`docs/reports/p1_3_evidence.md`](./docs/reports/p1_3_evidence.md)
+> - 赛后迭代中，链式自动派单被**主动收敛为显式路由**（`chain_config.py`：机器人可信诊断不应自动转人工工单）——演示效果服从业务正确性
+> - **OPA 是离线指标服务，不是注册进 Orchestrator 的第 5 个对话 Agent**（此前 README/口径曾称"5 Agent"，实为 4 Agent + OPA 指标模块，已更正）；看板截图为 `render_dashboard.py` 离线产物，`opa_metrics` REST 才是当前真实聚合来源
+> - 数据飞轮**读取侧为本次（2026-10）新接通**：此前案例"存得进取不出"，飞轮空转；现作答按"同国+同错误码/问题类型+有真实解法"确定性复用历史方案，匹配判据刻意不用语义相似度（宁可少命中也不误命中）
+> - 商户与工单数据为基于跨境支付真实规则（Visa 13.1 / MC 4837 拒付码、SLA、3DS、Pix/iDEAL）构建的**合成数据**；多源"入湖"当前为单向 seed，schema 归一化/实时看板/AI 字段落库为 roadmap（见 DESIGN-roadmap.md）
+
+---
+
 ## 🎯 我们看到的痛点 → OceanMate 的方案
 
 | 真实痛点（公开调研） | 传统 AI 客服 | OceanMate |
@@ -33,7 +54,7 @@
 | 选型错代价高：OP 500+ 支付产品 / 200+ 国家地区 / 5+ 行业（跨境外贸/旅游航空/软件游戏/数字版权/教育培训）<sup>[2]</sup> | 答非所问 | **商户顾问 Agent**：画像匹配 + RAG 检索 + 推荐组合 |
 | 工单协同低效：OP 内部"拉群+截图"模式 | 完全没有能力 | **工单路由 Agent**：飞书多维表格 + 审批流自动派单 |
 | 知识沉淀散落：OP 经验散落各团队 | 答完即失 | **知识进化 Agent**：案例→FAQ→知识库→下次自动命中 |
-| 运营缺可视化：OP 内部 BI 自建周期长 | 无 | **运营看板 Agent**：实时同步飞书多维表 + 错误码趋势 |
+| 运营缺可视化：OP 内部 BI 自建周期长 | 无 | **运营看板**：聚合错误码/渠道/置信度指标（opa_metrics REST）+ 离线 dashboard 截图 |
 
 > 关键立场：**AI 不是替代人工，而是让商户成功从"被动响应"升级为主动运营**。
 
@@ -154,7 +175,7 @@ python scripts/run_all_real.py
 |------|------|
 | 飞书智能伙伴真实对话 | ![飞书对话](./docs/runbook/feishu_chat_screenshot.png) |
 | PDA 诊断证据链 + 配图 | ![诊断](./docs/runbook/diagnosis_screenshot.png) |
-| OPA Dashboard 实时同步 | ![Dashboard](./docs/runbook/dashboard_screenshot.png) |
+| OPA Dashboard（离线截图；实时指标见 GET /api/opa/metrics） | ![Dashboard](./docs/runbook/dashboard_screenshot.png) |
 
 ---
 
@@ -204,7 +225,7 @@ OceanMate/
 │   │   ├── verify_rerank_smoke.py       ← Rerank 真实链路
 │   │   └── verify_atoa_full_chain.py    ← AtoA 链式证据
 │   ├── data/                            ← Chroma 向量库 + SQLite
-│   └── tests/                           ← 242 测试用例 · 74% 覆盖
+│   └── tests/                           ← 511 测试用例 · 77% 覆盖（2026-10 复测）
 │
 ├── 📂 demo/recordings/                  ← 录屏目录（git ignored）
 └── 📄 LICENSE
@@ -239,7 +260,7 @@ OceanMate/
 | 友好欺诈拦截 | 「任意仅退款」占比 13.60%<sup>[1]</sup> | 商户顾问选型阶段友好欺诈识别 + 支付诊断 | ✅ Demo 通过（BR Pix / NL iDEAL）|
 | 工单自动化 | OP "拉群+截图" | 工单路由 飞书多维表格按问题类型自动派单 | ✅ Demo 通过（高优 4h SLA）|
 | 知识沉淀 | OP 经验散落团队 | 知识进化 Agent 沉淀历史工单为结构化知识库 | ✅ Demo 通过（BR Pix FAQ 自进化）|
-| 运营可视化 | OP 内部 BI 自建周期长 | 运营看板 Agent 实时同步飞书多维表 + 错误码趋势 | ✅ 多维表真同步 + dashboard 已配 |
+| 运营可视化 | OP 内部 BI 自建周期长 | opa_metrics 指标聚合（REST）+ 离线 dashboard 截图 | ✅ 指标真聚合；看板为离线截图 |
 
 ---
 

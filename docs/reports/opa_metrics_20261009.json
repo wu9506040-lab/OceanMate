@@ -1,0 +1,63 @@
+{
+  "metrics": {
+    "db_exists": true,
+    "case_total": 21,
+    "error_code_dist": {
+      "unknown": 12,
+      "13.1": 9
+    },
+    "problem_type_dist": {
+      "拒付": 20,
+      "支付失败": 1
+    },
+    "channel_dist": {
+      "unknown": 11,
+      "Visa": 9,
+      "Pix": 1
+    },
+    "country_dist": {
+      "GLOBAL": 11,
+      "US": 9,
+      "BR": 1
+    },
+    "avg_confidence": 0.879,
+    "low_confidence_ratio": 0.0,
+    "review": {
+      "approved": 7,
+      "rejected": 0,
+      "pending": 0,
+      "approval_rate": 1.0,
+      "decided": 7
+    },
+    "knowledge_assets": {
+      "faq_indexed": 8,
+      "collections": [
+        {
+          "source_table": "cases",
+          "collection_name": "cases_vec",
+          "count": 8,
+          "last_synced": "2026-08-13 05:02:31"
+        },
+        {
+          "source_table": "cases",
+          "collection_name": "faq_vec",
+          "count": 8,
+          "last_synced": "2026-08-16 07:53:15"
+        }
+      ]
+    }
+  },
+  "trends": {
+    "weeks": 8,
+    "series": [
+      {
+        "week": "2026-W32",
+        "cases": 21,
+        "top_error_codes": {
+          "unknown": 12,
+          "13.1": 9
+        }
+      }
+    ]
+  }
+}

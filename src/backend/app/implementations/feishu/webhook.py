@@ -844,6 +844,18 @@ class FeishuWebhookHandler:
 
         lines = []
 
+        # Day 19 数据飞轮·读取侧展示：命中历史已解决案例时，先给"上次的真实解法"再给通用步骤
+        learned = (trace.get("learned_faq") or {}) if trace else {}
+        if learned.get("resolution"):
+            matched_src = "同错误码" if learned.get("matched_by") == "error_code" else "同类问题"
+            case_ref = learned.get("case_id") or ""
+            lines.append("📚 这个问题我们之前解决过，上次的实际办法：")
+            lines.append(learned["resolution"])
+            lines.append(f"（来源：已解决案例 {case_ref} · {matched_src}匹配）")
+            lines.append("")
+            lines.append("通用处理步骤供参考：")
+            lines.append("")
+
         # 1. 同理心开头（一句话）
         if template.get("empathy"):
             lines.append(template["empathy"])
@@ -1186,7 +1198,9 @@ class FeishuWebhookHandler:
 
     # === 触发链式 TRA 的关键词（商户明示 + AI 推断） ===
 
-    _URGENT_HINTS = ("紧急", "急", "尽快", "马上", "工单", "派单", "转人工", "人工", "客服", "联系", "支持")
+    # Day 19 修复误触发：原表含"支持/客服/联系/工单/急"等日常词（"Visa 支持3DS吗"会误建 high 工单）。
+    # 收窄为显式升级诉求词；"紧急"保留（test_high_confidence_with_keywords_triggers 依赖）。
+    _URGENT_HINTS = ("紧急", "尽快", "转人工", "人工客服", "派单", "提工单", "建工单", "投诉")
     # PDA 输出的 problem_type 触发链式 TRA（自动判断「需要人工跟进」）
     _PDA_CHAIN_PROBLEM_TYPES = ("拒付", "支付失败", "Webhook 回调失败")
 
