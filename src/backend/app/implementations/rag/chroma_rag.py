@@ -261,7 +261,9 @@ class ChromaRAGEngine(BaseRAGEngine):
             raise ValueError(f"Collection '{collection_name}' 不存在")
 
         try:
-            self._collections[collection_name].add(
+            # Day 19 幂等修复：add() 对重复 id 抛异常，seed/KEA 重跑会炸 → upsert() 同 id 覆盖写
+            # （chunk_id 本身确定性生成，见 base_chunker {doc_id}#{strategy}{index}）
+            self._collections[collection_name].upsert(
                 ids=[document.id],
                 documents=[document.text],
                 metadatas=[document.metadata] if document.metadata else None,
@@ -290,7 +292,8 @@ class ChromaRAGEngine(BaseRAGEngine):
         metadatas = [d.metadata if d.metadata else None for d in documents]
 
         try:
-            self._collections[collection_name].add(
+            # Day 19 幂等修复：批量入库同样改 upsert，IngestionPipeline 重跑不再产生异常/重复
+            self._collections[collection_name].upsert(
                 ids=ids,
                 documents=texts,
                 metadatas=metadatas,

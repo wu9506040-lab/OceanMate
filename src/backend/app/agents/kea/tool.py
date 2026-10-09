@@ -132,7 +132,7 @@ class KEATool(BaseTool):
             "properties": {
                 "intent": {
                     "type": "string",
-                    "enum": ["promote_to_faq", "search_faq", "list_candidates", "approve_case", "reject_case", "list_review_history"],
+                    "enum": ["promote_to_faq", "search_faq", "list_candidates", "approve_case", "reject_case", "list_review_history", "record_feedback"],
                     "description": "意图：promote_to_faq / search_faq / list_candidates / approve_case（内部） / reject_case（内部） / list_review_history（Day 18 P2-final 审核历史）",
                 },
                 "case_id": {
@@ -149,6 +149,15 @@ class KEATool(BaseTool):
                     "maximum": 50,
                     "default": 5,
                     "description": "Top-K 检索条数",
+                },
+                "signal": {
+                    "type": "string",
+                    "enum": ["up", "down"],
+                    "description": "商户反馈信号（record_feedback 时必填）：up=👍 down=👎",
+                },
+                "note": {
+                    "type": "string",
+                    "description": "反馈备注（record_feedback 可选，如「没解决」）",
                 },
                 "country": {
                     "type": "string",
@@ -214,8 +223,37 @@ class KEATool(BaseTool):
             return self._approve_case(params)
         elif intent == "reject_case":
             return self._reject_case(params)
+        elif intent == "record_feedback":
+            return self._record_feedback(params)
         else:
             raise ValueError(f"Unknown intent: {intent}")
+
+    def _record_feedback(self, params: dict) -> dict:
+        """Day 19 数据飞轮·反馈信号采集：商户对答案 👍/ 写入 review_decisions。
+
+        👎（down）记为 decision='rejected' + note 前缀 merchant_downvote → 该案例
+        重新进入人工复审视野（与 reject_case 同一张表、同一查询口径），
+        补上"无反馈信号，学了不知道对不对"这个飞轮断口。
+        未来接飞书卡片按钮回调，直接转发本 intent。
+        """
+        case_id = (params.get("case_id") or "").strip()
+        signal = (params.get("signal") or "").strip().lower()
+        if not case_id or signal not in ("up", "down"):
+            return self._error_result(
+                "record_feedback",
+                error="case_id 与 signal(up|down) 必填",
+                hint="例：{'intent':'record_feedback','case_id':'case_x','signal':'down','note':'没解决'}",
+            )
+        decision = "approved" if signal == "up" else "rejected"
+        kind = "upvote" if signal == "up" else "downvote"
+        note = f"merchant_{kind}:" + (params.get("note") or "")[:100]
+        ok = self._record_review_decision(case_id, decision, "merchant", note, "", 0.0)
+        return {
+            "intent": "record_feedback",
+            "case_id": case_id,
+            "decision": decision,
+            "recorded": ok,
+        }
 
     # === 子能力 1：把案例升格为 FAQ ===
 

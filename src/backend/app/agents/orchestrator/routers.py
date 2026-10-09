@@ -414,6 +414,49 @@ def tool_not_available(tool_name: str, hint: str = "") -> dict:
 
 # === 4 个主路由函数 ===
 
+def lookup_learned_faq(
+    registry: ToolRegistry, query: str, *,
+    country: str = "", error_code: str = "", problem_type: str = "",
+) -> Optional[dict]:
+    """Day 19 数据飞轮·读取侧：作答前检索已沉淀 FAQ，命中"同类已解决问题"则复用其解法。
+
+    背景：此前案例只"存得进"faq_vec、从不"取得出"参与回答，飞轮空转（PDA 全靠模板）。
+    本函数把读取侧接上——命中后 _fmt_pda 会优先展示"上次怎么解决的"。
+
+    判据刻意确定化（避免拿错知识误导商户）：命中需同时满足
+      1) 该 FAQ 有非空 resolution（真被人解决过）
+      2) 同 error_code（非空且相等）  或  同 problem_type（非空且相等）
+    国家通过 search_faq 的 country 过滤收窄。knowledge_evolution 未注册/检索失败 → 优雅返回 None。
+    """
+    if "knowledge_evolution" not in registry:
+        return None
+    params: dict = {"intent": "search_faq", "query": query, "top_k": 3}
+    if country:
+        params["country"] = country
+    try:
+        wrapped = registry.safe_execute("knowledge_evolution", params)
+    except Exception:
+        return None
+    if not wrapped or not wrapped.get("success"):
+        return None
+    faqs = (wrapped.get("data") or {}).get("faqs") or []
+    for f in faqs:
+        info = f.get("case_info") or {}
+        resolution = (info.get("resolution") or "").strip()
+        if not resolution:
+            continue
+        same_error = bool(error_code) and (info.get("error_code") or "") == error_code
+        same_problem = bool(problem_type) and (info.get("problem_type") or "") == problem_type
+        if same_error or same_problem:
+            return {
+                "case_id": f.get("case_id") or "",
+                "question": (info.get("problem_desc") or f.get("text_excerpt") or "")[:200],
+                "resolution": resolution[:500],
+                "matched_by": "error_code" if same_error else "problem_type",
+            }
+    return None
+
+
 def route_pda(query: str, ctx: dict, matched: list[str], registry: ToolRegistry) -> dict:
     """路由到 PDATool。
 
@@ -517,6 +560,13 @@ def route_pda(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
     inner_trace = data.get("trace", {}) if isinstance(data, dict) else {}
     code_specific = inner_trace.get("code_specific_enriched", {}) if isinstance(inner_trace, dict) else {}
 
+    # Day 19 数据飞轮·读取侧：PDA 出结论后，用"同国 + 同错误码/问题类型"查历史解法
+    learned_faq = lookup_learned_faq(
+        registry, effective_query,
+        country=country or "", error_code=error_code or "",
+        problem_type=(data.get("problem_type", "") if isinstance(data, dict) else ""),
+    )
+
     return {
         "intent": "payment_diagnosis",
         "tool_name": "payment_diagnosis",
@@ -529,6 +579,7 @@ def route_pda(query: str, ctx: dict, matched: list[str], registry: ToolRegistry)
             "query_type": query_type,
             "is_rebuttal": bool(ctx.get("is_rebuttal")),
             "code_specific_enriched": code_specific,
+            "learned_faq": learned_faq,
         },
     }
 
