@@ -1434,6 +1434,8 @@ class FeishuWebhookHandler:
                 f"ticket_id={briefing.get('ticket_id')}"
             )
             if ok:
+                # Day 19 M15：交接成功落 handoffs 表（修复审计发现的"表建了、仓储有、零调用"）
+                self._persist_handoff(briefing, chat_id=chat_id, team=team, briefing_text=text)
                 # 商户消息追加一句确认
                 self._safe_send(
                     merchant_user_id,
@@ -1466,10 +1468,56 @@ class FeishuWebhookHandler:
                 f"交接简报（silent） → team='{team}' open_id={team_open_id[:8]}... ok={ok} "
                 f"ticket_id={briefing.get('ticket_id')}"
             )
+            if ok:
+                # Day 19 M15：链式交接同样落 handoffs 表（这是主路径，商户经 chain_text 已确认）
+                self._persist_handoff(briefing, chat_id=chat_id, team=team, briefing_text=text)
             return ok
         except Exception as e:
             logger.warning(f"send_private 失败: {e}")
             return False
+
+    def _persist_handoff(self, briefing: dict, *, chat_id: str, team: str, briefing_text: str) -> None:
+        """Day 19 M15：把成功发出的人工交接落 handoffs 表（best-effort，不影响消息送达）。
+
+        审计发现 handoffs 表 + HandoffRepository.create 存在但全项目零调用方，
+        交接"发了私信但无台账"。此处补上落库：谁(chat_id)/转到哪个团队(team)/
+        原因(problem_type)/简报快照(briefing)，供 SLA 统计与交接审计。
+        失败仅 warning——绝不阻断商户消息链路。
+        """
+        try:
+            import uuid as _uuid
+            from datetime import datetime, timezone
+            from app.implementations.db.sqlite_db import SQLiteDatabase
+            from app.implementations.opa_metrics import DEFAULT_DB_PATH
+
+            if not DEFAULT_DB_PATH.exists():
+                return
+            db = SQLiteDatabase(DEFAULT_DB_PATH)
+            cid = chat_id or f"conv_{_uuid.uuid4().hex[:8]}"
+            merchant_id = briefing.get("merchant_id") or (briefing.get("merchant_context") or {}).get("merchant_id")
+            ts = datetime.now(timezone.utc).isoformat()
+            # handoffs.conversation_id 有 FK→conversations(id)，且连接开了 foreign_keys=ON；
+            # 交接的 chat 可能从没建过会话行 → 先补父会话，否则 FK 违规会让整条落库失败
+            db.execute(
+                """INSERT OR IGNORE INTO conversations (id, user_id, merchant_id, tool_name, status, started_at)
+                   VALUES (:id, :uid, :mid, 'handoff', 'active', :ts)""",
+                {"id": cid, "uid": merchant_id or cid, "mid": None, "ts": ts},
+            )
+            db.execute(
+                """INSERT OR IGNORE INTO handoffs
+                   (id, conversation_id, agent_id, reason, briefing, created_at)
+                   VALUES (:id, :cid, :aid, :reason, :briefing, :ts)""",
+                {
+                    "id": f"hft_{_uuid.uuid4().hex[:12]}",
+                    "cid": cid,
+                    "aid": team,
+                    "reason": briefing.get("problem_type") or briefing.get("intent") or "manual",
+                    "briefing": (briefing_text or "")[:2000],
+                    "ts": ts,
+                },
+            )
+        except Exception as e:
+            logger.warning(f"persist handoff failed (non-blocking): {e}")
 
     @staticmethod
     def _resolve_team_open_id(team: str) -> str:

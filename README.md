@@ -30,7 +30,8 @@
 | 维度 | 实测值 | 复现 |
 |------|--------|------|
 | **端到端场景** | 6 大真实业务 Demo **6/6 全部通过**（真 LLM 调用，非 mock） | `python scripts/run_all_real.py`（见下方 5 分钟快速开始） |
-| **测试资产** | **511 pytest 全部通过**，覆盖率 **77%** | `cd src/backend && python -m pytest tests --cov=app` |
+| **测试资产** | **514 pytest 全部通过**，覆盖率 **77%** | `cd src/backend && python -m pytest tests --cov=app` |
+| **人工交接落库（M15）** | 交接简报发送成功后写 `handoffs` 表（谁/转到哪个团队/原因/简报快照），修复审计发现的"表建了、仓储有、零调用" | `tests/test_handoff_persist.py`（含 FK 父会话补建回归） |
 | **数据飞轮（读取侧）** | 作答命中历史已解决案例 → 优先复用真实解法（`trace.learned_faq`） | `POST /api/chat` 问 Visa 13.1 拒付 → 返回含 learned 解法 |
 | **反馈信号** | `POST /api/feedback` 👍/ 写入 review_decisions（👎 回复审池） | 见 [`docs/DESIGN-roadmap.md`](./docs/DESIGN-roadmap.md) §1 |
 | **运营指标（OPA）** | 错误码/渠道/置信度分布 + 审核通过率 + 周趋势，REST + 周报 | `GET /api/opa/metrics`、`python scripts/opa_report.py` |
@@ -225,7 +226,7 @@ OceanMate/
 │   │   ├── verify_rerank_smoke.py       ← Rerank 真实链路
 │   │   └── verify_atoa_full_chain.py    ← AtoA 链式证据
 │   ├── data/                            ← Chroma 向量库 + SQLite
-│   └── tests/                           ← 511 测试用例 · 77% 覆盖（2026-10 复测）
+│   └── tests/                           ← 514 测试用例 · 77% 覆盖（2026-10 复测）
 │
 ├── 📂 demo/recordings/                  ← 录屏目录（git ignored）
 └── 📄 LICENSE
