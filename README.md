@@ -23,6 +23,13 @@
 | 🛒 商户侧 | 24h AI 合伙人 | 选型咨询 → 接入指引 → 故障诊断 → 增长建议 |
 | 🤝 OP 侧 | 跨团队 AI 调度员 | 智能分诊 → 工单路由 → 知识沉淀 → 协同加速 |
 
+```bash
+# 5 分钟跑通：建库→启动→端到端 demo→跑 pytest
+cd src/backend && python -m pytest tests -q --cov=app          # 514 测试 / 77% 覆盖
+python scripts/run_all_real.py                                    # 6 大真实 LLM Demo
+python scripts/opa_report.py                                      # OPA 周报生成
+```
+
 ---
 
 ## 📊 实测战绩（2026-10-09 复跑）
