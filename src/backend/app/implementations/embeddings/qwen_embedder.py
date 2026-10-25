@@ -65,6 +65,13 @@ class QwenEmbedder(BaseEmbedder):
     def dimension(self) -> int:
         return self._dimension
 
+    # Chroma >=1.x EmbeddingFunction 协议（get_or_create_collection 校验 + 内部调用）
+    def name(self) -> str:
+        return "qwen_text-embedding-v3"
+
+    def __call__(self, input: list[str]) -> list[list[float]]:
+        return self.embed_documents(input)
+
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         """批量向量化（Qwen v3 单次最多 10 条，超出自动分批）。
 
@@ -83,8 +90,11 @@ class QwenEmbedder(BaseEmbedder):
             all_vectors.extend(vectors)
         return all_vectors
 
-    def embed_query(self, text: str) -> list[float]:
-        """单条 query 向量化。"""
+    def embed_query(self, text: str = None, input: list[str] = None):
+        # 双协议兼容：项目内部传单条 text 返回单向量；
+        # Chroma >=1.x 统一走 embed_query(input=文本列表) 返回向量列表。
+        if input is not None:
+            return self.embed_documents(input)
         return self._embed_batch([text])[0]
 
     # Chroma EmbeddingFunction 协议（chroma 调用入口）

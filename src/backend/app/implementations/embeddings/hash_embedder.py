@@ -41,6 +41,9 @@ class HashEmbedder(BaseEmbedder):
     def dimension(self) -> int:
         return self._dimension
 
+    def name(self) -> str:
+        return "hash_embedder"
+
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return [self._embed_one(text) for text in texts]
 

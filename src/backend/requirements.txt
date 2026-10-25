@@ -15,7 +15,7 @@ jsonschema>=4.21.0
 
 # === AI 能力 ===
 # DashScope Qwen（按需启用，无 Key 时自动降级 Mock）
-# dashscope>=1.14.0
+dashscope>=1.14.0  # 真实 Qwen 嵌入/LLM 必需（缺失时降级 Hash/Mock）
 
 # === 向量数据库 ===
 # Chroma 嵌入式（PoC 简化，不搭服务）
