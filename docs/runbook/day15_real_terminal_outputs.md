@@ -31,8 +31,6 @@ python -m pytest tests/ -q 2>&1 | tee docs/runbook/day15_pytest_terminal.txt
 |------|------|--------|
 | 真实终端输出 | `day15_*_terminal.txt` | ✅ 真（本目录新增）|
 | Dashboard 渲染图 | `dashboard_screenshot.png` | ✅ 真（飞书多维表配置后实际截图）|
-| Diagnosis 截图 | `diagnosis_screenshot.png` | ✅ 真（Demo 场景 #1 Visa 13.1 真实运行产物）|
-| Feishu Chat 截图 | `feishu_chat_screenshot.png` | ✅ 真（飞书智能伙伴真实对话截图）|
 
 ## 已修复问题（Day 15 P0 全过）
 

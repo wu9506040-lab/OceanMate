@@ -249,7 +249,7 @@
 3. **Orchestrator 中枢调度**（PoC 单步路由 · 已落地）：意图分流 + 上下文传递 + **当前单 query 单 Tool**
 4. **数据飞轮闭环**：TRA 结案 → KEA promote → Chroma 索引 → 下次自动召回
 
-> **诚实说明（Day 14 更新）**：Orchestrator 已实现「**自动链式编排**」（chain_mode="auto" 默认开启）。链路规则：PDA confidence ≥ 0.7 + problem_type 非空 + next_agent 含"ticket" → 自动触发 TRA route_ticket → TRA 派单成功（status=pending/processing）→ 自动触发 KEA search_faq。最大深度 5 防死循环。`chain_mode="single"` 关闭链式（向后兼容）。
+> **口径说明（Day 14 更新）**：Orchestrator 已实现「**自动链式编排**」（chain_mode="auto" 默认开启）。链路规则：PDA confidence ≥ 0.7 + problem_type 非空 + next_agent 含"ticket" → 自动触发 TRA route_ticket → TRA 派单成功（status=pending/processing）→ 自动触发 KEA search_faq。最大深度 5 防死循环。`chain_mode="single"` 关闭链式（向后兼容）。
 
 **真实链路示例**（demo_05 · 单步路由 + 主对话流串联）：
 
@@ -517,10 +517,8 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 
 ### 7.2 飞书对话（智能伙伴 + bot 自动回复）
 
-![Feishu Chat](../runbook/feishu_chat_screenshot.png)
 
 **说明**：
-- ⚠️ **此为产品形态示意图（程序化 mock）**，非真实飞书对话截图；用于静态文档呈现产品形态
 - 真实对话请看 demo 视频（录屏脚本 `demo/recordings/main_demo_script.md`）
 - 视觉规范：左侧深色导航 + 右侧对话气泡（按真实飞书色系还原）
 - 对话流（真实 demo_01 链路）：
@@ -530,10 +528,8 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 
 ### 7.3 诊断结果（PDA + 配图）
 
-![Diagnosis](../runbook/diagnosis_screenshot.png)
 
 **说明**：
-- ⚠️ **此为产品形态示意图（程序化 mock）**，非真实飞书界面截图
 - 真实诊断输出请参考 § 6.1 demo_01 实测 JSON + 录屏视频
 - demo_01（M_US_DIGITAL_001 / US / Visa / CB_13.1）真实输出结构卡片化
 - 5 模块：问题档案 + 根因分析（3 类）+ 证据链（4 条）+ 配图卡片 + 申诉建议（4 步）
@@ -622,7 +618,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 
 ---
 
-## 10. Day 14 NL 优化记录 + 已知边界（数据诚实）
+## 10. Day 14 NL 优化记录 + 已知边界（数据口径）
 
 > **写作背景**：真实飞书回放暴露了 Demo 固定参数验证通过的 case 之外的若干真实 NL 边界问题，本节如实记录。
 
@@ -657,7 +653,7 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 | 6 | **多轮对话上下文**（P2-9，未实现）| 当前 `Orchestrator.route()` 单 query 单意图，无 conversation_id 关联 | 商户追问"那 iDEAL 怎么接入"时丢失上下文；需引入 `ConversationStore` 持久化 + ctx 注入 |
 | 7 | **OCR / 图片理解**（P2-10，未实现）| 商户发拒付截图 / 银行流水图时，当前仅文字匹配 | 需接入 Qwen-VL / GPT-4V，把图像内容转文本走 PDA |
 
-### 10.3 数据诚实声明
+### 10.3 数据口径声明
 
 - **6 个核心场景 Demo**：6 个核心场景固定参数验证通过；真实自然语言对话持续优化中（4 条已知边界，P1 优先级）。
 - **数据飞轮（3-tier 置信度闭环）**：半自动知识沉淀框架，faq_vec 已接入；V1.5 完成全链路自动化（人工审核 → auto-promote）。

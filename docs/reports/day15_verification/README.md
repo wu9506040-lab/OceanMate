@@ -366,7 +366,7 @@ PYTHONIOENCODING=utf-8 python E:/ai-pioneer/docs/reports/day15_verification/_ver
 
 ---
 
-## 12. 诚实声明
+## 12. 口径声明
 
 ✅ **真实验证**：所有 case 都真实打到 `http://localhost:8000/api/chat` 和 `/feishu/webhook`，不是 mock。
 ✅ **真实环境**：FeishuFrontend 连真实飞书（APP_ID 见 `.env`），send_image 返回 True。

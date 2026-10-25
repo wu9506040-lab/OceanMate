@@ -45,7 +45,7 @@ python scripts/opa_report.py                                      # OPA 周报�
 | **入库幂等** | `.add()→.upsert()`，重跑 seed/KEA 不再抛异常/产生重复 | `tests/test_ingest_idempotent.py` |
 | **架构** | **4 业务 Agent（MSA/PDA/TRA/KEA）+ Orchestrator 中枢 + OPA 指标服务 + AtoA 协议** + 飞书生态 | `src/backend/app/agents/` |
 
-> **数据诚实声明**（本仓库的一贯做法，被追问时能当场开代码）：
+> **数据口径声明**（本仓库的一贯做法，被追问时能当场开代码）：
 > - 早期宣传的「全链路通过率 96%」经复核推翻——实测为 **PDA→TRA→KEA 链式触发依赖 LLM confidence ≥ 0.7，20 样本命中 4 次**，原始证据见 [`docs/reports/p1_3_evidence.md`](./docs/reports/p1_3_evidence.md)
 > - 赛后迭代中，链式自动派单被**主动收敛为显式路由**（`chain_config.py`：机器人可信诊断不应自动转人工工单）——演示效果服从业务正确性
 > - **OPA 是离线指标服务，不是注册进 Orchestrator 的第 5 个对话 Agent**（此前 README/口径曾称"5 Agent"，实为 4 Agent + OPA 指标模块，已更正）；看板截图为 `render_dashboard.py` 离线产物，`opa_metrics` REST 才是当前真实聚合来源
@@ -181,8 +181,8 @@ python scripts/run_all_real.py
 
 | 场景 | 截图 |
 |------|------|
-| 飞书智能伙伴真实对话 | ![飞书对话](./docs/runbook/feishu_chat_screenshot.png) |
-| PDA 诊断证据链 + 配图 | ![诊断](./docs/runbook/diagnosis_screenshot.png) |
+| 飞书智能伙伴真实对话 | 见 demo 录屏与 `docs/runbook/`（实测 JSON 输出） |
+| PDA 诊断证据链 | 见 §6.1 demo_01 实测 JSON 输出 |
 | OPA Dashboard（离线截图；实时指标见 GET /api/opa/metrics） | ![Dashboard](./docs/runbook/dashboard_screenshot.png) |
 
 ---
@@ -239,7 +239,7 @@ OceanMate/
 └── 📄 LICENSE
 ```
 
-> 💡 评审视角建议阅读顺序：`README`（你正在看）→ `docs/reports/submission.md`（完整方案）→ `docs/reports/adversarial_review.md`（诚实声明）→ `docs/agents/payment_diagnosis_agent.md`（Demo 核心）→ 跑 `scripts/run_all_real.py`（一键复现）
+> 💡 评审视角建议阅读顺序：`README`（你正在看）→ `docs/reports/submission.md`（完整方案）→ `docs/reports/adversarial_review.md`（口径声明）→ `docs/agents/payment_diagnosis_agent.md`（Demo 核心）→ 跑 `scripts/run_all_real.py`（一键复现）
 
 ---
 

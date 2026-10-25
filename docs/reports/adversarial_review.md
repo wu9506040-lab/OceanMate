@@ -33,7 +33,7 @@
 - **BM25 用第三方库**：`rank_bm25.BM25Okapi` + `jieba`（不是自写）
 - **Rerank 接口已预留**：`src/backend/app/implementations/rag/reranker.py:26` 用 `gte-rerank` 模型
 
-### ⚠️ 必须诚实声明的部分
+### ⚠️ 必须口径声明的部分
 - **Rerank 实际未生效**：当前 DashScope 账号 `gte-rerank` 返回 403，**降级为 RRF 顺序输出**。V2.0 切换到有权限的模型
 - **Qwen 失败静默降级**：`qwen_embedder.py:111-117` API 异常时降级 HashEmbedder，trace 不一定显式标记
 
@@ -51,7 +51,7 @@
 - **完整链路 1 次跑通**：Run 1 confidence=0.75 即触发完整 3 步链（ticket_id `tkt_xxx`）
 - **LLM fallback 真被调用**：长尾 query 调 Qwen `chat_structured` 分类
 
-### ⚠️ 必须诚实声明
+### ⚠️ 必须口径声明
 - **LLM confidence 不稳定**：0.5-0.75 范围波动，部分 run 不触发链式（验证脚本需循环 1-20 次）
 - **TRA→KEA 仅 pending/processing 触发**：`chain_config.py:60-61` 显式排除 closed 工单 → **数据飞轮不"全自动闭环"，是"半自动"**
 - **TRA schema 校验宽松**：`required=["intent"]` 即可，其他字段运行时分支报错
@@ -68,7 +68,7 @@
 - **10 条路由规则真实存在**：`docs/data/ticket_routing_rules.json` 含 VIP/Premium/Standard + high/medium 4 层降级
 - **拒付+high+vip → 财务团队-争议处理 4h SLA**（验证：`verify_atoa_full_chain.py` 实测）
 
-### ⚠️ 必须诚实声明
+### ⚠️ 必须口径声明
 - **转人工是半自动**：`briefing` 数据构造在 `tra\tool.py:310-321`，**实际发飞书靠 webhook 层 `webhook.py:_send_briefing_to_team`**
 - **`send_private` 命名误导**：底层就是 `send_message(user_id)`，没有独立的"私有消息 API"。文档里需要说明清楚
 - **飞书 @ 未实现**：`send_private` 发消息，**没有 @ 标记**（不是 `@` 语法，是直接发文本）
@@ -88,7 +88,7 @@
   - 0.7-0.9 → 待人工审核
   - < 0.7 → 拒绝
 
-### ⚠️ 必须诚实声明
+### ⚠️ 必须口径声明
 - **飞轮是半自动闭环**：高置信度自动入库；中等置信度需人工 review；低置信度直接拒
 - **审核状态在哪？** `SQLite` `embedding_meta` 表（`init_db.py:160-171`），**不是飞书多维表**
 - **重复 promote**：chroma_id 含 uuid 8 位 hash，**强概率不重复**；但 case_id 维度无幂等检查
@@ -109,7 +109,7 @@
 - **LLM prompt 完整**：`llm_provider.py:125-135` 含问题/证据/输出 JSON schema
 - **confidence 是 LLM 输出**，但有 Mock 降级
 
-### ⚠️ 必须诚实声明
+### ⚠️ 必须口径声明
 - **107 张配图是真实生成**：基于 SVG + emoji，存于 `data/error_images/`（219 个文件，107 个 SVG/PNG 对 + sample）
 - **错误码字段完整**：error_code / reason / solution / channel / country 全有
 - **LLM 失败自动降级 Mock**：`pda\tool.py:165-179` 失败替换 MockLLMProvider 重试，trace["degraded"]=True
@@ -127,7 +127,7 @@
 - **send_private 真实回执**：`message_id = om_xxx` 真实
 - **多维表读写真实**：sync_dashboard_data 真实调用 `bitable/v1/apps/{token}/tables/{tid}/records`
 
-### ⚠️ 必须诚实声明
+### ⚠️ 必须口径声明
 - **bot 当前 0 chats**：`test_real_feishu_e2e.py` 实测 `chat_count=0`，**真实飞书链路从未端到端跑通**（只是各组件单独测过）
 - **demo 默认 mock 模式**：`run_all_real.py:8` 强制 `FEISHU_FORCE_MOCK=1`
 - **录屏目录全空**：`demo/recordings/` 0 文件
@@ -147,7 +147,7 @@
 - **错误码覆盖**：Visa/MC/Amex/Discover + reason_codes 107 条
 - **支付方式真实**：Visa US / Boleto BR / Pix BR / iDEAL NL / Klarna EU 等 15+ 真实渠道
 
-### ⚠️ 必须诚实声明
+### ⚠️ 必须口径声明
 - **`payment_error_cases.json` 是 Demo 占位**：5 条 cases + 107 条 reason_codes 全部 `_demo_xxx` 后缀
 - **60 条工单是 seed 生成**：`seed_demo_tickets.py` 写入飞书多维表 `routing_rules` 表
 - **dashboard "60 条" 是 seed 工单**：不是真实业务工单
@@ -165,7 +165,7 @@
 - **legacy 与新代码并存**（CLAUDE.md 禁止删除）
 - **依赖方向单向**：Orchestrator → ToolRegistry → 4 Tool
 
-### ⚠️ 必须诚实声明
+### ⚠️ 必须口径声明
 - **main.py 0% 覆盖率**：FastAPI HTTP 层完全无测试 → 已加全局 exception handler
 - **pytest 1 fail**：`tests/test_pda_sop.py::TestPDAToolExecute::test_happy_path_with_missing_evidence` 未修
 - **无 trace_id 贯穿**：请求级 trace_id 缺失
@@ -183,7 +183,7 @@
 - **数字员工体系**：4 Tool + AtoA 协议 + 飞书载体，**不是普通 AI 客服**（区别：商户成功运营不是客服问答）
 - **AtoA 真实调用**：PDA 完成后 Orchestrator 自动判断并触发 TRA/KEA，**非硬编码 if**
 
-### ⚠️ 必须诚实声明
+### ⚠️ 必须口径声明
 - **创新性有限**：智能交接简报在企业客服系统里是常见功能，**真正创新点是 AtoA 协议 + 半自动飞轮**
 - **PRD 提到 60 条工单 = 真实业务** 实际是 seed 数据
 - **AtoA vs 普通函数调用**：本质是带 trigger 条件的级联，**讲清楚"链式是数据驱动而非控制流驱动"**
@@ -204,7 +204,7 @@
 - **main.py 0% 覆盖率**：加全局 exception handler（详见 §8）
 - **verify_send_private.py GBK 崩溃**：加 `sys.stdout.reconfigure(encoding="utf-8")`
 
-### ⚠️ 必须诚实声明
+### ⚠️ 必须口径声明
 - **录屏全空**：`demo/recordings/` 0 文件 → Day 15 录 3 分钟 Demo（mock 模式 + 1 段真实飞书）
 - **BOT 0 chats**：明天录屏前必须真跑一次商户 → bot 端到端
 - **dashboard "60 条"**：是 seed，不是真实业务
@@ -220,7 +220,7 @@
 
 ---
 
-## 11. 灵魂三问（诚实回答）
+## 11. 灵魂三问（如实回答）
 
 ### Q1：让评委现场把代码拉下来跑，敢吗？
 **A：敢，但有保留**：

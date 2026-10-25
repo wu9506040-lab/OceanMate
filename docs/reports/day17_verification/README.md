@@ -284,7 +284,7 @@ $ python -m pytest tests/ -q --no-header
 
 ---
 
-## 10. 诚实声明
+## 10. 口径声明
 
 ✅ **真实验证**：3 个核心场景通过真实 backend (PID 3140 + 重启后 PID) + MockFrontend 抓取完整推送消息。
 ✅ **真实测试**：10 个单测 + 334 个回归测试 100% 通过。

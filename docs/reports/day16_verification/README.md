@@ -288,7 +288,7 @@ $ python -m pytest tests/ -q --no-header
 
 ---
 
-## 10. 诚实声明
+## 10. 口径声明
 
 ✅ **真实验证**：所有 4 个 Fix 都通过真实 Python 调用 + 真实 HTTP POST 验证（不是 mock）。
 ✅ **真实 SQLite**：`polishing.db` 真实创建在 `src/data/`，包含去重记录。

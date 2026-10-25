@@ -189,7 +189,7 @@ $ python -m pytest tests/ -q
 
 ---
 
-## 11. 已知边界（数据诚实）
+## 11. 已知边界（数据口径）
 
 ✅ **真实验证**：24 个单测 + 410 个回归测试 100% 通过。
 ✅ **真实链路**：webhook → orchestrator → KEA approve_case → Chroma 写入 + feedback 全部走通。
