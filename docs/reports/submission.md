@@ -515,23 +515,22 @@ PDA 诊断输出时自动匹配错误码 → 飞书 `upload_image` 上传 → `i
 - 数据来源：飞书多维表 `routing_rules` 表（60 条真实工单）
 - 6 模块：标题 + 问题类型分布 + 状态分布 + 优先级分布 + SLA + 报告日期趋势
 
-### 7.2 飞书对话（智能伙伴 + bot 自动回复）
+### 7.2 飞书对话（智能伙伴 + bot 自动回复 · 真实截图）
 
-
-**说明**：
-- 真实对话请看 demo 视频（录屏脚本 `demo/recordings/main_demo_script.md`）
-- 视觉规范：左侧深色导航 + 右侧对话气泡（按真实飞书色系还原）
-- 对话流（真实 demo_01 链路）：
-  - 14:23 商户"你好消息" → bot 4 能力菜单回复
-  - 14:24 商户问"美国站卖软件，Visa 13.1 拒付好多" → PDA 诊断回执
-  - bot 自动派单财务团队 + send_private briefing 已发出
-
-### 7.3 诊断结果（PDA + 配图）
-
+![真实飞书对话](../runbook/feishu_real_chat_diagnosis.png)
 
 **说明**：
-- 真实诊断输出请参考 § 6.1 demo_01 实测 JSON + 录屏视频
-- demo_01（M_US_DIGITAL_001 / US / Visa / CB_13.1）真实输出结构卡片化
+- **真实飞书截图（2026-08-15 23:12）**：商户 @OM AI 询问"BR Visa 拒付，错误码 13.1"，bot 返回结构化三步处理建议（准备申诉材料 → 开通 RDR 自动拦截 → 降低后续拒付率）
+- 对应 demo_01 链路：PDA 诊断 → 工单派单 → send_private briefing（见 §7.3）
+- 动态过程见录屏脚本 `demo/recordings/main_demo_script.md`
+
+### 7.3 AI 交接简报（send_private · 真实截图）
+
+![AI 交接简报](../runbook/feishu_real_handoff_briefing.png)
+
+**说明**：
+- **真实飞书截图（2026-08-16）**：仅客服可见的 AI 交接简报（send_private 单发 lead），含商户 ID / 问题类型 / AI 已诊断结果 / 已尝试方案 / 建议下一步 / 工单号与 SLA（high · 4h）/ 关联诊断 ID / 对话溯源（chat_id + open_id）
+- 结构化诊断输出另见 § 6.1 demo_01 实测 JSON
 - 5 模块：问题档案 + 根因分析（3 类）+ 证据链（4 条）+ 配图卡片 + 申诉建议（4 步）
 - 底部 metadata：demo_id + tool + latency + 自动派单 + send_private briefing
 

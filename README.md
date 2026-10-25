@@ -181,8 +181,8 @@ python scripts/run_all_real.py
 
 | 场景 | 截图 |
 |------|------|
-| 飞书智能伙伴真实对话 | 见 demo 录屏与 `docs/runbook/`（实测 JSON 输出） |
-| PDA 诊断证据链 | 见 §6.1 demo_01 实测 JSON 输出 |
+| 飞书智能伙伴真实对话 | ![飞书对话](./docs/runbook/feishu_real_chat_diagnosis.png) |
+| AI 交接简报（send_private） | ![交接简报](./docs/runbook/feishu_real_handoff_briefing.png) |
 | OPA Dashboard（离线截图；实时指标见 GET /api/opa/metrics） | ![Dashboard](./docs/runbook/dashboard_screenshot.png) |
 
 ---

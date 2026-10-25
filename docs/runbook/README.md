@@ -7,6 +7,8 @@
 | 文件 | 真/假 | 用途 | 说明 |
 |------|------|------|------|
 | `dashboard_screenshot.png` | ✅ **真截图** | 提交材料 · 体现数据飞轮 | 由 `dashboard_preview.html` Playwright 渲染，**数据来自真实飞书多维表格**（有效工单/覆盖天数/活跃团队等是真实查询结果） |
+| `feishu_real_chat_diagnosis.png` | ✅ 真实飞书截图（2026-08-15） | 商户 @OM AI 询问 Visa 13.1 → bot 三步处理建议 |
+| `feishu_real_handoff_briefing.png` | ✅ 真实飞书截图（2026-08-16） | AI 交接简报 send_private 单发 lead（工单 SLA + 溯源） |
 
 **评审要点**：
 - dashboard 是**真数据截图**（Playwright 渲染 live bitable API）
